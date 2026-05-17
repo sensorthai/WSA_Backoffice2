@@ -8,7 +8,7 @@ const emptyToNull = (v: string | null | undefined) => v === "" ? null : v;
 const updateUserSchema = z.object({
   full_name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล").optional(),
   email: z.string().email("อีเมลไม่ถูกต้อง").optional(),
-  role: z.enum(["admin", "employee", "supervisor", "ceo", "outsource"]).optional(),
+  role: z.string().optional(),
   department_id: z.string().nullable().optional().transform(emptyToNull),
   position_id: z.string().nullable().optional().transform(emptyToNull),
   supervisor_id: z.string().nullable().optional().transform(emptyToNull),

@@ -8,7 +8,7 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 const materialSchema = z.object({
   material_code: z.string().min(1, "กรุณาระบุรหัสสื่อ"),
   title: z.string().min(1, "กรุณากรอกชื่อสื่อ"),
-  type: z.enum(["manual", "slide", "video", "document", "link", "other"]),
+  type: z.string().min(1, "กรุณาเลือกประเภท"),
   description: z.string().optional().nullable(),
   file_url: z.string().optional().nullable(),
   youtube_url: z.string().optional().nullable(),

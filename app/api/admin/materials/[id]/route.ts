@@ -5,7 +5,7 @@ import { z } from "zod"
 
 const materialUpdateSchema = z.object({
   title: z.string().min(1).optional(),
-  type: z.enum(["manual", "slide", "video", "document", "link", "other"]).optional(),
+  type: z.string().optional(),
   description: z.string().optional().nullable(),
   file_url: z.string().optional().nullable(),
   youtube_url: z.string().optional().nullable(),

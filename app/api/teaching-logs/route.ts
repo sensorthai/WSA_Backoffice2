@@ -19,9 +19,9 @@ const teachingLogSchema = z.object({
   class_level: z.string().optional().nullable(),
   report_notes: z.string().optional().nullable(),
   homework_assigned: z.string().optional().nullable(),
-  student_behavior: z.enum(["excellent", "good", "fair", "needs_improvement"]).optional().nullable(),
+  student_behavior: z.string().optional().nullable(),
   teaching_method: z.string().optional().nullable(),
-  status: z.enum(["draft", "pending", "submitted", "reviewed"]).default("pending"),
+  status: z.string().default("pending"),
 })
 
 export async function GET(req: NextRequest) {

@@ -9,7 +9,7 @@ const userSchema = z.object({
   email: z.string().email("อีเมลไม่ถูกต้อง"),
   full_name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล"),
   google_id: z.string().optional().nullable(),
-  role: z.enum(["admin", "employee", "supervisor", "ceo", "outsource"]).default("employee"),
+  role: z.string().default("employee"),
   department_id: z.string().nullable().optional().transform(emptyToNull),
   position_id: z.string().nullable().optional().transform(emptyToNull),
   supervisor_id: z.string().nullable().optional().transform(emptyToNull),

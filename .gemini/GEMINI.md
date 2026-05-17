@@ -1,21 +1,29 @@
-# WSA Backoffice Knowledge Base
+# WSA Backoffice — Agent Knowledge Base
 
-## Core Context
-- @PROJECT_CONTEXT.md
-- @DESIGN.md
-- @AGENTS.md
+## Core Context Files
+- @PROJECT_CONTEXT.md — Business domain, modules, database schema
+- @DESIGN.md — Architecture, tech stack, UI system, build config
+- @AGENTS.md — Agent responsibilities, business rules, coding standards
 
-## Project Information
-- **Project Name**: WSA Backoffice
+## Quick Reference
+- **Project Name**: WSA Backoffice (sme-backoffice)
 - **Domain**: internal.wsa.co.th
-- **Primary Stack**: Next.js 14, Supabase, NextAuth
+- **Stack**: Next.js 14.2.18 (App Router), Supabase, NextAuth v5 (Google), Tailwind CSS, Shadcn UI
+- **Dev Server**: `npm run dev` → port 3001
+- **Build**: `npm run build` → production build passes cleanly (exit 0)
+- **Language**: Thai user-facing strings, English internal logic
 
 ## Development Guidelines
-- Always maintain **Premium UI Aesthetics** (Vanilla CSS + Tailwind).
-- All schema changes must be documented in `supabase/migrations/`.
-- Use **URL-based state management** for administrative dashboards.
-- Ensure all forms have a **Print-Friendly** version for physical filing.
+1. Always maintain **Premium UI Aesthetics** — gradients, glassmorphism, animations
+2. All schema changes → `supabase/migrations/` with chronological naming
+3. Use **URL search params** (`?tab=...`) for tab-based admin dashboards
+4. Ensure **Print-Friendly** versions for forms and reports (`.no-print` utility)
+5. All API routes must verify user roles before sensitive operations
+6. Use `zodResolver() as any` when combining Zod schemas with react-hook-form (known type mismatch)
+7. All dashboard pages are `"use client"` with `export const dynamic = 'force-dynamic'`
 
-## Role Specifics
-- **Developer Agent**: Follow rules in `AGENTS.md`.
-- **Architectural Reference**: Refer to `DESIGN.md`.
+## Known Build Configuration
+- `strictNullChecks: false` in tsconfig (codebase uses nullable patterns extensively)
+- `downlevelIteration: true` for `[...new Set()]` spread patterns
+- `missingSuspenseWithCSRBailout: false` in next.config.mjs (client-side pages use useSearchParams without Suspense)
+- ESLint: `no-explicit-any` off, `no-unused-vars` warn-only

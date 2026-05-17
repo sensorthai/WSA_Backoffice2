@@ -7,7 +7,7 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 
 const attendanceItemSchema = z.object({
   student_id: z.string().regex(UUID_REGEX),
-  status: z.enum(["present", "absent", "late", "leave"]),
+  status: z.string(),
   reason: z.string().optional().nullable(),
 })
 

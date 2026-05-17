@@ -15,7 +15,7 @@ const assignmentSchema = z.object({
   schedule_dates: z.array(z.string()).default([]),
   schedule_time_start: z.string().optional().nullable(),
   schedule_time_end: z.string().optional().nullable(),
-  status: z.enum(["active", "completed", "cancelled"]).default("active"),
+  status: z.string().default("active"),
   class_level: z.string().optional().nullable(),
   academic_year: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
