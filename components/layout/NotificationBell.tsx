@@ -130,7 +130,7 @@ export function NotificationBell() {
               className="text-white hover:bg-white/10 h-10 rounded-2xl text-[11px] font-black gap-2 px-4 border border-white/10"
               onClick={(e) => {
                 e.stopPropagation();
-                markReadMutation.mutate();
+                markReadMutation.mutate(undefined);
               }}
             >
               <Check className="w-4 h-4" /> อ่านทั้งหมด
@@ -195,8 +195,7 @@ export function NotificationBell() {
                </button>
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

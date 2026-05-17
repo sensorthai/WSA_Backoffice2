@@ -22,7 +22,7 @@ const schoolFormSchema = z.object({
   contact_email: z.string().optional(),
   district: z.string().optional(),
   province: z.string().optional(),
-  holidays: z.array(z.string()).default([]),
+  holidays: z.array(z.string()).optional(),
   finance_contact_name: z.string().optional(),
   finance_contact_phone: z.string().optional(),
   finance_contact_email: z.string().optional(),
@@ -46,7 +46,7 @@ export function SchoolsTable() {
   })
 
   const form = useForm<z.infer<typeof schoolFormSchema>>({
-    resolver: zodResolver(schoolFormSchema),
+    resolver: zodResolver(schoolFormSchema) as any,
     defaultValues: {
       name: "", address: "", contact_name: "", contact_phone: "", contact_email: "",
       district: "", province: "", holidays: [],

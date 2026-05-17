@@ -76,7 +76,7 @@ export function SubjectsTable() {
 
   // Subject form
   const form = useForm<z.infer<typeof subjectFormSchema>>({
-    resolver: zodResolver(subjectFormSchema),
+    resolver: zodResolver(subjectFormSchema) as any,
     defaultValues: { name: "", code: "", description: "", material_code: "" }
   })
 
@@ -103,7 +103,7 @@ export function SubjectsTable() {
 
   // Material form
   const matForm = useForm<z.infer<typeof materialFormSchema>>({
-    resolver: zodResolver(materialFormSchema),
+    resolver: zodResolver(materialFormSchema) as any,
     defaultValues: { material_code: "", title: "", type: "", description: "", file_url: "", youtube_url: "" }
   })
 

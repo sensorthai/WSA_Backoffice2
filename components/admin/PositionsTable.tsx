@@ -36,7 +36,7 @@ export function PositionsTable() {
   })
 
   const form = useForm<z.infer<typeof posSchema>>({
-    resolver: zodResolver(posSchema),
+    resolver: zodResolver(posSchema) as any,
     defaultValues: { 
       name: "", 
       approval_limit: 0,

@@ -22,7 +22,7 @@ const carSchema = z.object({
   license_plate: z.string().min(1, "กรุณากรอกทะเบียนรถ"),
   model: z.string().min(1, "กรุณากรอกรุ่นรถ"),
   color: z.string().min(1, "กรุณากรอกสีรถ"),
-  is_available: z.boolean().default(true),
+  is_available: z.boolean().optional(),
   caretaker_id: z.string().optional().nullable(),
   tax_renewal_date: z.string().optional().nullable(),
   insurance_expiry_date: z.string().optional().nullable(),
@@ -61,7 +61,7 @@ export function CarsTable() {
   })
 
   const form = useForm<z.infer<typeof carSchema>>({
-    resolver: zodResolver(carSchema),
+    resolver: zodResolver(carSchema) as any,
     defaultValues: { 
       license_plate: "", 
       model: "", 

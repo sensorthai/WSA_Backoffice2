@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import { useQuery } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -24,7 +26,7 @@ const TYPE_LABELS: Record<string, string> = {
 export default function AssignmentDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const assignmentId = params.id as string
+  const assignmentId = params?.id as string
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["teaching-assignment-detail", assignmentId],

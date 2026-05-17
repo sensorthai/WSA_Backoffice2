@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useMemo, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
@@ -60,7 +62,7 @@ export default function ReportsPage() {
 
 function ReportsContent() {
   const searchParams = useSearchParams()
-  const reportType = (searchParams.get("tab") as ReportType) || 'wfh'
+  const reportType = (searchParams?.get("tab") as ReportType) || 'wfh'
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"))
   const [deptFilter, setDeptFilter] = useState("all")
   const [search, setSearch] = useState("")

@@ -35,7 +35,7 @@ export function DepartmentsTable() {
   })
 
   const form = useForm<z.infer<typeof deptSchema>>({
-    resolver: zodResolver(deptSchema),
+    resolver: zodResolver(deptSchema) as any,
     defaultValues: { 
       name: "",
     }

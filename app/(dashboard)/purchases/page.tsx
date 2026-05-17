@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
@@ -163,6 +165,7 @@ export default function PurchasesPage() {
   const resetForm = () => {
     setPurchaseForm({
       title: "",
+      category: "ค่าเดินทาง",
       purpose: "",
       items: [{ name: "", quantity: 1, unit_price: 0 }],
       file: null,

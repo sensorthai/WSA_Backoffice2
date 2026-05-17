@@ -106,7 +106,7 @@ export function UsersTable() {
   })
 
   const form = useForm<z.infer<typeof userFormSchema>>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(userFormSchema) as any,
     defaultValues: {
       role: "employee",
     }

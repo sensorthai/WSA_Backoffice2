@@ -1,4 +1,6 @@
 "use client"
+
+export const dynamic = 'force-dynamic'
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { SchoolsTable } from "@/components/admin/SchoolsTable"
@@ -24,7 +26,7 @@ export default function TeachingMgmtPage() {
 
 function TeachingMgmtContent() {
   const searchParams = useSearchParams()
-  const activeTab = searchParams.get("tab") || "schools"
+  const activeTab = searchParams?.get("tab") || "schools"
 
   const renderContent = () => {
     switch (activeTab) {

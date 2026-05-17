@@ -24,8 +24,8 @@ const assignmentFormSchema = z.object({
   academic_year: z.string().optional(),
   start_date: z.string().min(1, "กรุณาระบุวันเริ่มสอน"),
   end_date: z.string().optional(),
-  schedule_days: z.array(z.string()).default([]),
-  schedule_dates: z.array(z.string()).default([]),
+  schedule_days: z.array(z.string()).optional(),
+  schedule_dates: z.array(z.string()).optional(),
   schedule_time_start: z.string().optional(),
   schedule_time_end: z.string().optional(),
   teaching_fee: z.string().optional(),
@@ -90,7 +90,7 @@ export function AssignmentsTable() {
   })
 
   const form = useForm<z.infer<typeof assignmentFormSchema>>({
-    resolver: zodResolver(assignmentFormSchema),
+    resolver: zodResolver(assignmentFormSchema) as any,
     defaultValues: {
       teacher_id: "", school_id: "", subject_id: "", class_level: "", academic_year: "",
       start_date: "", end_date: "", schedule_days: [], schedule_dates: [],

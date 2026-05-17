@@ -1,4 +1,6 @@
 "use client"
+
+export const dynamic = 'force-dynamic'
 import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { UsersTable } from "@/components/admin/UsersTable"
@@ -25,7 +27,7 @@ export default function AdminPage() {
 
 function AdminContent() {
   const searchParams = useSearchParams()
-  const activeTab = searchParams.get("tab") || "users"
+  const activeTab = searchParams?.get("tab") || "users"
 
   const renderContent = () => {
     switch (activeTab) {

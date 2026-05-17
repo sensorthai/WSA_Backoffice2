@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { auth } from "@/lib/auth"
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { format } from "date-fns"
@@ -19,9 +21,10 @@ import { cn } from "@/lib/utils"
 
 export default async function DashboardPage() {
   const session = await auth()
-  if (!session) redirect("/login")
+  if (!session?.user) redirect("/login")
 
-  const role = (session.user as any).role || 'employee'
+  const user = session.user as any
+  const role = user.role || 'employee'
   
   const supabase = createSupabaseServerClient()
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -30,7 +33,7 @@ export default async function DashboardPage() {
   const { data: checkin } = await supabase
     .from('wfh_checkins')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('check_date', today)
     .single()
 
@@ -39,7 +42,7 @@ export default async function DashboardPage() {
   const { data: leaves } = await supabase
     .from('leave_requests')
     .select('days_count')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('status', 'approved')
     .eq('leave_type', 'vacation')
     .gte('start_date', `${thisYear}-01-01`)
@@ -52,7 +55,7 @@ export default async function DashboardPage() {
   const { data: pendingPurchases } = await supabase
     .from('purchase_requests')
     .select('id')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .in('status', ['pending', 'supervisor_approved'])
     
   const pendingPurchasesCount = pendingPurchases?.length || 0
@@ -73,7 +76,7 @@ export default async function DashboardPage() {
             ยินดีต้อนรับกลับมา
           </div>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight">
-            สวัสดี, {session.user?.name?.split(' ')[0]} 👋
+            สวัสดี, {user.name?.split(' ')[0]} 👋
           </h1>
           <p className="text-slate-400 text-lg font-medium leading-relaxed">
             เริ่มต้นวันใหม่ด้วยการจัดการงานหลังบ้านให้ง่ายขึ้น คุณล็อกอินในบทบาท 

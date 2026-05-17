@@ -116,7 +116,7 @@ export function StudentsTable() {
   }
 
   const form = useForm<z.infer<typeof studentFormSchema>>({
-    resolver: zodResolver(studentFormSchema),
+    resolver: zodResolver(studentFormSchema) as any,
     defaultValues: {
       student_number: "", prefix: "", first_name: "", last_name: "",
       nickname: "", class_level: "", school_id: "", academic_year: "", notes: ""

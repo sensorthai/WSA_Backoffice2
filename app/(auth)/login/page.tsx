@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Chrome } from "lucide-react"
+
 
 export default function LoginPage() {
   return (

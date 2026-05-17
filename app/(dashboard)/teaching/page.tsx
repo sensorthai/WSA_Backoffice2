@@ -1,4 +1,6 @@
 "use client"
+
+export const dynamic = 'force-dynamic'
 import { Suspense } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { CalendarDays, Clock, MapPin, BookOpen, School, ClipboardList, Users, GraduationCap } from "lucide-react"

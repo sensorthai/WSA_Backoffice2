@@ -148,11 +148,6 @@ export async function GET(req: NextRequest) {
       t.dailyStatus[dateStr] = "late"
       t.late++
     }
-
-    // Mark as actual day
-    if (!t.dailyStatus[dateStr] || t.dailyStatus[dateStr] === "absent") {
-      t.dailyStatus[dateStr] = "ontime"
-    }
   }
 
   // Calculate final stats

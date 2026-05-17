@@ -1,4 +1,6 @@
 "use client"
+
+export const dynamic = 'force-dynamic'
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,11 +30,11 @@ export default function TeachingMaterialsPage() {
   })
 
   // Get unique material codes from assignments' subjects
-  const materialCodes = [...new Set(
+  const materialCodes = Array.from(new Set(
     (assignments || [])
       .map((a: any) => a.subject?.material_code)
       .filter(Boolean)
-  )] as string[]
+  )) as string[]
 
   // Fetch all materials
   const { data: allMaterials, isLoading: loadingMats } = useQuery({
