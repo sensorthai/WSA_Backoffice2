@@ -3,7 +3,6 @@ import { useState } from "react"
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { signOut } from "next-auth/react"
 import { 
   LayoutDashboard, 
   UserCheck, 
@@ -13,7 +12,6 @@ import {
   CheckSquare, 
   Settings, 
   Crown,
-  LogOut,
   FileBarChart,
   X,
   ChevronDown,
@@ -30,7 +28,6 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useUser } from "@/hooks/useUser"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@/components/ui/badge"
@@ -139,25 +136,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         </Button>
       </div>
 
-      {/* User Info */}
-      <div className="p-6">
-        <div className="flex items-center gap-4 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-          <Avatar className="h-10 w-10 border-2 border-blue-500/20">
-            <AvatarImage src={profile?.avatar_url || ""} />
-            <AvatarFallback className="bg-slate-700 text-slate-300">
-              {profile?.full_name?.charAt(0) || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {profile?.full_name || "กำลังโหลด..."}
-            </p>
-            <div className="inline-flex mt-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              {role}
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       {/* Navigation Items */}
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar py-4">
@@ -248,17 +227,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer / Logout */}
-      <div className="p-4 border-t border-slate-800">
-        <Button
-          variant="ghost"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-full flex items-center justify-start gap-3 px-3 py-6 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors rounded-xl group"
-        >
-          <LogOut className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-          <span className="font-medium">ออกจากระบบ</span>
-        </Button>
-      </div>
+
     </div>
   )
 }

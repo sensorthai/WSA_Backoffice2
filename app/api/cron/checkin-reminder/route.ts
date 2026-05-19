@@ -13,7 +13,10 @@ const transporter = nodemailer.createTransport({
 export async function GET(req: Request) {
   // 1. Security Check
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const { searchParams } = new URL(req.url)
+  const key = searchParams.get('key')
+  
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && key !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -24,8 +27,11 @@ export async function GET(req: Request) {
   // Get all active users
   const { data: users } = await supabase
     .from('users')
-    .select('id, email, full_name')
+    .select('id, email, full_name, role, is_teacher')
     .eq('is_active', true)
+
+  // Filter only regular employees, excluding outsource and teachers
+  const targetUsers = users?.filter(u => u.role !== 'outsource' && u.is_teacher !== true) || []
 
   // Get today's checkins
   const { data: checkins } = await supabase
@@ -34,7 +40,7 @@ export async function GET(req: Request) {
     .eq('check_date', today)
 
   const checkedInUserIds = new Set(checkins?.map(c => c.user_id) || [])
-  const missingUsers = users?.filter(u => !checkedInUserIds.has(u.id)) || []
+  const missingUsers = targetUsers.filter(u => !checkedInUserIds.has(u.id))
 
   // 3. Send Reminders
   if (missingUsers.length > 0) {

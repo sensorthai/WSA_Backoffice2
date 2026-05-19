@@ -7,7 +7,10 @@ import { th } from "date-fns/locale"
 export async function GET(req: Request) {
   // 1. Security Check
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const { searchParams } = new URL(req.url)
+  const key = searchParams.get('key')
+  
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && key !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
