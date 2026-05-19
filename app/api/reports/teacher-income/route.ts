@@ -51,11 +51,11 @@ export async function GET(req: NextRequest) {
 
   const { data: logs } = await logQuery
 
-  // 3. Teachers list for filter dropdown
+  // 3. Teachers list for filter dropdown (outsource + employees with is_teacher=true)
   const { data: teachers } = await supabase
     .from("users")
-    .select("id, full_name")
-    .in("role", ["outsource", "employee"])
+    .select("id, full_name, role, is_teacher")
+    .or("role.eq.outsource,is_teacher.eq.true")
     .eq("is_active", true)
     .order("full_name")
 

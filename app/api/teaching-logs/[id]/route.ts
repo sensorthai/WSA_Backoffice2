@@ -86,3 +86,55 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json(data)
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await auth()
+  if (!session) {
+    return NextResponse.json({ error: "ยังไม่ได้เข้าสู่ระบบ" }, { status: 401 })
+  }
+
+  const supabase = createSupabaseServerClient()
+
+  // Fetch the log first to check permissions
+  const { data: log, error: fetchError } = await supabase
+    .from('teaching_logs')
+    .select('teacher_id, status')
+    .eq('id', params.id)
+    .single()
+
+  if (fetchError || !log) {
+    return NextResponse.json({ error: "ไม่พบข้อมูลรายงานการสอน" }, { status: 404 })
+  }
+
+  const role = (session.user as any).role
+  const userId = (session.user as any).id
+
+  const isOwner = log.teacher_id === userId
+  const isStaff = ['admin', 'ceo', 'employee', 'supervisor'].includes(role)
+
+  if (!isOwner && !isStaff) {
+    return NextResponse.json({ error: "ไม่มีสิทธิ์ลบรายงานการสอนนี้" }, { status: 403 })
+  }
+
+  // 1. Delete attendance records first
+  const { error: attError } = await supabase
+    .from('attendance_records')
+    .delete()
+    .eq('teaching_log_id', params.id)
+
+  if (attError) {
+    return NextResponse.json({ error: `ลบข้อมูลการเช็คชื่อไม่สำเร็จ: ${attError.message}` }, { status: 500 })
+  }
+
+  // 2. Delete the teaching log itself
+  const { error: deleteError } = await supabase
+    .from('teaching_logs')
+    .delete()
+    .eq('id', params.id)
+
+  if (deleteError) {
+    return NextResponse.json({ error: `ลบรายงานการสอนไม่สำเร็จ: ${deleteError.message}` }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}

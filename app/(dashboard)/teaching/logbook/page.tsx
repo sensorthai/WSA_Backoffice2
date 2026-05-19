@@ -8,13 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   BookOpenCheck, Loader2, CalendarDays, School, BookOpen,
-  CheckCircle2, Clock, Send, ChevronLeft, ChevronRight, Users,
-  Edit2, Save, FileEdit, Eye, FilePlus, UserCheck
+  Clock, Send, ChevronLeft, ChevronRight, Users,
+  Edit2, Save, FilePlus, UserCheck
 } from "lucide-react"
 
 export default function LogbookPage() {
@@ -44,13 +43,14 @@ function LogbookContent() {
   const formatThaiDate = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })
   const fmtDate = (s: string) => { const [y, m, d] = s.split('-'); return `${d}-${m}-${y}` }
 
-  // Fetch all logs (no limit for full history)
+  // Fetch all logs (only mine)
   const { data: allLogs, isLoading } = useQuery({
-    queryKey: ["logbook-logs-all"],
+    queryKey: ["logbook-logs-all", profile?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/teaching-logs?limit=500`)
+      const res = await fetch(`/api/teaching-logs?limit=500&teacher_id=${profile?.id}`)
       return res.ok ? res.json() : []
     },
+    enabled: !!profile?.id,
   })
 
   // Filter by week for weekly view
@@ -78,11 +78,12 @@ function LogbookContent() {
 
   // Fetch assignments for creating new logs
   const { data: assignments } = useQuery({
-    queryKey: ["my-assignments-active"],
+    queryKey: ["my-assignments-active", profile?.id],
     queryFn: async () => {
-      const res = await fetch("/api/admin/assignments?status=active")
+      const res = await fetch(`/api/admin/assignments?status=active&teacher_id=${profile?.id}`)
       return res.ok ? res.json() : []
-    }
+    },
+    enabled: !!profile?.id,
   })
 
   // Form state
@@ -136,6 +137,7 @@ function LogbookContent() {
         teacher_id: profile?.id,
         school_id: assignment?.school_id,
         class_level: assignment?.class_level,
+        student_count: classStudents?.length || Object.keys(attendanceMap).length || null,
         student_behavior: data.student_behavior || null,
         teaching_method: data.teaching_method || null,
         homework_assigned: data.homework_assigned || null,
@@ -340,7 +342,11 @@ function LogbookContent() {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
                           <BookOpen className="h-3.5 w-3.5" /> {log.assignment?.subject?.name || '-'}
-                          {log.class_level && <Badge variant="outline" className="text-[10px] h-5">{log.class_level}</Badge>}
+                          {log.class_level && (
+                            <Badge variant="outline" className="text-[10px] h-5">
+                              {log.class_level} ({log.student_count || att.length || 0} คน)
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>

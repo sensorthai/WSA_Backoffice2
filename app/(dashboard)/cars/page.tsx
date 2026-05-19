@@ -2,15 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addHours } from "date-fns"
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns"
 import { th } from "date-fns/locale"
 import { 
   Car, 
   Plus, 
-  Clock, 
   MapPin, 
   CheckCircle2, 
   XCircle, 
@@ -22,15 +21,13 @@ import {
   Navigation,
   Gauge,
   Loader2,
-  AlertCircle,
-  MoreVertical,
   Trash2,
   Undo2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -103,10 +100,8 @@ export default function CarsPage() {
   const { data: allPendingBookings, isLoading: isAllPendingLoading } = useQuery({
     queryKey: ["all-bookings"],
     queryFn: async () => {
-      const res = await fetch("/api/leaves/pending?type=cars") // Note: I should have /api/cars/bookings/pending
-      // For now using this if available or I'll implement it
-      const res_new = await fetch("/api/cars/bookings/pending")
-      return res_new.json()
+      const res = await fetch("/api/cars/bookings/pending")
+      return res.json()
     },
     enabled: userRole !== 'employee'
   })
@@ -468,7 +463,7 @@ export default function CarsPage() {
 
       {/* Booking Modal */}
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>
-         <DialogContent className="max-w-7xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+         <DialogContent className="max-w-7xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <div className="bg-slate-900 p-10 text-white shrink-0">
                <DialogHeader>
                   <DialogTitle className="text-3xl font-black">ระบุข้อมูลการจองรถ</DialogTitle>
@@ -579,7 +574,7 @@ export default function CarsPage() {
 
       {/* Return Car Dialog */}
       <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
-         <DialogContent className="max-w-md rounded-[3rem] p-10 border-0 shadow-2xl overflow-hidden">
+         <DialogContent className="max-w-md rounded-[3rem] p-10 border-0 shadow-2xl overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader className="mb-8">
                <DialogTitle className="text-3xl font-black">บันทึกการคืนรถ</DialogTitle>
                <p className="text-slate-400 mt-2">กรุณาระบุเลขไมล์เพื่อปิดจบรายการจอง</p>

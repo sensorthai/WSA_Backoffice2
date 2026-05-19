@@ -5,7 +5,8 @@ import { sendDailySummary } from "@/lib/gmail"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 
-export async function POST(req: Request) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function POST(_req: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   // 1. Fetch Stats for Today
   const today = new Date().toISOString().split('T')[0]
 
-  const [checkins, pendingApprovals, purchases] = await Promise.all([
+  const [checkins, , purchases] = await Promise.all([
     supabase.from('wfh_checkins').select('status').eq('check_date', today),
     supabase.from('notifications').select('id', { count: 'exact' }).eq('is_read', false), // Just a proxy for activity
     supabase.from('purchase_requests').select('total_amount').gte('created_at', today)

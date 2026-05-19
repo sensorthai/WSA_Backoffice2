@@ -22,14 +22,10 @@ import {
   Layers,
   Briefcase,
   Palmtree,
-  School,
-  BookOpen,
   ClipboardList,
-  GraduationCap,
   FileSpreadsheet,
   BookOpenCheck,
-  Grid3X3,
-  BarChart3
+  Grid3X3
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -46,7 +42,7 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { profile, isLoading } = useUser()
+  const { profile } = useUser()
   const role = profile?.role || 'employee'
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(["จัดการระบบ"])
 
@@ -78,7 +74,8 @@ export function Sidebar({ onClose }: SidebarProps) {
       label: "งานสอน", 
       href: "/teaching", 
       icon: ClipboardList, 
-      roles: ["outsource", "admin", "employee"],
+      roles: ["outsource", "admin", "employee", "supervisor"],
+      requireTeacher: true,
       subItems: [
         { label: "ตารางสอน", href: "/teaching", icon: CalendarRange },
         { label: "เช็คอิน", href: "/teaching/checkin", icon: UserCheck },
@@ -88,24 +85,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       ]
     },
     { label: "เมนูอนุมัติ", href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
-    { 
-      label: "จัดการงานสอน", 
-      href: "/teaching-mgmt", 
-      icon: BookOpenCheck, 
-      roles: ["admin"],
-      subItems: [
-        { label: "โรงเรียน", href: "/teaching-mgmt?tab=schools", icon: School },
-        { label: "วิชา & สื่อการสอน", href: "/teaching-mgmt?tab=subjects", icon: BookOpen },
-        { label: "มอบหมายงาน", href: "/teaching-mgmt?tab=assignments", icon: ClipboardList },
-        { label: "นักเรียน", href: "/teaching-mgmt?tab=students", icon: GraduationCap },
-        { label: "ตรวจรายงานสอน", href: "/teaching-mgmt?tab=teaching-logs", icon: FileBarChart },
-        { label: "📊 สรุปภาพรวม", href: "/teaching-mgmt?tab=reports-overview", icon: BarChart3 },
-        { label: "📋 รายงานโรงเรียน", href: "/teaching-mgmt?tab=reports-school", icon: FileBarChart },
-        { label: "👨‍🏫 ผลงานครู", href: "/teaching-mgmt?tab=reports-teacher", icon: Users },
-        { label: "💰 รายได้", href: "/teaching-mgmt?tab=reports-income", icon: BarChart3 },
-        { label: "📅 รายงานรายเดือน", href: "/teaching-mgmt?tab=reports-monthly", icon: FileBarChart },
-      ]
-    },
+    { label: "จัดการงานสอน", href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
     { 
       label: "จัดการระบบ", 
       href: "/admin", 
@@ -135,7 +115,13 @@ export function Sidebar({ onClose }: SidebarProps) {
   ]
 
   const filteredItems = navItems.filter(item => {
-    return item.roles.includes(role.toLowerCase().trim());
+    if (!item.roles.includes(role.toLowerCase().trim())) return false
+    // Items requiring teacher capability: show for outsource, admin, or is_teacher users
+    if ((item as any).requireTeacher) {
+      if (role === 'outsource' || role === 'admin') return true
+      return profile?.is_teacher === true
+    }
+    return true
   })
 
   return (

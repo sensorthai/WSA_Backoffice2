@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import {
-  CheckCircle2, Clock, Eye, FileText, Loader2,
-  MapPin, School, BookOpen, ExternalLink, Users, FileEdit
+  CheckCircle2, Eye, FileText, Loader2,
+  MapPin, School, BookOpen, ExternalLink, Users, Trash2
 } from "lucide-react"
 import { useUser } from "@/hooks/useUser"
 
@@ -61,6 +61,23 @@ export function TeachingLogsReview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teaching-logs-review"] })
       setSelectedLog(null)
+    },
+    onError: (err: any) => alert(err.message)
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (logId: string) => {
+      const res = await fetch(`/api/teaching-logs/${logId}`, {
+        method: "DELETE",
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "ลบไม่สำเร็จ")
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teaching-logs-review"] })
+      setSelectedLog(null)
+      alert("ลบรายงานการสอนเรียบร้อยแล้ว")
     },
     onError: (err: any) => alert(err.message)
   })
@@ -314,21 +331,33 @@ export function TeachingLogsReview() {
                 </div>
               )}
 
-              {/* Review Action */}
-              {selectedLog.status === "submitted" && (
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => reviewMutation.mutate(selectedLog.id)} disabled={reviewMutation.isPending}>
-                  {reviewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                  ตรวจรายงานเรียบร้อย
-                </Button>
-              )}
-
+              {/* Review Action & Delete */}
               {selectedLog.status === "reviewed" && selectedLog.reviewer && (
-                <div className="flex items-center gap-2 justify-center text-sm text-emerald-600 bg-emerald-50 p-3 rounded-lg">
+                <div className="flex items-center gap-2 justify-center text-sm text-emerald-600 bg-emerald-50 p-3 rounded-lg mb-2">
                   <CheckCircle2 className="h-4 w-4" />
                   ตรวจโดย {selectedLog.reviewer?.full_name} เมื่อ {selectedLog.reviewed_at && new Date(selectedLog.reviewed_at).toLocaleString('th-TH')}
                 </div>
               )}
+
+              <div className="flex gap-2 pt-2">
+                {selectedLog.status === "submitted" && (
+                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-medium"
+                    onClick={() => reviewMutation.mutate(selectedLog.id)} disabled={reviewMutation.isPending || deleteMutation.isPending}>
+                    {reviewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                    ตรวจรายงานเรียบร้อย
+                  </Button>
+                )}
+
+                <Button variant="destructive" className={selectedLog.status === "submitted" ? "px-4" : "w-full font-medium"}
+                  onClick={() => {
+                    if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายงานการสอนนี้? ข้อมูลการเช็คชื่อของนักเรียนในคาบนี้จะถูกลบไปด้วยและไม่สามารถกู้คืนได้")) {
+                      deleteMutation.mutate(selectedLog.id)
+                    }
+                  }} disabled={reviewMutation.isPending || deleteMutation.isPending}>
+                  {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                  ลบรายงาน
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

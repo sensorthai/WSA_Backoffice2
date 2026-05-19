@@ -10,6 +10,7 @@ const userSchema = z.object({
   full_name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล"),
   google_id: z.string().optional().nullable(),
   role: z.string().default("employee"),
+  is_teacher: z.boolean().optional().default(false),
   department_id: z.string().nullable().optional().transform(emptyToNull),
   position_id: z.string().nullable().optional().transform(emptyToNull),
   supervisor_id: z.string().nullable().optional().transform(emptyToNull),

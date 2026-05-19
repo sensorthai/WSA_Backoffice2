@@ -46,8 +46,15 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   // Outsource teachers can only see their own assignments
-  if (role === 'outsource') {
+  // Regular employees also see only their own (if they are is_teacher)
+  if (role === 'outsource' || role === 'employee') {
     query = query.eq('teacher_id', userId)
+  }
+
+  // Filter by teacher_id if provided (used by checkin page for admin-teachers)
+  const teacherId = req.nextUrl.searchParams.get('teacher_id')
+  if (teacherId) {
+    query = query.eq('teacher_id', teacherId)
   }
 
   // Filter by status if provided

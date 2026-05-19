@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { format, addYears } from "date-fns"
+import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { 
   Building2, 
@@ -12,16 +12,10 @@ import {
   Palmtree, 
   Clock, 
   Search, 
-  Filter, 
   RefreshCw,
-  MoreVertical,
   CheckCircle2,
   XCircle,
   Car,
-  Wallet,
-  ArrowRight,
-  UserCheck,
-  ChevronRight,
   CheckSquare,
   MapPin
 } from "lucide-react"
@@ -44,19 +38,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 import { cn } from "@/lib/utils"
+
 
 export default function CEOPage() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState("")
-  const [deptFilter, setDeptFilter] = useState("all")
 
   // --- Data Fetching ---
   const { data, isLoading, refetch, isRefetching } = useQuery({
@@ -444,6 +432,4 @@ export default function CEOPage() {
   )
 }
 
-function Label({ children, className }: any) {
-  return <label className={cn("block text-xs font-medium text-slate-700", className)}>{children}</label>
-}
+

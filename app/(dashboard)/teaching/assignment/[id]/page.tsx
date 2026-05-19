@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   ArrowLeft, School, BookOpen, Users, Calendar, Clock, DollarSign,
   FileSpreadsheet, Video, Presentation, FileText, Link2, Package,
-  CheckCircle, XCircle, AlertTriangle, Loader2, MapPin, Phone, Mail
+  CheckCircle, AlertTriangle, Loader2, MapPin, Phone, Mail
 } from "lucide-react"
 
 const TYPE_ICONS: Record<string, any> = {
@@ -50,7 +50,7 @@ export default function AssignmentDetailPage() {
     </div>
   )
 
-  const { assignment: a, students, materials, summary: s, logs } = data
+  const { assignment: a, students, materials, summary: s } = data
   const school = a.school || {}
   const subject = a.subject || {}
 

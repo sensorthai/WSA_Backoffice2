@@ -9,24 +9,18 @@ import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { 
   Plus, 
-  ShoppingBag, 
   Receipt, 
   Clock, 
   CheckCircle2, 
   XCircle, 
-  MoreVertical,
   Trash2,
-  FileText,
   UploadCloud,
-  ChevronRight,
   Package,
   Wallet,
   Eye,
   Loader2,
   ArrowRight,
   ArrowLeft,
-  Search,
-  ChevronDown,
   Printer
 } from "lucide-react"
 
@@ -59,7 +53,6 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
@@ -69,7 +62,6 @@ export default function PurchasesPage() {
   const userRole = (session?.user as any)?.role
 
   // --- States ---
-  const [activeTab, setActiveTab] = useState("my-purchases")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null)

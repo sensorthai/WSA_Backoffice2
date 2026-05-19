@@ -3,7 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 import { sendCarBookingSubmitted } from "@/lib/gmail"
 
-export async function GET(req: Request) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(_req: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const supabase = createSupabaseServerClient()
 
     // 2. Check Overlap
-    const { data: overlap, error: overlapError } = await supabase
+    const { data: overlap } = await supabase
       .from('car_bookings')
       .select('id')
       .eq('car_id', car_id)
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(booking, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid data" }, { status: 400 })
   }
 }

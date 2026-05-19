@@ -21,7 +21,7 @@ export async function POST(
     const fileName = `${params.id}_${Date.now()}.${fileExt}`
     const filePath = `receipts/${fileName}`
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('receipts')
       .upload(filePath, file)
 
@@ -41,7 +41,7 @@ export async function POST(
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
     return NextResponse.json({ url: publicUrl })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
 }

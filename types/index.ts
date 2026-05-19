@@ -10,6 +10,7 @@ export interface UserProfile {
   department_id: string | null
   position_id: string | null
   supervisor_id: string | null
+  is_teacher: boolean
   is_active: boolean
   created_at: string
   updated_at: string

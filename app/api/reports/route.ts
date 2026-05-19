@@ -15,7 +15,6 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type')
   const month = searchParams.get('month') || format(new Date(), "yyyy-MM")
-  const deptId = searchParams.get('department_id')
   const acceptHeader = req.headers.get('accept')
   const isCsv = acceptHeader === 'text/csv'
 

@@ -212,34 +212,66 @@ export function ReportsMonthly() {
               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
                 <TrendingUp className="h-4 w-4 text-emerald-500" /> แนวโน้มการเข้าเรียน
               </h3>
-              <div className="relative h-[220px] flex items-end gap-[2px] overflow-x-auto pb-8">
-                <div className="absolute left-0 top-0 h-[180px] flex flex-col justify-between text-[10px] text-slate-400 pr-2 w-8 z-10">
-                  <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
-                </div>
-                <div className="absolute left-8 right-0 top-0 h-[180px]">
-                  {[0, 25, 50, 75, 100].map(v => (
-                    <div key={v} className="absolute w-full border-t border-dashed border-slate-100" style={{ bottom: `${(v / 100) * 100}%` }} />
-                  ))}
-                </div>
-                <div className="flex items-end gap-1 ml-10 flex-1 h-[180px] relative">
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox={`0 0 ${trend.length * 40} 180`}>
-                    <polyline points={trend.map((d: any, i: number) => `${i * 40 + 16},${180 - (d.rate / 100) * 180}`).join(" ")}
-                      fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-                    {trend.map((d: any, i: number) => (
-                      <circle key={i} cx={i * 40 + 16} cy={180 - (d.rate / 100) * 180} r="4" fill="#10b981" stroke="white" strokeWidth="2" />
+              <div className="relative h-[240px] overflow-x-auto pb-4 scrollbar-thin border rounded-xl p-4 bg-slate-50/50">
+                {/* Scrollable Container */}
+                <div className="h-[190px] relative" style={{ width: trend.length * 60 + 40 }}>
+                  {/* Y-Axis Labels */}
+                  <div className="absolute left-0 top-0 h-[140px] flex flex-col justify-between text-[10px] text-slate-400 w-8 z-10">
+                    <span>100%</span>
+                    <span>75%</span>
+                    <span>50%</span>
+                    <span>25%</span>
+                    <span>0%</span>
+                  </div>
+
+                  {/* Grid Lines */}
+                  <div className="absolute left-10 top-0 h-[140px]" style={{ width: trend.length * 60 }}>
+                    {[0, 25, 50, 75, 100].map(v => (
+                      <div key={v} className="absolute w-full border-t border-dashed border-slate-200" style={{ bottom: `${(v / 100) * 140}px` }} />
                     ))}
+                  </div>
+
+                  {/* SVG Trend Line */}
+                  <svg className="absolute top-0 pointer-events-none" style={{ left: 40, width: trend.length * 60, height: 190 }}>
+                    <polyline points={trend.map((d: any, i: number) => {
+                      const x = i * 60 + 30 // centered in the 60px column
+                      const y = 140 - (d.rate / 100) * 140
+                      return `${x},${y}`
+                    }).join(" ")}
+                      fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                    {trend.map((d: any, i: number) => {
+                      const x = i * 60 + 30
+                      const y = 140 - (d.rate / 100) * 140
+                      return (
+                        <circle key={i} cx={x} cy={y} r="4.5" fill="#10b981" stroke="white" strokeWidth="2" />
+                      )
+                    })}
                   </svg>
-                  {trend.map((d: any, i: number) => (
-                    <div key={i} className="flex flex-col items-center" style={{ minWidth: 32 }}>
-                      <div className="relative w-7 rounded-t-md transition-all duration-500" style={{
-                        height: `${Math.max((d.rate / 100) * 180, 4)}px`,
-                        background: d.rate >= 80 ? "linear-gradient(to top, #6ee7b7, #34d399)" : d.rate >= 60 ? "linear-gradient(to top, #fde68a, #fbbf24)" : "linear-gradient(to top, #fca5a5, #f87171)",
+
+                  {/* Bar Columns */}
+                  <div className="absolute top-0 flex items-end" style={{ left: 40, width: trend.length * 60, height: 190 }}>
+                    {trend.map((d: any, i: number) => (
+                      <div key={i} className="flex flex-col items-center justify-end h-full absolute bottom-0" style={{
+                        width: 60,
+                        left: i * 60,
                       }}>
-                        <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-600 whitespace-nowrap">{d.rate}%</span>
+                        {/* Colorful Bar */}
+                        <div className="relative w-8 rounded-t-md transition-all duration-500" style={{
+                          height: `${Math.max((d.rate / 100) * 140, 6)}px`,
+                          background: d.rate >= 80 ? "linear-gradient(to top, #34d399, #10b981)" : d.rate >= 60 ? "linear-gradient(to top, #fbbf24, #f59e0b)" : "linear-gradient(to top, #f87171, #ef4444)",
+                        }}>
+                          {/* Rate Text */}
+                          <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-black text-slate-700 bg-white px-1 py-0.5 rounded shadow-sm border border-slate-100 whitespace-nowrap z-20">
+                            {d.rate}%
+                          </span>
+                        </div>
+                        {/* Date Label */}
+                        <span className="text-[10px] font-bold text-slate-500 mt-2 whitespace-nowrap pb-1">
+                          {d.date.slice(8)}/{d.date.slice(5, 7)}
+                        </span>
                       </div>
-                      <span className="text-[9px] text-slate-400 mt-1 whitespace-nowrap">{d.date.slice(5)}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

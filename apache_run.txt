@@ -1,0 +1,152 @@
+To run Next.js on Apache2, you need to use Apache as a **Reverse Proxy**.
+
+Because Next.js requires a Node.js runtime to handle Server-Side Rendering (SSR) and API routes, Apache cannot serve it directly like a static HTML file. Instead, Next.js will run in the background on its own port (usually `3000`), and Apache will catch incoming web traffic and forward it to Next.js.
+
+Here is the step-by-step guide to setting this up on your server.
+
+---
+
+### Step 1: Build and Start Next.js with PM2
+
+First, get your Next.js application running in the background.
+
+1. Navigate to your project directory:
+```bash
+cd /var/www/Airplus/AirplusTechinical
+
+```
+
+
+2. Build the application for production:
+```bash
+npm run build
+
+```
+
+
+3. Start the application using PM2 so it stays running:
+
+```bash
+   pm2 start npm --name "nextjs-app" -- start -- -p 3000
+
+```
+
+*(This boots Next.js on port `3000`. You can change `3000` to `3002` or any other open port if needed).*
+
+---
+
+### Step 2: Enable Apache Proxy Modules
+
+Apache needs specific modules enabled to act as a proxy. Run the following commands to enable them:
+
+```bash
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo a2enmod proxy_wstunnel
+sudo a2enmod rewrite
+
+```
+
+Restart Apache to apply the changes:
+
+```bash
+sudo systemctl restart apache2
+
+```
+
+---
+
+### Step 3: Configure Apache Virtual Host
+
+Now, create or edit an Apache configuration file to point your domain (or IP) to the Next.js process.
+
+1. Open a new configuration file:
+
+```bash
+   sudo nano /etc/apache2/sites-available/nextjs.conf
+
+```
+
+2. Paste the following configuration (replace `yourdomain.com` with your actual domain or server IP):
+
+```apache
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    ServerAlias www.yourdomain.com
+
+    # Forward standard HTTP traffic to Next.js
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:3000/
+    ProxyPassReverse / http://127.0.0.1:3000/
+
+    # Handle Next.js WebSockets (for Fast Refresh/development if applicable)
+    ProxyPass /_next/webpack-hmr ws://127.0.0.1:3000/_next/webpack-hmr
+    ProxyPassReverse /_next/webpack-hmr ws://127.0.0.1:3000/_next/webpack-hmr
+
+    # Error logging
+    ErrorLog ${APACHE_LOG_DIR}/nextjs_error.log
+    CustomLog ${APACHE_LOG_DIR}/nextjs_access.log combined
+</VirtualHost>
+
+```
+
+---
+
+### Step 4: Enable the Site and Restart Apache
+
+Activate your new virtual host configuration and turn off the default one if it interferes.
+
+1. Enable the Next.js site config:
+
+```bash
+   sudo a2ensite nextjs.conf
+
+```
+
+2. *(Optional)* Disable the default Apache page if you aren't using it:
+```bash
+sudo a2dissite 000-default.conf
+
+```
+
+
+3. Test the Apache syntax for errors:
+```bash
+sudo apache2ctl configtest
+
+```
+
+
+4. If it says `Syntax OK`, restart Apache:
+```bash
+sudo systemctl restart apache2
+
+```
+
+
+
+---
+
+### Step 5: Ensure PM2 Survives Reboots
+
+To make sure your Next.js app starts automatically if the server crashes or reboots, run:
+
+```bash
+pm2 startup
+
+```
+
+*(Copy and paste the command it outputs onto your terminal)*
+
+Then save the list:
+
+```bash
+pm2 save
+
+```
+
+Your Next.js app is now fully operational behind Apache2! You can visit your domain or IP address, and Apache will seamlessly fetch the pages from your background Node.js process.
+
+```
+
+```

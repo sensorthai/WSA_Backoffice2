@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Bell, BellDot, Check, Car, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
@@ -15,7 +15,7 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Fetch Notifications
-  const { data: notifications = [], isLoading } = useQuery({
+  const { data: notifications = [] } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
       const res = await fetch("/api/notifications")

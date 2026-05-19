@@ -13,19 +13,15 @@ import {
   CalendarRange, 
   Clock, 
   CheckCircle2, 
-  XCircle, 
-  AlertCircle,
-  MoreVertical,
   CalendarDays,
   FileText,
   Loader2,
   Trash2,
-  Edit2,
   User
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { 
   Dialog, 
   DialogContent, 
@@ -265,7 +261,7 @@ export default function LeavesPage() {
               <Plus className="mr-2 w-5 h-5" /> สร้างใบลาใหม่
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[2.5rem] sm:max-w-[500px] border-0 shadow-2xl p-0 overflow-hidden">
+          <DialogContent className="rounded-[2.5rem] sm:max-w-[500px] border-0 shadow-2xl p-0 overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <div className="bg-emerald-600 p-8 text-white">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black flex items-center gap-3">
@@ -364,7 +360,7 @@ export default function LeavesPage() {
                         reason,
                         attachment_url: url
                       })
-                    } catch (err) {
+                    } catch {
                       alert("การอัปโหลดไฟล์ล้มเหลว")
                     } finally {
                       setIsUploading(false)

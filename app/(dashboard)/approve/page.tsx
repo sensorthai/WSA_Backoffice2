@@ -11,10 +11,8 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock, 
-  User, 
   FileText, 
   CalendarDays,
-  MessageSquare,
   Loader2,
   ChevronRight,
   ShieldCheck
@@ -30,11 +28,10 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+
 
 export default function ApprovePage() {
   const { data: session } = useSession()

@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Loader2, Users, School, BookOpen, Clock, CheckCircle2,
-  XCircle, AlertTriangle, Star, ChevronLeft, ChevronRight,
+  Loader2, Users, School, BookOpen, CheckCircle2,
+  ChevronLeft, ChevronRight,
   CalendarDays, FileText, TrendingUp, Award
 } from "lucide-react"
 import { format } from "date-fns"

@@ -19,14 +19,19 @@ const TYPE_CONFIG: Record<string, { label: string; icon: any; color: string }> =
   other:    { label: "📦 อื่นๆ", icon: Package, color: "bg-slate-50 text-slate-700 border-slate-200" },
 }
 
+import { useUser } from "@/hooks/useUser"
+
 export default function TeachingMaterialsPage() {
+  const { profile } = useUser()
+
   // Fetch teacher's assignments
   const { data: assignments, isLoading: loadingAssignments } = useQuery({
-    queryKey: ["my-assignments"],
+    queryKey: ["my-assignments", profile?.id],
     queryFn: async () => {
-      const res = await fetch("/api/admin/assignments?status=active")
+      const res = await fetch(`/api/admin/assignments?status=active&teacher_id=${profile?.id}`)
       return res.ok ? res.json() : []
-    }
+    },
+    enabled: !!profile?.id,
   })
 
   // Get unique material codes from assignments' subjects

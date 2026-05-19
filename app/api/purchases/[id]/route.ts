@@ -81,7 +81,7 @@ export async function PUT(
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
     return NextResponse.json(updated)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 })
   }
 }

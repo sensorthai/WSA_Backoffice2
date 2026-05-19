@@ -62,7 +62,7 @@ export function PositionsTable() {
       let data
       try {
         data = text ? JSON.parse(text) : {}
-      } catch (e) {
+      } catch {
         throw new Error(`Server returned invalid JSON: ${text.substring(0, 100)}`)
       }
 
@@ -95,7 +95,7 @@ export function PositionsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มตำแหน่ง
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingPos ? 'แก้ไขตำแหน่ง' : 'เพิ่มตำแหน่งใหม่'}</DialogTitle>
             </DialogHeader>

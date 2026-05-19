@@ -50,8 +50,11 @@ export async function GET(req: NextRequest) {
     `)
     .order('teach_date', { ascending: false })
 
-  // Outsource teachers only see own logs
+  // Outsource teachers & employee-teachers only see own logs
   if (role === 'outsource') {
+    query = query.eq('teacher_id', userId)
+  } else if (role !== 'admin' && role !== 'ceo' && role !== 'supervisor') {
+    // Regular employees: check if they have assignments (is_teacher handled via assignments)
     query = query.eq('teacher_id', userId)
   }
 

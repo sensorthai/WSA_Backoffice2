@@ -128,7 +128,7 @@ export async function GET(req: Request) {
   }
 
   // Execute all promises
-  const results = await Promise.allSettled([
+  await Promise.allSettled([
     ...emailPromises,
     ...(notificationRecords.length > 0 ? [supabase.from('notifications').insert(notificationRecords)] : [])
   ])

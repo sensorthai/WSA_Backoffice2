@@ -12,7 +12,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async signIn({ user, account: _account, profile: _profile }) {
       console.log("--- SignIn Callback Start ---");
       if (!user.email) return false;
 

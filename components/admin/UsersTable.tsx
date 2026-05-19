@@ -29,7 +29,8 @@ import {
   UserCheck,
   Loader2,
   Clock,
-  Trash2
+  Trash2,
+  GraduationCap
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -63,6 +64,7 @@ const userFormSchema = z.object({
   full_name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล"),
   google_id: z.string().optional().nullable(),
   role: z.string().min(1, "กรุณาเลือกสิทธิ์"),
+  is_teacher: z.boolean().optional().default(false),
   department_id: z.string().optional().nullable(),
   position_id: z.string().optional().nullable(),
   supervisor_id: z.string().optional().nullable(),
@@ -109,6 +111,7 @@ export function UsersTable() {
     resolver: zodResolver(userFormSchema) as any,
     defaultValues: {
       role: "employee",
+      is_teacher: false,
     }
   })
 
@@ -221,6 +224,7 @@ export function UsersTable() {
       email: user.email,
       google_id: user.google_id || null,
       role: user.role,
+      is_teacher: user.is_teacher || false,
       department_id: user.department_id,
       position_id: user.position_id,
       supervisor_id: user.supervisor_id,
@@ -250,7 +254,7 @@ export function UsersTable() {
           setIsModalOpen(open)
           if (!open) {
             setEditingUser(null)
-            form.reset({ role: "employee", email: "", full_name: "", google_id: null, department_id: null, position_id: null, supervisor_id: null })
+            form.reset({ role: "employee", is_teacher: false, email: "", full_name: "", google_id: null, department_id: null, position_id: null, supervisor_id: null })
           }
         }}>
           <DialogTrigger asChild>
@@ -258,7 +262,7 @@ export function UsersTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มพนักงาน
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingUser ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงานใหม่'}</DialogTitle>
             </DialogHeader>
@@ -336,6 +340,31 @@ export function UsersTable() {
                     )}
                   />
                 </div>
+                {/* is_teacher toggle */}
+                <FormField
+                  control={form.control}
+                  name="is_teacher"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-3 p-3 rounded-xl border bg-indigo-50/50 border-indigo-200/60">
+                        <GraduationCap className="h-5 w-5 text-indigo-500 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-700">สอนด้วย?</p>
+                          <p className="text-[11px] text-slate-500">เปิดเมนูงานสอน & มอบหมายงานสอนได้</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={field.value || false}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                        </label>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="position_id"
@@ -434,9 +463,16 @@ export function UsersTable() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize bg-slate-50">
-                      {user.role}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="capitalize bg-slate-50">
+                        {user.role}
+                      </Badge>
+                      {user.is_teacher && (
+                        <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] gap-0.5">
+                          <GraduationCap className="h-3 w-3" /> ครู
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {user.supervisor ? (

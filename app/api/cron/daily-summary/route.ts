@@ -21,7 +21,6 @@ export async function GET(req: Request) {
     { count: pendingPurchases },
     { count: pendingCars },
     { data: todayPurchases },
-    { data: todayCars }
   ] = await Promise.all([
     supabase.from('wfh_checkins').select('status').eq('check_date', today),
     supabase.from('leave_requests').select('id', { count: 'exact' }).or('status.eq.pending,status.eq.supervisor_approved'),

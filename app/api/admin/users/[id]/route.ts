@@ -9,6 +9,7 @@ const updateUserSchema = z.object({
   full_name: z.string().min(1, "กรุณากรอกชื่อ-นามสกุล").optional(),
   email: z.string().email("อีเมลไม่ถูกต้อง").optional(),
   role: z.string().optional(),
+  is_teacher: z.boolean().optional(),
   department_id: z.string().nullable().optional().transform(emptyToNull),
   position_id: z.string().nullable().optional().transform(emptyToNull),
   supervisor_id: z.string().nullable().optional().transform(emptyToNull),

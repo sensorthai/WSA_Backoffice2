@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit2, Loader2, Users, Trash2, UserPlus, School, Filter, GraduationCap, Download, Upload, FileSpreadsheet, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Edit2, Loader2, Users, Trash2, UserPlus, School, Filter, GraduationCap, Download, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -239,7 +239,7 @@ export function StudentsTable() {
             <DialogTrigger asChild>
               <Button onClick={handleAddNew}><UserPlus className="mr-2 h-4 w-4" /> เพิ่มนักเรียน</Button>
             </DialogTrigger>
-          <DialogContent className="sm:max-w-[560px]">
+          <DialogContent className="sm:max-w-[560px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-blue-500" />

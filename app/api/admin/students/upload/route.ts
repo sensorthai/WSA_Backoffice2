@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const missingFields = requiredFields.filter(f => !mappedFields.includes(f))
     if (missingFields.length > 0) {
       const missingThai = Object.entries(HEADER_MAP)
-        .filter(([_, v]) => missingFields.includes(v))
+        .filter(([, v]) => missingFields.includes(v))
         .map(([k]) => k)
       return NextResponse.json({
         error: `ไม่พบคอลัมน์ที่จำเป็น: ${missingThai.join(", ")}`,

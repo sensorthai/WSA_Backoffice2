@@ -40,8 +40,6 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
 
 type ReportType = 'wfh' | 'leave' | 'purchase' | 'car'
 
@@ -93,7 +91,7 @@ function ReportsContent() {
     try {
       const res = await fetch('/api/admin/send-report', { method: 'POST' })
       if (res.ok) alert("ส่งรายงานเข้า Gmail เรียบร้อยแล้ว")
-    } catch (err) {
+    } catch {
       alert("เกิดข้อผิดพลาดในการส่งอีเมล")
     }
   }

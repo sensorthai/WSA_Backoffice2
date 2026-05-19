@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Loader2, ChevronLeft, ChevronRight, School, BookOpen,
-  Clock, CalendarDays, Grid3X3, PartyPopper, Calendar
+  Clock, Grid3X3, PartyPopper, Calendar
 } from "lucide-react"
+import { useUser } from "@/hooks/useUser"
 
 const DAYS = [
   { key: "mon", label: "จันทร์", en: "Mon" },
@@ -51,20 +52,30 @@ export default function TimetablePage() {
 }
 
 function TimetableContent() {
+  const { profile } = useUser()
   const [viewMode, setViewMode] = useState<"week" | "month">("week")
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
 
-  const now = new Date()
-  const today = now.toISOString().split("T")[0]
+  const toLocalISO = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const date = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${date}`
+  }
 
-  // Week calculation
+  const now = new Date()
+  const today = toLocalISO(now)
+
+  // Week calculation — handle Sunday (getDay()===0) correctly
   const monday = new Date(now)
-  monday.setDate(now.getDate() - now.getDay() + 1 + weekOffset * 7)
+  const dayOfWeek = now.getDay() // 0=Sun,1=Mon,...,6=Sat
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Sun→-6, Mon→0, Tue→-1 ...
+  monday.setDate(now.getDate() + diffToMonday + weekOffset * 7)
   const weekDates = DAYS.map((_, i) => {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    return d.toISOString().split("T")[0]
+    return toLocalISO(d)
   })
 
   // Month calculation
@@ -81,17 +92,17 @@ function TimetableContent() {
     // Leading blanks
     for (let i = 0; i < firstDayOfWeek; i++) {
       const d = new Date(monthYear, monthNum, -firstDayOfWeek + i + 1)
-      cells.push({ date: d.toISOString().split("T")[0], day: d.getDate(), isCurrentMonth: false })
+      cells.push({ date: toLocalISO(d), day: d.getDate(), isCurrentMonth: false })
     }
     // Days of month
     for (let d = 1; d <= daysInMonth; d++) {
       const dt = new Date(monthYear, monthNum, d)
-      cells.push({ date: dt.toISOString().split("T")[0], day: d, isCurrentMonth: true })
+      cells.push({ date: toLocalISO(dt), day: d, isCurrentMonth: true })
     }
     // Trailing blanks
     while (cells.length % 7 !== 0) {
       const d = new Date(monthYear, monthNum + 1, cells.length - firstDayOfWeek - daysInMonth + 1)
-      cells.push({ date: d.toISOString().split("T")[0], day: d.getDate(), isCurrentMonth: false })
+      cells.push({ date: toLocalISO(d), day: d.getDate(), isCurrentMonth: false })
     }
     return cells
   }, [monthYear, monthNum, daysInMonth, firstDayOfWeek])
@@ -100,12 +111,13 @@ function TimetableContent() {
 
   // Fetch assignments
   const { data: assignments, isLoading } = useQuery({
-    queryKey: ["timetable-assignments"],
+    queryKey: ["timetable-assignments", profile?.id],
     queryFn: async () => {
-      const res = await fetch("/api/admin/assignments?status=active")
+      const res = await fetch(`/api/admin/assignments?status=active&teacher_id=${profile?.id}`)
       const text = await res.text()
       return text ? JSON.parse(text) : []
-    }
+    },
+    enabled: !!profile?.id,
   })
 
   // Color map + holidays
@@ -212,7 +224,7 @@ function TimetableContent() {
                   <div className={`px-3 py-3 text-center border-b ${isToday ? "bg-cyan-100/70" : isHoliday ? "bg-red-50" : (day.key === "sat" || day.key === "sun") ? "bg-orange-50" : "bg-slate-50"}`}>
                     <p className={`text-xs font-bold uppercase tracking-wider ${isToday ? "text-cyan-700" : isHoliday ? "text-red-500" : (day.key === "sat" || day.key === "sun") ? "text-orange-500" : "text-slate-500"}`}>{day.label}</p>
                     <p className={`text-lg font-black ${isToday ? "text-cyan-800" : isHoliday ? "text-red-600" : "text-slate-700"}`}>
-                      {new Date(date).getDate()}
+                      {parseInt(date.split("-")[2], 10)}
                     </p>
                     {isToday && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mx-auto mt-1" />}
                     {isHoliday && <div className="w-1.5 h-1.5 rounded-full bg-red-400 mx-auto mt-1" />}

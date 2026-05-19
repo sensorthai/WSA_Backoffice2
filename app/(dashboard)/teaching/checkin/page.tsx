@@ -7,7 +7,7 @@ import { useUser } from "@/hooks/useUser"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  MapPin, Clock, School, BookOpen, CheckCircle2,
+  MapPin, School, BookOpen, CheckCircle2,
   LogIn, LogOut, Loader2, ClipboardCheck, CalendarDays
 } from "lucide-react"
 
@@ -29,14 +29,15 @@ function TeachingCheckinContent() {
   const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]
   const fmtDate = (s: string) => { const [y, m, d] = s.split('-'); return `${d}-${m}-${y}` }
 
-  // Fetch today's assignments
+  // Fetch today's assignments (only mine)
   const { data: assignments } = useQuery({
-    queryKey: ["my-assignments-active"],
+    queryKey: ["my-assignments-active", profile?.id],
     queryFn: async () => {
-      const res = await fetch("/api/admin/assignments?status=active")
+      const res = await fetch(`/api/admin/assignments?status=active&teacher_id=${profile?.id}`)
       const text = await res.text()
       return text ? JSON.parse(text) : []
-    }
+    },
+    enabled: !!profile?.id,
   })
 
   const todayAssignments = assignments?.filter((a: any) =>
@@ -51,6 +52,27 @@ function TeachingCheckinContent() {
       const text = await res.text()
       return text ? JSON.parse(text) : []
     }
+  })
+
+  // Fetch student counts for today's assignments
+  const { data: studentCounts } = useQuery({
+    queryKey: ["checkin-student-counts", todayAssignments.map((a: any) => `${a.school_id}_${a.class_level}`).join(",")],
+    queryFn: async () => {
+      if (todayAssignments.length === 0) return {}
+      const counts: Record<string, number> = {}
+      for (const a of todayAssignments) {
+        if (!a.school_id || !a.class_level) continue
+        const key = `${a.school_id}_${a.class_level}`
+        if (key in counts) continue
+        const res = await fetch(`/api/admin/students?school_id=${a.school_id}&class_level=${encodeURIComponent(a.class_level)}`)
+        if (res.ok) {
+          const list = await res.json()
+          counts[key] = Array.isArray(list) ? list.length : 0
+        }
+      }
+      return counts
+    },
+    enabled: todayAssignments.length > 0
   })
 
   // Get GPS
@@ -173,6 +195,14 @@ function TeachingCheckinContent() {
                         <div className="flex items-center gap-2 text-sm text-slate-500">
                           <BookOpen className="h-3.5 w-3.5" />
                           {assignment.subject?.name}
+                          {assignment.class_level && (
+                            <Badge variant="outline" className="text-[10px] h-5 py-0 px-2 font-medium">
+                              {assignment.class_level}
+                              {studentCounts && studentCounts[`${assignment.school_id}_${assignment.class_level}`] !== undefined && (
+                                <> ({studentCounts[`${assignment.school_id}_${assignment.class_level}`]} คน)</>
+                              )}
+                            </Badge>
+                          )}
                           {assignment.schedule_time_start && (
                             <span className="text-slate-400">| {assignment.schedule_time_start} - {assignment.schedule_time_end || '?'}</span>
                           )}

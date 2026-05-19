@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(purchase, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 })
   }
 }

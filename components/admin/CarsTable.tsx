@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { supabase } from "@/lib/supabase"
-import { FileIcon, Download, User } from "lucide-react"
+import { FileIcon, User } from "lucide-react"
 
 const carSchema = z.object({
   id: z.string().optional(),
@@ -81,7 +80,7 @@ export function CarsTable() {
     const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
     const filePath = `cars/${fileName}`
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('car-documents')
       .upload(filePath, file)
 
@@ -107,7 +106,7 @@ export function CarsTable() {
       let data
       try {
         data = text ? JSON.parse(text) : {}
-      } catch (e) {
+      } catch {
         throw new Error(`Server returned invalid JSON: ${text.substring(0, 100)}`)
       }
 
@@ -135,7 +134,7 @@ export function CarsTable() {
       let data
       try {
         data = text ? JSON.parse(text) : {}
-      } catch (e) {
+      } catch {
         throw new Error(`Server returned invalid JSON: ${text.substring(0, 100)}`)
       }
 
@@ -181,7 +180,7 @@ export function CarsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มรถใหม่
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingCar ? 'แก้ไขข้อมูลรถ' : 'เพิ่มรถยนต์ใหม่'}</DialogTitle>
             </DialogHeader>

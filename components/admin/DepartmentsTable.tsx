@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Edit2, Trash2, Loader2 } from "lucide-react"
+import { Plus, Edit2, Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -60,7 +60,7 @@ export function DepartmentsTable() {
       let data
       try {
         data = text ? JSON.parse(text) : {}
-      } catch (e) {
+      } catch {
         throw new Error(`Server returned invalid JSON: ${text.substring(0, 100)}`)
       }
 
@@ -93,7 +93,7 @@ export function DepartmentsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มกลุ่มงาน
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingDept ? 'แก้ไขกลุ่มงาน' : 'เพิ่มกลุ่มงานใหม่'}</DialogTitle>
             </DialogHeader>

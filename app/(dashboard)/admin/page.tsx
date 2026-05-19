@@ -8,14 +8,7 @@ import { DepartmentsTable } from "@/components/admin/DepartmentsTable"
 import { PositionsTable } from "@/components/admin/PositionsTable"
 import { CarsTable } from "@/components/admin/CarsTable"
 import { SystemSettings } from "@/components/admin/SystemSettings"
-import { 
-  Users, 
-  Layers, 
-  Briefcase, 
-  Car, 
-  Settings2,
-  Settings
-} from "lucide-react"
+import { Settings2 } from "lucide-react"
 
 export default function AdminPage() {
   return (

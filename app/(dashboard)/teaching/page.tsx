@@ -20,13 +20,14 @@ function TeachingContent() {
   const today = new Date().toISOString().split('T')[0]
 
   const { data: assignments, isLoading } = useQuery({
-    queryKey: ["my-assignments"],
+    queryKey: ["my-assignments", profile?.id],
     queryFn: async () => {
-      const res = await fetch("/api/admin/assignments?status=active")
+      const res = await fetch(`/api/admin/assignments?status=active&teacher_id=${profile?.id}`)
       const text = await res.text()
       if (!res.ok) throw new Error("Failed to fetch")
       return text ? JSON.parse(text) : []
-    }
+    },
+    enabled: !!profile?.id,
   })
 
   // Fetch students to count per school+class+year

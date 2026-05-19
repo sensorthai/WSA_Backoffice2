@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Loader2, ClipboardList, CalendarDays, Clock, X, CalendarPlus, Eye, Banknote } from "lucide-react"
+import { Plus, Edit2, Loader2, ClipboardList, Clock, X, CalendarPlus, Eye, Banknote } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -57,7 +57,7 @@ export function AssignmentsTable() {
       const res = await fetch("/api/admin/users")
       const text = await res.text()
       const users = text ? JSON.parse(text) : []
-      return users.filter((u: any) => u.role === 'outsource')
+      return users.filter((u: any) => u.role === 'outsource' || u.is_teacher === true)
     }
   })
 
@@ -210,7 +210,7 @@ export function AssignmentsTable() {
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingAssignment(null); form.reset() }}><Plus className="mr-2 h-4 w-4" /> มอบหมายงานใหม่</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[640px]">
+          <DialogContent className="sm:max-w-[640px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-blue-500" />
@@ -222,12 +222,12 @@ export function AssignmentsTable() {
                 {/* Teacher */}
                 <FormField control={form.control} name="teacher_id" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ครูผู้สอน (Outsource) *</FormLabel>
+                    <FormLabel>ครูผู้สอน *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl><SelectTrigger><SelectValue placeholder="เลือกครู..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         {teachers?.map((t: any) => (<SelectItem key={t.id} value={t.id}>{t.full_name} ({t.email})</SelectItem>))}
-                        {(!teachers || teachers.length === 0) && <div className="px-3 py-2 text-sm text-slate-400">ยังไม่มีครู outsource ในระบบ</div>}
+                        {(!teachers || teachers.length === 0) && <div className="px-3 py-2 text-sm text-slate-400">ยังไม่มีครูผู้สอนในระบบ</div>}
                       </SelectContent>
                     </Select>
                     <FormMessage />

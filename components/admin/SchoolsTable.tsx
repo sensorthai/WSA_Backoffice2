@@ -125,7 +125,7 @@ export function SchoolsTable() {
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingSchool(null); form.reset() }}><Plus className="mr-2 h-4 w-4" /> เพิ่มโรงเรียน</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[680px] max-h-[90vh]">
+          <DialogContent className="sm:max-w-[680px] max-h-[90vh]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <School className="h-5 w-5 text-blue-500" />

@@ -8,14 +8,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   School, BookOpen, Users, Loader2, CalendarDays, FileText,
-  AlertTriangle, CheckCircle2, Clock, ChevronDown, ChevronUp, Printer, Download
+  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Download
 } from "lucide-react"
 
 export function ReportsSchool() {
   const [selectedSchool, setSelectedSchool] = useState("")
   const [viewMode, setViewMode] = useState<"week" | "month">("week")
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null)
-  const [generating, setGenerating] = useState(false)
+  const [generating] = useState(false)
 
   // Compute date range
   const { startDate, endDate, label } = useMemo(() => {
@@ -112,7 +112,7 @@ export function ReportsSchool() {
     </body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 600)
-  }, [startDate, endDate, behaviorMap, statusTh])
+  }, [behaviorMap, statusTh])
 
   return (
     <div className="space-y-6">
