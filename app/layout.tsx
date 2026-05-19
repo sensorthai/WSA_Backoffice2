@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "SME Backoffice",
+  title: "WSA office",
   description: "Internal management system",
 };
 

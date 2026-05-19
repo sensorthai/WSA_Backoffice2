@@ -41,7 +41,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { createSupabaseClient } from "@/lib/supabase"
 
 export default function LeavesPage() {
   const { data: session } = useSession()
@@ -124,28 +123,22 @@ export default function LeavesPage() {
   }
 
   const handleFileUpload = async (file: File) => {
-    const supabase = createSupabaseClient()
-    const userId = session?.user?.id
-    if (!userId) throw new Error("User session not found")
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folder", "leave-attachments")
 
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random()}.${fileExt}`
-    const filePath = `leave-attachments/${userId}/${fileName}`
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-    const { error: uploadError } = await supabase.storage
-      .from('attachments')
-      .upload(filePath, file)
-
-    if (uploadError) {
-      console.error("Upload Error Details:", uploadError)
-      throw new Error(`Upload failed: ${uploadError.message}`)
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || "อัปโหลดไม่สำเร็จ")
     }
 
-    const { data } = supabase.storage
-      .from('attachments')
-      .getPublicUrl(filePath)
-
-    return data.publicUrl
+    const data = await res.json()
+    return data.url
   }
 
   const getStatusBadge = (status: string) => {
