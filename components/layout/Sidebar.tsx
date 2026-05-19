@@ -3,14 +3,14 @@ import { useState } from "react"
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  UserCheck, 
-  CalendarRange, 
-  ShoppingBag, 
-  Car, 
-  CheckSquare, 
-  Settings, 
+import {
+  LayoutDashboard,
+  UserCheck,
+  CalendarRange,
+  ShoppingBag,
+  Car,
+  CheckSquare,
+  Settings,
   Crown,
   FileBarChart,
   X,
@@ -23,7 +23,8 @@ import {
   ClipboardList,
   FileSpreadsheet,
   BookOpenCheck,
-  Grid3X3
+  Grid3X3,
+  ClipboardCheck
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -44,7 +45,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(["จัดการระบบ"])
 
   const toggleSubmenu = (label: string) => {
-    setOpenSubmenus(prev => 
+    setOpenSubmenus(prev =>
       prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
     )
   }
@@ -62,15 +63,17 @@ export function Sidebar({ onClose }: SidebarProps) {
   const pendingCount = Array.isArray(pendingApprovals) ? pendingApprovals.length : 0
 
   const navItems = [
+    { label: "CEO Dashboard", href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor", "ceo", "outsource"] },
     { label: "Check-in วันนี้", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo", "outsource"] },
     { label: "ใบลา", href: "/leaves", icon: CalendarRange, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: "ใบเบิก", href: "/purchases", icon: ShoppingBag, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: "ขอใช้รถ", href: "/cars", icon: Car, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { 
-      label: "งานสอน", 
-      href: "/teaching", 
-      icon: ClipboardList, 
+    { label: "รายงานรายสัปดาห์", href: "/weekly-reports", icon: ClipboardCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+    {
+      label: "งานสอน",
+      href: "/teaching",
+      icon: ClipboardList,
       roles: ["outsource", "admin", "employee", "supervisor"],
       requireTeacher: true,
       subItems: [
@@ -83,10 +86,10 @@ export function Sidebar({ onClose }: SidebarProps) {
     },
     { label: "เมนูอนุมัติ", href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
     { label: "จัดการงานสอน", href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
-    { 
-      label: "จัดการระบบ", 
-      href: "/admin", 
-      icon: Settings, 
+    {
+      label: "จัดการระบบ",
+      href: "/admin",
+      icon: Settings,
       roles: ["admin"],
       subItems: [
         { label: "พนักงาน", href: "/admin?tab=users", icon: Users },
@@ -96,10 +99,10 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: "ตั้งค่าระบบ", href: "/admin?tab=settings", icon: Settings },
       ]
     },
-    { 
-      label: "รายงานสรุป", 
-      href: "/reports", 
-      icon: FileBarChart, 
+    {
+      label: "รายงานสรุป",
+      href: "/reports",
+      icon: FileBarChart,
       roles: ["admin", "ceo"],
       subItems: [
         { label: "สรุปการเข้างาน", href: "/reports?tab=wfh", icon: Users },
@@ -108,7 +111,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: "สรุปการใช้รถ", href: "/reports?tab=car", icon: Car },
       ]
     },
-    { label: "CEO Dashboard", href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
+
   ]
 
   const filteredItems = navItems.filter(item => {
@@ -153,7 +156,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   className={cn(
                     "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group",
                     isParentActive && !isOpen
-                      ? "bg-blue-600/10 text-blue-400" 
+                      ? "bg-blue-600/10 text-blue-400"
                       : "hover:bg-slate-800 hover:text-white"
                   )}
                 >
@@ -172,8 +175,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                   onClick={onClose}
                   className={cn(
                     "flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group",
-                    pathname === item.href 
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" 
+                    pathname === item.href
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
                       : "hover:bg-slate-800 hover:text-white"
                   )}
                 >
@@ -200,9 +203,9 @@ export function Sidebar({ onClose }: SidebarProps) {
                     const subPath = sub.href.split('?')[0]
                     const subQuery = sub.href.split('?')[1]
                     const tabParam = subQuery?.split('=')[1]
-                    
+
                     const isActive = pathname === subPath && searchParams.get('tab') === tabParam
-                    
+
                     return (
                       <Link
                         key={sub.href}
@@ -210,8 +213,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                         onClick={onClose}
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm",
-                          isActive 
-                            ? "text-blue-400 font-bold bg-blue-400/5" 
+                          isActive
+                            ? "text-blue-400 font-bold bg-blue-400/5"
                             : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
                         )}
                       >

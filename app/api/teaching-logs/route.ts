@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         id,
         schedule_time_start,
         schedule_time_end,
+        class_level,
         subject:subject_id (id, name, code)
       ),
       teacher:teacher_id (id, full_name, email),

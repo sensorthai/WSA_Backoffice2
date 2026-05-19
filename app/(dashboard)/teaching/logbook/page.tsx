@@ -341,12 +341,13 @@ function LogbookContent() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
-                          <BookOpen className="h-3.5 w-3.5" /> {log.assignment?.subject?.name || '-'}
-                          {log.class_level && (
-                            <Badge variant="outline" className="text-[10px] h-5">
-                              {log.class_level} ({log.student_count || att.length || 0} คน)
-                            </Badge>
-                          )}
+                          <BookOpen className="h-3.5 w-3.5 text-indigo-500" /> {log.assignment?.subject?.name || '-'}
+                          <Badge variant="outline" className="text-[10px] h-5 bg-indigo-50/50 text-indigo-700 border-indigo-100/80 font-bold">
+                            ระดับชั้น: {log.class_level || log.assignment?.class_level || "ไม่ระบุ"}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] h-5 bg-emerald-50/50 text-emerald-700 border-emerald-100/80 font-bold">
+                            นักเรียน: {log.student_count || att.length || 0} คน
+                          </Badge>
                         </div>
                       </div>
                     </div>

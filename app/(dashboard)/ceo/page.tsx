@@ -17,7 +17,8 @@ import {
   XCircle,
   Car,
   CheckSquare,
-  MapPin
+  MapPin,
+  AlertCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -120,6 +121,21 @@ export default function CEOPage() {
     )
   }, [data, searchTerm])
 
+  // Group filtered users by department
+  const groupedUsersByDepartment = useMemo(() => {
+    const groups: { [key: string]: any[] } = {}
+    
+    filteredUsers.forEach((user: any) => {
+      const deptName = user.department?.name || 'ไม่มีกลุ่มงาน (Staff)'
+      if (!groups[deptName]) {
+        groups[deptName] = []
+      }
+      groups[deptName].push(user)
+    })
+    
+    return groups
+  }, [filteredUsers])
+
   if (isLoading) return (
     <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
       <RefreshCw className="animate-spin text-blue-600 w-12 h-12" />
@@ -149,12 +165,13 @@ export default function CEOPage() {
       </div>
 
       {/* Row 1: Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
          {[
            { title: "พนักงานที่ Office", value: data?.wfh?.office?.length, icon: Building2, color: "text-emerald-600", bg: "bg-emerald-50", users: data?.wfh?.office },
            { title: "Work from Home", value: data?.wfh?.home?.length, icon: Home, color: "text-blue-600", bg: "bg-blue-50", users: data?.wfh?.home },
-           { title: "ลาหยุดวันนี้", value: data?.wfh?.leave?.length, icon: Palmtree, color: "text-amber-600", bg: "bg-amber-50", users: data?.wfh?.leave },
-           { title: "รออนุมัติ", value: data?.pending_approvals?.total, icon: Clock, color: "text-rose-600", bg: "bg-rose-50", link: "#approvals", sub: "คลิกเพื่อดูรายการ" }
+           { title: "ปฏิบัติงาน Onsite", value: data?.wfh?.onsite?.length, icon: MapPin, color: "text-indigo-600", bg: "bg-indigo-50", users: data?.wfh?.onsite },
+           { title: "ยังไม่เช็คอิน", value: data?.wfh?.not_checked?.length, icon: AlertCircle, color: "text-rose-600", bg: "bg-rose-50", users: data?.wfh?.not_checked },
+           { title: "ลาหยุดวันนี้", value: data?.wfh?.leave?.length, icon: Palmtree, color: "text-amber-600", bg: "bg-amber-50", users: data?.wfh?.leave }
          ].map((card, i) => (
            <Card key={i} className="rounded-[2.5rem] border-0 shadow-sm ring-1 ring-slate-100 hover:shadow-xl transition-all duration-500 overflow-hidden group">
               <CardContent className="p-8">
@@ -162,97 +179,56 @@ export default function CEOPage() {
                     <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner", card.bg)}>
                        <card.icon className={cn("w-8 h-8", card.color)} />
                     </div>
-                    {card.users && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                           <Button variant="ghost" size="sm" className="rounded-full text-xs font-black text-slate-400 hover:bg-slate-100 uppercase tracking-widest">ดูรายชื่อ</Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 rounded-3xl p-4 shadow-2xl border-0 ring-1 ring-slate-100">
-                           <div className="space-y-3">
-                              <h4 className="font-black text-xs uppercase tracking-widest text-slate-400 border-b border-slate-50 pb-2">รายชื่อพนักงาน</h4>
-                              {card.users.length > 0 ? card.users.slice(0, 5).map((u: any, idx: number) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                   <Avatar className="h-6 w-6">
-                                      <AvatarImage src={u.avatar_url} />
-                                      <AvatarFallback className="text-[10px]">{u.full_name?.charAt(0)}</AvatarFallback>
-                                   </Avatar>
-                                   <span className="text-sm font-bold text-slate-700">{u.full_name}</span>
-                                </div>
-                              )) : <p className="text-slate-300 text-sm italic">ไม่มีรายการ</p>}
-                              {card.users.length > 5 && <p className="text-[10px] text-slate-400 text-center pt-2">และอื่นๆ อีก {card.users.length - 5} ท่าน</p>}
-                           </div>
-                        </PopoverContent>
-                      </Popover>
-                    )}
                  </div>
+                 
                  <div className="mt-8">
                     <h3 className="text-slate-400 font-bold uppercase tracking-widest text-xs">{card.title}</h3>
                     <div className="flex items-baseline gap-2">
                        <span className="text-5xl font-black text-slate-900 tracking-tighter">{card.value}</span>
                        <span className="text-slate-400 font-bold">ท่าน</span>
                     </div>
-                    {card.sub && (
-                      <a href={card.link} className="text-xs font-bold text-rose-500 mt-2 block hover:underline">{card.sub}</a>
+
+                    {/* Show user list directly underneath */}
+                    {card.users && (
+                      <div className="mt-6 pt-4 border-t border-slate-100 space-y-2.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                        {card.users.length > 0 ? (
+                           card.users.map((u: any, idx: number) => (
+                             <div 
+                               key={idx} 
+                               className="group/item flex flex-col hover:bg-slate-50/80 p-2 rounded-xl transition-all duration-300"
+                             >
+                                <div className="flex items-center justify-between min-w-0">
+                                   <div className="flex items-center gap-2.5 min-w-0">
+                                      <Avatar className="h-6 w-6">
+                                         <AvatarImage src={u.avatar_url} />
+                                         <AvatarFallback className="text-[10px] font-bold bg-slate-100 text-slate-600">{u.full_name?.charAt(0)}</AvatarFallback>
+                                      </Avatar>
+                                      <span className="text-xs font-bold text-slate-700 truncate">{u.full_name}</span>
+                                   </div>
+                                   {u.checkin?.note && (
+                                     <span className="text-[9px] text-blue-600 font-black bg-blue-50 px-1.5 py-0.5 rounded-md shrink-0 border border-blue-100/50">
+                                       📝 โน้ต
+                                     </span>
+                                   )}
+                                </div>
+                                {u.checkin?.note && (
+                                  <div className="hidden group-hover/item:block mt-2 ml-8 text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-100 shadow-sm animate-in slide-in-from-top-1 duration-200">
+                                    <p className="font-bold text-[9px] text-slate-400 mb-0.5 uppercase tracking-wider">บันทึกเพิ่มเติม</p>
+                                    <p className="italic text-slate-700 font-medium">"{u.checkin.note}"</p>
+                                  </div>
+                                )}
+                             </div>
+                           ))
+                        ) : (
+                          <p className="text-[11px] text-slate-300 italic py-1">ไม่มีรายชื่อ</p>
+                        )}
+                      </div>
                     )}
                  </div>
               </CardContent>
            </Card>
          ))}
       </div>
-
-      {/* Row 2: WFH Status Grid */}
-      <Card className="rounded-[3rem] border-0 shadow-sm ring-1 ring-slate-100 bg-white overflow-hidden">
-         <CardHeader className="p-10 border-b border-slate-50 flex flex-row items-center justify-between">
-            <div>
-               <CardTitle className="text-2xl font-black text-slate-900">สถานะการเข้างานพนักงาน</CardTitle>
-               <p className="text-slate-400 font-medium text-sm">ตรวจสอบความพร้อมของทีมงานทุกคน</p>
-            </div>
-            <div className="flex gap-4">
-               <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                  <Input 
-                     placeholder="ค้นหาชื่อพนักงาน..." 
-                     className="pl-11 h-12 rounded-xl w-64 border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-medium"
-                     value={searchTerm}
-                     onChange={e => setSearchTerm(e.target.value)}
-                  />
-               </div>
-            </div>
-         </CardHeader>
-         <CardContent className="p-10">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-               {filteredUsers.map((user: any) => (
-                 <div key={user.id} className="p-6 rounded-[2rem] border border-slate-50 bg-slate-50/30 hover:bg-white hover:shadow-xl transition-all duration-500 group">
-                    <div className="relative inline-block mb-4">
-                       <Avatar className="h-16 w-16 border-4 border-white shadow-lg">
-                          <AvatarImage src={user.avatar_url} />
-                          <AvatarFallback className="bg-slate-900 text-white font-black">{user.full_name?.charAt(0)}</AvatarFallback>
-                       </Avatar>
-                       <div className={cn("absolute bottom-0 right-0 w-5 h-5 border-4 border-white rounded-full shadow-sm", getStatusColor(user.status))} />
-                    </div>
-                    <h4 
-                       className={cn(
-                          "font-black text-slate-900 truncate flex items-center gap-1",
-                          user.checkin?.location_lat && "cursor-pointer hover:text-blue-600 transition-colors"
-                       )}
-                       onClick={() => {
-                          if (user.checkin?.location_lat && user.checkin?.location_lng) {
-                             window.open(`https://www.google.com/maps?q=${user.checkin.location_lat},${user.checkin.location_lng}`, '_blank');
-                          }
-                       }}
-                    >
-                       {user.full_name}
-                       {user.checkin?.location_lat && <MapPin className="w-3 h-3 text-blue-500" />}
-                    </h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                       {user.checkin?.note ? `"${user.checkin.note}"` : (user.department?.name || 'WSA STAFF')}
-                    </p>
-                    <Badge variant="ghost" className="mt-4 rounded-full bg-white text-[10px] font-black uppercase tracking-widest text-slate-400 shadow-sm border-0">{user.label}</Badge>
-                 </div>
-               ))}
-            </div>
-         </CardContent>
-      </Card>
 
       {/* Row 3: Two Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
