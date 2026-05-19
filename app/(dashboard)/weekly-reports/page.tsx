@@ -163,7 +163,9 @@ export default function WeeklyReportsPage() {
 
   const startEditing = (report: any) => {
     setEditingReport(report.id)
-    setEditItems(report.items.map((i: any) => ({
+    // Auto-expand the card so the editor + save button are visible
+    setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
+    setEditItems((report.items || []).map((i: any) => ({
       plan: i.plan, progress: i.progress, problems: i.problems || '',
       suggestions: i.suggestions || '', file_url: i.file_url || '',
       file_name: i.file_name || '', is_completed: i.is_completed
