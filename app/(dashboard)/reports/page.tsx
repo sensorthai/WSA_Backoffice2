@@ -17,7 +17,8 @@ import {
   Palmtree,
   ShoppingBag,
   Car,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -65,11 +66,15 @@ function ReportsContent() {
   const [deptFilter, setDeptFilter] = useState("all")
   const [search, setSearch] = useState("")
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ["reports", reportType, month, deptFilter],
     queryFn: async () => {
       const res = await fetch(`/api/reports?type=${reportType}&month=${month}&department_id=${deptFilter}`)
-      return res.json()
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || "เกิดข้อผิดพลาดในการดึงข้อมูล")
+      }
+      return json
     }
   })
 
@@ -96,36 +101,64 @@ function ReportsContent() {
     }
   }
 
+  const filteredData = useMemo(() => {
+    if (!data || !Array.isArray(data)) return []
+    if (!search.trim()) return data
+    const query = search.toLowerCase()
+    return data.filter((row: any) => {
+      if (reportType === 'wfh') {
+        return row.name?.toLowerCase().includes(query)
+      }
+      if (reportType === 'leave') {
+        return row.name?.toLowerCase().includes(query)
+      }
+      if (reportType === 'purchase') {
+        return (
+          row.title?.toLowerCase().includes(query) ||
+          row.user?.full_name?.toLowerCase().includes(query) ||
+          row.user?.role?.toLowerCase().includes(query)
+        )
+      }
+      if (reportType === 'car') {
+        return (
+          row.license_plate?.toLowerCase().includes(query) ||
+          row.model?.toLowerCase().includes(query)
+        )
+      }
+      return false
+    })
+  }, [data, search, reportType])
+
   const totals = useMemo(() => {
-    if (!data || !Array.isArray(data)) return null
+    if (!filteredData || !Array.isArray(filteredData)) return null
     if (reportType === 'wfh') {
       return {
-        office: data.reduce((sum, r) => sum + r.office_days, 0),
-        home: data.reduce((sum, r) => sum + r.wfh_days, 0),
-        onsite: data.reduce((sum, r) => sum + r.onsite_days, 0),
-        absent: data.reduce((sum, r) => sum + r.absent_days, 0)
+        office: filteredData.reduce((sum, r) => sum + r.office_days, 0),
+        home: filteredData.reduce((sum, r) => sum + r.wfh_days, 0),
+        onsite: filteredData.reduce((sum, r) => sum + r.onsite_days, 0),
+        absent: filteredData.reduce((sum, r) => sum + r.absent_days, 0)
       }
     }
     if (reportType === 'leave') {
       return {
-        sick: data.reduce((sum, r) => sum + r.sick_used, 0),
-        personal: data.reduce((sum, r) => sum + r.personal_used, 0),
-        vacation: data.reduce((sum, r) => sum + r.vacation_used, 0)
+        sick: filteredData.reduce((sum, r) => sum + r.sick_used, 0),
+        personal: filteredData.reduce((sum, r) => sum + r.personal_used, 0),
+        vacation: filteredData.reduce((sum, r) => sum + r.vacation_used, 0)
       }
     }
     if (reportType === 'purchase') {
       return {
-        amount: data.reduce((sum, r) => sum + Number(r.total_amount), 0)
+        amount: filteredData.reduce((sum, r) => sum + Number(r.total_amount), 0)
       }
     }
     if (reportType === 'car') {
       return {
-        mileage: data.reduce((sum, r) => sum + r.total_mileage, 0),
-        bookings: data.reduce((sum, r) => sum + r.bookings_count, 0)
+        mileage: filteredData.reduce((sum, r) => sum + r.total_mileage, 0),
+        bookings: filteredData.reduce((sum, r) => sum + r.bookings_count, 0)
       }
     }
     return null
-  }, [data, reportType])
+  }, [filteredData, reportType])
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto pb-20 animate-in fade-in duration-700 print:p-0 print:m-0">
@@ -202,6 +235,28 @@ function ReportsContent() {
                 <Loader2 className="animate-spin text-blue-600 w-12 h-12 mx-auto" />
                 <p className="text-slate-400 font-bold">กำลังประมวลผลข้อมูล...</p>
               </div>
+            ) : error ? (
+              <div className="py-24 text-center space-y-6 max-w-md mx-auto">
+                <div className="p-6 bg-rose-50 text-rose-500 rounded-full inline-block">
+                  <AlertCircle size={48} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+                <p className="text-slate-500 font-medium">{error instanceof Error ? error.message : String(error)}</p>
+                <Button onClick={() => refetch()} variant="outline" className="rounded-xl px-6 h-11 border-slate-200">
+                  ลองใหม่อีกครั้ง
+                </Button>
+              </div>
+            ) : !Array.isArray(data) ? (
+              <div className="py-24 text-center space-y-6 max-w-md mx-auto">
+                <div className="p-6 bg-rose-50 text-rose-500 rounded-full inline-block">
+                  <AlertCircle size={48} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+                <p className="text-slate-500 font-medium">{(data as any)?.error || "ข้อมูลที่ได้รับไม่ได้อยู่ในรูปแบบที่ถูกต้อง"}</p>
+                <Button onClick={() => refetch()} variant="outline" className="rounded-xl px-6 h-11 border-slate-200">
+                  ลองใหม่อีกครั้ง
+                </Button>
+              </div>
             ) : (
             <div className="overflow-x-auto custom-scrollbar">
               <Table>
@@ -262,55 +317,63 @@ function ReportsContent() {
                   </TableHeader>
                 )}
                 <TableBody>
-                  {data?.map((row: any, idx: number) => (
-                    <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/30">
-                      {reportType === 'wfh' && (
-                        <>
-                          <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.office_days}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.wfh_days}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.onsite_days}</TableCell>
-                          <TableCell><Badge className="bg-rose-50 text-rose-600 border-0">{row.absent_days}</Badge></TableCell>
-                          <TableCell className="pr-10 text-right font-black text-slate-900">{row.total_working_days}</TableCell>
-                        </>
-                      )}
-                      {reportType === 'leave' && (
-                        <>
-                          <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>
-                          {/* Sick */}
-                          <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.sick_quota}</TableCell>
-                          <TableCell className="text-center font-bold text-amber-600">{row.sick_used}</TableCell>
-                          <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.sick_remaining}</TableCell>
-                          {/* Personal */}
-                          <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.personal_quota}</TableCell>
-                          <TableCell className="text-center font-bold text-blue-600">{row.personal_used}</TableCell>
-                          <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.personal_remaining}</TableCell>
-                          {/* Vacation */}
-                          <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.vacation_quota}</TableCell>
-                          <TableCell className="text-center font-bold text-emerald-600">{row.vacation_used}</TableCell>
-                          <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.vacation_remaining}</TableCell>
-                        </>
-                      )}
-                      {reportType === 'purchase' && (
-                        <>
-                          <TableCell className="pl-10 py-6 text-slate-400 text-xs">{row.created_at ? format(new Date(row.created_at), "dd/MM/yy") : "-"}</TableCell>
-                          <TableCell className="font-bold text-slate-900">{row.title}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.user?.full_name}</TableCell>
-                          <TableCell><Badge className="bg-slate-100 text-slate-600 border-0 uppercase text-[10px]">{row.user?.role || "N/A"}</Badge></TableCell>
-                          <TableCell className="pr-10 text-right font-black text-slate-900">{Number(row.total_amount).toLocaleString()} ฿</TableCell>
-                        </>
-                      )}
-                      {reportType === 'car' && (
-                        <>
-                          <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.license_plate}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.model}</TableCell>
-                          <TableCell className="font-medium text-slate-600">{row.bookings_count} วัน</TableCell>
-                          <TableCell className="font-bold text-slate-900">{row.total_mileage?.toLocaleString()} กม.</TableCell>
-                          <TableCell className="pr-10 text-right font-black text-blue-600">{row.utilization_rate}</TableCell>
-                        </>
-                      )}
+                  {filteredData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={12} className="text-center py-20 text-slate-400 font-bold">
+                        ไม่พบข้อมูลรายงานในระบบ
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredData.map((row: any, idx: number) => (
+                      <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/30">
+                        {reportType === 'wfh' && (
+                          <>
+                            <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.office_days}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.wfh_days}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.onsite_days}</TableCell>
+                            <TableCell><Badge className="bg-rose-50 text-rose-600 border-0">{row.absent_days}</Badge></TableCell>
+                            <TableCell className="pr-10 text-right font-black text-slate-900">{row.total_working_days}</TableCell>
+                          </>
+                        )}
+                        {reportType === 'leave' && (
+                          <>
+                            <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>
+                            {/* Sick */}
+                            <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.sick_quota}</TableCell>
+                            <TableCell className="text-center font-bold text-amber-600">{row.sick_used}</TableCell>
+                            <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.sick_remaining}</TableCell>
+                            {/* Personal */}
+                            <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.personal_quota}</TableCell>
+                            <TableCell className="text-center font-bold text-blue-600">{row.personal_used}</TableCell>
+                            <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.personal_remaining}</TableCell>
+                            {/* Vacation */}
+                            <TableCell className="text-center text-slate-400 border-l border-slate-50">{row.vacation_quota}</TableCell>
+                            <TableCell className="text-center font-bold text-emerald-600">{row.vacation_used}</TableCell>
+                            <TableCell className="text-center font-black text-slate-900 border-r border-slate-50">{row.vacation_remaining}</TableCell>
+                          </>
+                        )}
+                        {reportType === 'purchase' && (
+                          <>
+                            <TableCell className="pl-10 py-6 text-slate-400 text-xs">{row.created_at ? format(new Date(row.created_at), "dd/MM/yy") : "-"}</TableCell>
+                            <TableCell className="font-bold text-slate-900">{row.title}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.user?.full_name}</TableCell>
+                            <TableCell><Badge className="bg-slate-100 text-slate-600 border-0 uppercase text-[10px]">{row.user?.role || "N/A"}</Badge></TableCell>
+                            <TableCell className="pr-10 text-right font-black text-slate-900">{Number(row.total_amount).toLocaleString()} ฿</TableCell>
+                          </>
+                        )}
+                        {reportType === 'car' && (
+                          <>
+                            <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.license_plate}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.model}</TableCell>
+                            <TableCell className="font-medium text-slate-600">{row.bookings_count} วัน</TableCell>
+                            <TableCell className="font-bold text-slate-900">{row.total_mileage?.toLocaleString()} กม.</TableCell>
+                            <TableCell className="pr-10 text-right font-black text-blue-600">{row.utilization_rate}</TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
                 <TableFooter className="bg-slate-900 text-white font-black">
                   <TableRow>

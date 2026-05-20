@@ -155,12 +155,94 @@ export default function ApprovalsPage() {
              <>
                 <div>
                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">รายการเบิก</Label>
-                  <div className="text-2xl font-black text-slate-900">{item.title}</div>
+                  <div className="text-2xl font-black text-slate-900 flex items-center gap-2 mt-1">
+                    {item.title}
+                    {item.document_type && (
+                      <Badge className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-50/80 font-bold ml-2">
+                        {item.document_type}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-inner">
-                   <span className="text-slate-400 font-black uppercase tracking-widest text-xs">ยอดเงินรวม</span>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">หมวดหมู่</Label>
+                    <div className="font-bold text-slate-700 text-sm mt-1 bg-white p-3 rounded-xl border border-slate-100">{item.category || "อื่นๆ"}</div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ช่องทางชำระเงิน</Label>
+                    <div className="font-bold text-slate-700 text-sm mt-1 bg-white p-3 rounded-xl border border-slate-100">
+                      {item.payment_method === 'petty_cash' ? 'เงินสดสำรองจ่าย' :
+                       item.payment_method === 'credit_card' ? 'บัตรเครดิตบริษัท' :
+                       item.payment_method === 'k_biz' ? 'บัญชีธนาคาร (K-Biz)' : item.payment_method || 'เงินสดสำรองจ่าย'}
+                    </div>
+                  </div>
+                </div>
+
+                {item.purpose && (
+                  <div>
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">วัตถุประสงค์</Label>
+                    <div className="font-bold text-slate-700 mt-1 bg-white p-4 rounded-2xl border border-slate-100 text-sm leading-relaxed">{item.purpose}</div>
+                  </div>
+                )}
+
+                {/* Items Table */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">รายการสินค้าที่ขอเบิก</Label>
+                  <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                    <Table>
+                      <TableHeader className="bg-slate-50/50">
+                        <TableRow className="border-slate-100 hover:bg-transparent">
+                          <TableHead className="font-bold text-slate-500 text-xs py-3 pl-6">รายการ</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs text-center py-3">จำนวน</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs text-right py-3">ราคา/หน่วย</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs text-right py-3 pr-6">รวม</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Array.isArray(item.items) && item.items.length > 0 ? (
+                          item.items.map((prod: any, idx: number) => (
+                            <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/20">
+                              <TableCell className="font-semibold text-slate-700 py-3 pl-6">{prod.name}</TableCell>
+                              <TableCell className="text-center text-slate-600 py-3">{prod.quantity}</TableCell>
+                              <TableCell className="text-right text-slate-600 py-3">{Number(prod.unit_price || 0).toLocaleString()} ฿</TableCell>
+                              <TableCell className="text-right font-bold text-slate-900 py-3 pr-6">{Number((prod.quantity || 0) * (prod.unit_price || 0)).toLocaleString()} ฿</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-4 text-slate-400 text-sm">ไม่มีข้อมูลรายการสินค้า</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                   <span className="text-slate-400 font-black uppercase tracking-widest text-xs">ยอดเงินรวมสุทธิ</span>
                    <span className="text-3xl font-black text-blue-600">{Number(item.total_amount).toLocaleString()} ฿</span>
                 </div>
+
+                {item.receipt_url && (
+                  <div className="pt-2">
+                    <a href={item.receipt_url} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
+                        <FileText size={16} /> ดูไฟล์หลักฐานใบเสร็จรับเงิน
+                      </Button>
+                    </a>
+                  </div>
+                )}
+
+                {item.manifest_text && (
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">เอกสารคุมสั่งจ่าย (AI Voucher Manifest)</Label>
+                    <pre className="p-4 bg-slate-950 text-emerald-400 font-mono text-[11px] rounded-2xl overflow-x-auto border border-slate-900 shadow-inner max-h-[160px] scrollbar-thin leading-relaxed">
+                      {item.manifest_text}
+                    </pre>
+                  </div>
+                )}
              </>
            )}
 

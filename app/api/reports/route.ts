@@ -98,10 +98,10 @@ export async function GET(req: Request) {
   // --- Type 3: Purchase Report ---
   else if (type === 'purchase') {
     const { data: purchases } = await supabase.from('purchase_requests')
-      .select('*, user:users(full_name, role)') // Simplified join
+      .select('*, user:users!user_id(full_name, role)') // Simplified join
       .eq('status', 'approved')
       .gte('created_at', startDateStr)
-      .lte('created_at', endDateStr)
+      .lte('created_at', endDateStr + 'T23:59:59.999Z')
 
     data = purchases || []
     csvHeaders = ['Date', 'Title', 'Requester', 'Amount', 'Category']
@@ -124,7 +124,7 @@ export async function GET(req: Request) {
       .select('*')
       .eq('status', 'approved') // Only count approved utilization
       .gte('start_datetime', startDateStr)
-      .lte('start_datetime', endDateStr)
+      .lte('start_datetime', endDateStr + 'T23:59:59.999Z')
 
     const totalDays = eachDayOfInterval({ start, end }).length
 

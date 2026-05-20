@@ -8,6 +8,7 @@ import { DepartmentsTable } from "@/components/admin/DepartmentsTable"
 import { PositionsTable } from "@/components/admin/PositionsTable"
 import { CarsTable } from "@/components/admin/CarsTable"
 import { SystemSettings } from "@/components/admin/SystemSettings"
+import { GoogleApiCredits } from "@/components/admin/GoogleApiCredits"
 import { Settings2 } from "lucide-react"
 
 export default function AdminPage() {
@@ -29,6 +30,7 @@ function AdminContent() {
       case "positions": return <PositionsTable />
       case "cars": return <CarsTable />
       case "settings": return <SystemSettings />
+      case "google-api": return <GoogleApiCredits />
       default: return <UsersTable />
     }
   }
@@ -50,7 +52,8 @@ function AdminContent() {
             {activeTab === 'positions' && "จัดการตำแหน่งงานและกำหนดวงเงินการอนุมัติ"}
             {activeTab === 'cars' && "จัดการข้อมูลรถยนต์ส่วนกลางและสถานะการใช้งาน"}
             {activeTab === 'settings' && "ตั้งค่าพารามิเตอร์พื้นฐานของระบบ เช่น ช่วงเวลาการเช็คอิน"}
-            {!['users', 'departments', 'positions', 'cars', 'settings'].includes(activeTab) && "บริหารจัดการโครงสร้างองค์กร ข้อมูลพนักงาน และทรัพยากรส่วนกลาง"}
+            {activeTab === 'google-api' && "ตรวจสอบปริมาณการใช้งาน Google API และเครดิตคงเหลือ"}
+            {!['users', 'departments', 'positions', 'cars', 'settings', 'google-api'].includes(activeTab) && "บริหารจัดการโครงสร้างองค์กร ข้อมูลพนักงาน และทรัพยากรส่วนกลาง"}
           </p>
         </div>
         

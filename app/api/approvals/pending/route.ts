@@ -15,7 +15,7 @@ export async function GET(_req: Request) {
   // 1. Fetch Leaves
   let leaveQuery = supabase
     .from('leave_requests')
-    .select('id, user_id, leave_type, start_date, end_date, days_count, status, created_at, user:users!inner(full_name, avatar_url)')
+    .select('id, user_id, leave_type, start_date, end_date, days_count, status, created_at, user:users!user_id!inner(full_name, avatar_url)')
   
   if (userRole === 'supervisor') {
     leaveQuery = leaveQuery.eq('supervisor_id', session.user.id).eq('status', 'pending')
@@ -30,7 +30,7 @@ export async function GET(_req: Request) {
   // 2. Fetch Purchases
   let purchaseQuery = supabase
     .from('purchase_requests')
-    .select('id, user_id, title, total_amount, status, created_at, user:users!inner(full_name, avatar_url)')
+    .select('id, user_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, user:users!user_id!inner(full_name, avatar_url)')
   
   if (userRole === 'supervisor') {
     purchaseQuery = purchaseQuery.eq('supervisor_id', session.user.id).eq('status', 'pending')
@@ -45,7 +45,7 @@ export async function GET(_req: Request) {
   // 3. Fetch Car Bookings
   let carQuery = supabase
     .from('car_bookings')
-    .select('id, user_id, destination, start_datetime, end_datetime, status, created_at, user:users!inner(full_name, avatar_url)')
+    .select('id, user_id, destination, start_datetime, end_datetime, status, created_at, user:users!user_id!inner(full_name, avatar_url)')
   
   if (userRole === 'supervisor') {
     carQuery = carQuery.eq('supervisor_id', session.user.id).eq('status', 'pending')

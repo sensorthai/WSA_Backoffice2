@@ -29,11 +29,11 @@ export async function GET() {
   ] = await Promise.all([
     supabase.from('users').select('id, full_name, avatar_url, role, is_active, department:departments(name)').eq('is_active', true),
     supabase.from('wfh_checkins').select('*, user:users(full_name, avatar_url, department:departments(name))').eq('check_date', today),
-    supabase.from('leave_requests').select('*, user:users(full_name, avatar_url)').or('status.eq.pending,status.eq.supervisor_approved'),
-    supabase.from('purchase_requests').select('*, user:users(full_name, avatar_url)').or('status.eq.pending,status.eq.supervisor_approved'),
-    supabase.from('car_bookings').select('*, user:users(full_name, avatar_url), company_cars(license_plate)').eq('status', 'pending'),
-    supabase.from('purchase_requests').select('*, user:users(full_name, avatar_url)').gte('created_at', today),
-    supabase.from('car_bookings').select('*, company_cars(*), user:users(full_name, avatar_url)').gte('start_datetime', today).lte('start_datetime', today + 'T23:59:59'),
+    supabase.from('leave_requests').select('*, user:users!user_id(full_name, avatar_url)').or('status.eq.pending,status.eq.supervisor_approved'),
+    supabase.from('purchase_requests').select('*, user:users!user_id(full_name, avatar_url)').or('status.eq.pending,status.eq.supervisor_approved'),
+    supabase.from('car_bookings').select('*, user:users!user_id(full_name, avatar_url), company_cars(license_plate)').eq('status', 'pending'),
+    supabase.from('purchase_requests').select('*, user:users!user_id(full_name, avatar_url)').gte('created_at', today),
+    supabase.from('car_bookings').select('*, company_cars(*), user:users!user_id(full_name, avatar_url)').gte('start_datetime', today).lte('start_datetime', today + 'T23:59:59'),
     supabase.from('company_cars').select('*').eq('is_available', true)
   ])
 

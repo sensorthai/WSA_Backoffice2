@@ -206,6 +206,15 @@ export default function LeaveDetailPage({ params }: { params: { id: string } }) 
                 </div>
                 <div className="space-y-2">
                   <div className="font-black text-slate-900 text-sm">หัวหน้างาน (Supervisor)</div>
+                  {leave.supervisor?.full_name ? (
+                    <div className="text-xs font-bold text-slate-600">
+                      {leave.supervisor.full_name}
+                    </div>
+                  ) : (
+                    <div className="text-xs font-medium text-slate-400 italic">
+                      ไม่มีหัวหน้างาน
+                    </div>
+                  )}
                   {leave.supervisor_approved_at ? (
                     <div className="text-[10px] font-bold text-emerald-600 uppercase">อนุมัติเมื่อ {format(new Date(leave.supervisor_approved_at), "d MMM HH:mm", { locale: th })}</div>
                   ) : (
@@ -245,7 +254,7 @@ export default function LeaveDetailPage({ params }: { params: { id: string } }) 
           </Card>
 
           {/* Requester Info */}
-          <Card className="rounded-[2.5rem] border-0 shadow-sm ring-1 ring-slate-100 p-8 bg-slate-900 text-white">
+          <Card className="rounded-[2.5rem] border-0 shadow-sm ring-1 ring-slate-100 p-8 bg-slate-900 text-white space-y-4">
              <div className="flex items-center gap-4">
                 <Avatar className="w-12 h-12 border-2 border-white/20">
                    <AvatarFallback className="bg-blue-600 text-white font-black">{leave.users?.full_name?.charAt(0)}</AvatarFallback>
@@ -255,6 +264,15 @@ export default function LeaveDetailPage({ params }: { params: { id: string } }) 
                    <div className="font-bold">{leave.users?.full_name}</div>
                 </div>
              </div>
+             {leave.supervisor?.full_name && (
+                <div className="pt-3 border-t border-white/10 flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-black text-blue-300">SV</div>
+                   <div>
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">หัวหน้างาน</div>
+                      <div className="text-xs font-bold text-slate-200">{leave.supervisor.full_name}</div>
+                   </div>
+                </div>
+             )}
           </Card>
         </div>
       </div>

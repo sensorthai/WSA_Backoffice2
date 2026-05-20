@@ -34,6 +34,8 @@ export function CarsTable() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCar, setEditingCar] = useState<any>(null)
+  const [isUploadingInsurance, setIsUploadingInsurance] = useState(false)
+  const [isUploadingCtp, setIsUploadingCtp] = useState(false)
 
   const { data: cars, isLoading } = useQuery({
     queryKey: ["admin-cars"],
@@ -76,21 +78,23 @@ export function CarsTable() {
   })
 
   const uploadFile = async (file: File) => {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
-    const filePath = `cars/${fileName}`
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folder", "cars")
+    formData.append("bucket", "car-documents")
 
-    const { error } = await supabase.storage
-      .from('car-documents')
-      .upload(filePath, file)
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-    if (error) throw error
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || "Failed to upload file")
+    }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('car-documents')
-      .getPublicUrl(filePath)
-
-    return publicUrl
+    const data = await res.json()
+    return data.url
   }
 
   const mutation = useMutation({
@@ -151,7 +155,12 @@ export function CarsTable() {
   function onSubmit(values: z.infer<typeof carSchema>) {
     const data = {
       ...values,
-      caretaker_id: values.caretaker_id === "none" ? null : values.caretaker_id
+      caretaker_id: !values.caretaker_id || values.caretaker_id === "none" ? null : values.caretaker_id,
+      tax_renewal_date: values.tax_renewal_date || null,
+      insurance_expiry_date: values.insurance_expiry_date || null,
+      ctp_expiry_date: values.ctp_expiry_date || null,
+      insurance_file_url: values.insurance_file_url || null,
+      ctp_file_url: values.ctp_file_url || null,
     }
     mutation.mutate(data)
   }
@@ -290,15 +299,27 @@ export function CarsTable() {
                       <Input 
                         type="file" 
                         accept=".pdf,image/*" 
+                        disabled={isUploadingInsurance}
                         onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (file) {
-                            const url = await uploadFile(file)
-                            form.setValue("insurance_file_url", url)
+                            setIsUploadingInsurance(true)
+                            try {
+                              const url = await uploadFile(file)
+                              form.setValue("insurance_file_url", url)
+                            } catch (err: any) {
+                              console.error(err)
+                              alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์ประกัน: ${err.message}`)
+                            } finally {
+                              setIsUploadingInsurance(false)
+                            }
                           }
                         }} 
                       />
-                      {form.watch("insurance_file_url") && (
+                      {isUploadingInsurance && (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      )}
+                      {form.watch("insurance_file_url") && !isUploadingInsurance && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">อัปโหลดแล้ว</Badge>
                       )}
                     </div>
@@ -309,15 +330,27 @@ export function CarsTable() {
                       <Input 
                         type="file" 
                         accept=".pdf,image/*" 
+                        disabled={isUploadingCtp}
                         onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (file) {
-                            const url = await uploadFile(file)
-                            form.setValue("ctp_file_url", url)
+                            setIsUploadingCtp(true)
+                            try {
+                              const url = await uploadFile(file)
+                              form.setValue("ctp_file_url", url)
+                            } catch (err: any) {
+                              console.error(err)
+                              alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์ พรบ: ${err.message}`)
+                            } finally {
+                              setIsUploadingCtp(false)
+                            }
                           }
                         }} 
                       />
-                      {form.watch("ctp_file_url") && (
+                      {isUploadingCtp && (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      )}
+                      {form.watch("ctp_file_url") && !isUploadingCtp && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">อัปโหลดแล้ว</Badge>
                       )}
                     </div>
@@ -338,9 +371,9 @@ export function CarsTable() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={mutation.isPending}>
-                  {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingCar ? 'บันทึกการแก้ไข' : 'เพิ่มรถเข้าระบบ'}
+                <Button type="submit" className="w-full" disabled={mutation.isPending || isUploadingInsurance || isUploadingCtp}>
+                  {(mutation.isPending || isUploadingInsurance || isUploadingCtp) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isUploadingInsurance || isUploadingCtp ? 'กำลังอัปโหลดไฟล์...' : (editingCar ? 'บันทึกการแก้ไข' : 'เพิ่มรถเข้าระบบ')}
                 </Button>
               </form>
             </Form>

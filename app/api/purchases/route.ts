@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { title, category, items, purpose, receipt_url, payment_method } = await req.json()
+    const { title, category, items, purpose, receipt_url, payment_method, document_type, manifest_text } = await req.json()
 
     if (!title || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "กรุณาระบุชื่อเรื่องและรายการสินค้า" }, { status: 400 })
@@ -67,7 +67,9 @@ export async function POST(req: Request) {
         receipt_url,
         payment_method: payment_method || 'petty_cash',
         supervisor_id: user.supervisor_id,
-        status: 'pending'
+        status: 'pending',
+        document_type: document_type || null,
+        manifest_text: manifest_text || null
       })
       .select()
       .single()

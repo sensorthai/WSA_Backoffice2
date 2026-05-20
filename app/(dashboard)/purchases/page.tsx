@@ -21,7 +21,11 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
-  Printer
+  Printer,
+  FileText,
+  Copy,
+  Check,
+  Download
 } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -66,6 +70,7 @@ export default function PurchasesPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null)
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // --- Form State ---
   const [purchaseForm, setPurchaseForm] = useState({
@@ -75,8 +80,13 @@ export default function PurchasesPage() {
     items: [{ name: "", quantity: 1, unit_price: 0 }],
     file: null as File | null,
     receipt_url: "",
-    payment_method: "petty_cash"
+    payment_method: "petty_cash",
+    document_type: "" as string | null,
+    manifest_text: ""
   })
+
+  const [isScanning, setIsScanning] = useState(false)
+  const [scanStatus, setScanStatus] = useState("")
 
   // --- Queries ---
   const { data: myPurchases, isLoading: isMyLoading } = useQuery({
@@ -108,7 +118,9 @@ export default function PurchasesPage() {
           category: payload.category,
           purpose: payload.purpose,
           items: payload.items,
-          payment_method: payload.payment_method
+          payment_method: payload.payment_method,
+          document_type: payload.document_type,
+          manifest_text: payload.manifest_text
         }),
         headers: { "Content-Type": "application/json" }
       })
@@ -162,14 +174,119 @@ export default function PurchasesPage() {
       items: [{ name: "", quantity: 1, unit_price: 0 }],
       file: null,
       receipt_url: "",
-      payment_method: "petty_cash"
+      payment_method: "petty_cash",
+      document_type: "",
+      manifest_text: ""
     })
     setCurrentStep(1)
+    setIsScanning(false)
+    setScanStatus("")
   }
 
   const totalAmount = useMemo(() => {
     return purchaseForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }, [purchaseForm.items])
+
+  const generateManifestText = (form: any, total: number) => {
+    const todayStr = format(new Date(), "d MMMM yyyy HH:mm", { locale: th })
+    const employeeName = session?.user?.name || "พนักงาน"
+    const deptName = (session?.user as any)?.department || "สำนักงานใหญ่"
+    const itemsList = form.items.map((item: any, idx: number) => {
+      const lineTotal = (item.quantity * item.unit_price).toLocaleString('th-TH')
+      return `  ${idx + 1}. [x${item.quantity}] ${item.name} - ${lineTotal} ฿`
+    }).join("\n")
+
+    return `==================================================
+        ใบเบิกเงินจ่าย / เอกสารขออนุมัติเบิกเงินจ่าย (AI Generated)
+==================================================
+วันที่จัดทำเอกสาร: ${todayStr}
+ผู้ขอเบิกเงิน: ${employeeName}
+แผนก/ฝ่าย: ${deptName}
+
+--------------------------------------------------
+ข้อมูลการวิเคราะห์ประเภทเอกสารโดย AI:
+--------------------------------------------------
+ชนิดของเอกสาร: ${form.document_type || "ไม่ระบุ"}
+ร้านค้า/ผู้ให้บริการ: ${form.vendor || "ไม่ระบุ"}
+วิธีการชำระเงินต้นทาง: ${getPaymentMethodLabel(form.payment_method)}
+ประเภทบัญชีค่าใช้จ่าย: ${form.category}
+
+--------------------------------------------------
+รายการสินค้า / บริการที่ระบุตามใบเสร็จ:
+--------------------------------------------------
+${itemsList}
+
+ยอดเงินรวมทั้งสิ้น: ${total.toLocaleString('th-TH')} บาท
+
+--------------------------------------------------
+วัตถุประสงค์ในการเบิกจ่าย:
+${form.purpose || "-"}
+
+--------------------------------------------------
+ลงนามผู้ตรวจสอบและรับรองเอกสาร:
+
+ลงชื่อ................................................ (ผู้ขอเบิก)
+    ( ${employeeName} )
+
+ลงชื่อ................................................ (หัวหน้างานผู้อนุมัติ)
+ลงชื่อ................................................ (CEO ผู้อนุมัติขั้นสูงสุด)
+==================================================`
+  }
+
+  const handleAIAnalyze = async (file: File) => {
+    setIsScanning(true)
+    setScanStatus("กำลังอัปโหลดและเชื่อมต่อระบบ AI...")
+    
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const timer1 = setTimeout(() => setScanStatus("กำลังวิเคราะห์ความคมชัดและประเภทเอกสารด้วย AI..."), 800)
+      const timer2 = setTimeout(() => setScanStatus("กำลังประมวลผลข้อความและยอดรวมรายการสินค้า..."), 1600)
+
+      const res = await fetch("/api/purchases/analyze", {
+        method: "POST",
+        body: formData
+      })
+
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+
+      if (!res.ok) throw new Error("AI analysis failed")
+      const data = await res.json()
+
+      const updatedForm = {
+        ...purchaseForm,
+        title: data.title || "ซื้อของ",
+        category: data.category || "อื่นๆ",
+        payment_method: data.paymentMethod || "petty_cash",
+        purpose: data.purpose || "",
+        items: data.items && data.items.length > 0 ? data.items : [{ name: "", quantity: 1, unit_price: 0 }],
+        document_type: data.documentType || "ใบเสร็จรับเงิน",
+        file,
+        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
+      }
+
+      // Calculate total for manifest
+      const total = updatedForm.items.reduce((sum: number, item: any) => sum + (item.quantity * item.unit_price), 0)
+      updatedForm.manifest_text = generateManifestText(updatedForm, total)
+
+      setPurchaseForm(updatedForm)
+      setIsScanning(false)
+      setCurrentStep(2) // Go directly to review step!
+    } catch (err) {
+      console.error(err)
+      setIsScanning(false)
+      // fallback
+      setPurchaseForm({
+        ...purchaseForm,
+        file,
+        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
+      })
+      alert("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
+      setCurrentStep(2)
+    }
+  }
 
   const addItem = () => {
     setPurchaseForm({
@@ -187,7 +304,13 @@ export default function PurchasesPage() {
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...purchaseForm.items]
     newItems[index] = { ...newItems[index], [field]: value }
-    setPurchaseForm({ ...purchaseForm, items: newItems })
+    
+    // Update manifest if items changed
+    const newForm = { ...purchaseForm, items: newItems }
+    const total = newItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+    newForm.manifest_text = generateManifestText(newForm, total)
+
+    setPurchaseForm(newForm)
   }
 
   const getStatusBadge = (status: string) => {
@@ -256,171 +379,257 @@ export default function PurchasesPage() {
 
                  <div className="p-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     {currentStep === 1 && (
-                      <div className="space-y-6 animate-in slide-in-from-right-4">
-                         <div className="space-y-2">
-                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อรายการเบิก</Label>
-                            <Input 
-                               placeholder="เช่น ค่าเดินทางไปพบลูกค้า, ค่าวัสดุอุปกรณ์..."
-                               className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
-                               value={purchaseForm.title}
-                               onChange={(e) => setPurchaseForm({...purchaseForm, title: e.target.value})}
-                            />
-                         </div>
-                         <div className="space-y-2">
-                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการเบิก</Label>
-                            <Select 
-                              value={purchaseForm.category} 
-                              onValueChange={(val) => setPurchaseForm({...purchaseForm, category: val})}
-                            >
-                               <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
-                                  <SelectValue placeholder="เลือกประเภทการเบิก" />
-                               </SelectTrigger>
-                               <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
-                                  <SelectItem value="ค่าเดินทาง" className="font-bold py-3">ค่าเดินทาง (Travel)</SelectItem>
-                                  <SelectItem value="ค่าอาหาร/รับรองลูกค้า" className="font-bold py-3">ค่าอาหาร/รับรองลูกค้า (Meals & ENT)</SelectItem>
-                                  <SelectItem value="อุปกรณ์สำนักงาน" className="font-bold py-3">อุปกรณ์สำนักงาน (Office Supplies)</SelectItem>
-                                  <SelectItem value="ค่าซ่อมบำรุง" className="font-bold py-3">ค่าซ่อมบำรุง (Maintenance)</SelectItem>
-                                  <SelectItem value="ค่าอินเทอร์เน็ต/โทรศัพท์" className="font-bold py-3">ค่าอินเทอร์เน็ต/โทรศัพท์ (Utilities)</SelectItem>
-                                  <SelectItem value="อื่นๆ" className="font-bold py-3">อื่นๆ (Other)</SelectItem>
-                               </SelectContent>
-                            </Select>
-                         </div>
-                         <div className="space-y-2">
-                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน</Label>
-                            <Select 
-                              value={purchaseForm.payment_method} 
-                              onValueChange={(val) => setPurchaseForm({...purchaseForm, payment_method: val})}
-                            >
-                               <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
-                                  <SelectValue placeholder="เลือกวิธีการจ่ายเงิน" />
-                               </SelectTrigger>
-                               <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
-                                  <SelectItem value="petty_cash" className="font-bold py-3">เงินสดย่อย (Petty Cash)</SelectItem>
-                                  <SelectItem value="credit_card" className="font-bold py-3">ตัดบัตรเครดิต (Credit Card)</SelectItem>
-                                  <SelectItem value="k_biz" className="font-bold py-3">K BIZ (โอนเงินเกิน 2,000 บาท)</SelectItem>
-                               </SelectContent>
-                            </Select>
-                         </div>
-                         <div className="space-y-2">
-                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">จุดประสงค์ / รายละเอียดเพิ่มเติม</Label>
-                            <Textarea 
-                               placeholder="ระบุวัตถุประสงค์ในการเบิกจ่าย..."
-                               className="min-h-[120px] rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 p-4 font-medium"
-                               value={purchaseForm.purpose}
-                               onChange={(e) => setPurchaseForm({...purchaseForm, purpose: e.target.value})}
-                            />
-                         </div>
-                      </div>
+                      isScanning ? (
+                        <div className="flex flex-col items-center justify-center min-h-[350px] p-8 text-center bg-slate-900 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                           {/* Laser scan beam */}
+                           <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent animate-pulse" style={{ top: '30%', animation: 'scan 2s infinite ease-in-out' }} />
+                           <style jsx global>{`
+                             @keyframes scan {
+                               0% { top: 10%; }
+                               50% { top: 90%; }
+                               100% { top: 10%; }
+                             }
+                           `}</style>
+                           <div className="relative z-10 space-y-6 flex flex-col items-center">
+                              <div className="relative">
+                                 <div className="p-8 bg-blue-600 rounded-[2.5rem] shadow-2xl shadow-blue-600/40 animate-bounce">
+                                    <Receipt size={48} className="text-white" />
+                                 </div>
+                                 <div className="absolute -inset-2 rounded-[3rem] border-4 border-dashed border-blue-500/50 animate-spin duration-10000" />
+                              </div>
+                              <div>
+                                 <h3 className="text-2xl font-black tracking-tight">AI กำลังวิเคราะห์เอกสารเบิกจ่าย</h3>
+                                 <p className="text-blue-400 font-bold mt-2 animate-pulse">{scanStatus}</p>
+                              </div>
+                              <div className="flex items-center gap-2 px-6 py-3 bg-white/10 rounded-full backdrop-blur-sm">
+                                 <Loader2 className="animate-spin text-blue-400" size={16} />
+                                 <span className="text-xs font-bold text-slate-300">กรุณารอสักครู่...</span>
+                              </div>
+                           </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6 animate-in slide-in-from-right-4">
+                           <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-8 text-center space-y-4">
+                              <h2 className="text-xl font-black text-slate-900">อัปโหลดใบเสร็จเพื่อใช้ AI ช่วยกรอกข้อมูล</h2>
+                              <p className="text-slate-500 font-medium text-sm">ระบบรองรับไฟล์ PDF, JPEG, PNG หรือถ่ายรูปจากกล้องมือถือได้ทันที</p>
+                           </div>
+                           <div 
+                             className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-8 text-center hover:border-blue-200 hover:bg-blue-50/30 transition-all group cursor-pointer relative min-h-[250px] flex flex-col items-center justify-center"
+                             onClick={() => document.getElementById('receipt-upload')?.click()}
+                           >
+                              <input 
+                                id="receipt-upload" 
+                                type="file" 
+                                accept="image/*,application/pdf"
+                                capture="environment"
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  if (file) {
+                                    handleAIAnalyze(file)
+                                  }
+                                }} 
+                              />
+                              <div className="flex flex-col items-center">
+                                 <div className="p-6 bg-slate-100 text-slate-400 rounded-[2rem] mb-4 group-hover:bg-blue-100 group-hover:text-blue-600 transition-all">
+                                    <UploadCloud size={48} />
+                                 </div>
+                                 <h3 className="text-lg font-black text-slate-900">คลิกที่นี่เพื่อเลือกไฟล์ หรือ ถ่ายภาพ</h3>
+                                 <p className="text-slate-400 text-sm mt-1">หากเข้าใช้งานผ่านมือถือจะเปิดกล้องออโต้</p>
+                              </div>
+                           </div>
+                           <div className="text-center pt-4">
+                              <Button variant="outline" className="rounded-2xl h-14 px-8 font-bold text-slate-600 border-slate-200 w-full hover:bg-slate-50" onClick={() => setCurrentStep(2)}>
+                                 หรือกรอกข้อมูลด้วยตนเองแบบแมนนวล (Manual)
+                              </Button>
+                           </div>
+                        </div>
+                      )
                     )}
 
                     {currentStep === 2 && (
-                      <div className="space-y-6 animate-in slide-in-from-right-4">
-                         <div className="flex items-center justify-between">
-                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest">รายการสินค้า/บริการ</Label>
-                            <Button variant="ghost" size="sm" onClick={addItem} className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl">
-                               <Plus className="w-4 h-4 mr-1" /> เพิ่มรายการ
-                            </Button>
+                      <div className="space-y-8 animate-in slide-in-from-right-4">
+                         {purchaseForm.document_type && (
+                           <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <div className="p-3 bg-blue-500 rounded-2xl text-white">
+                                    <CheckCircle2 size={20} />
+                                 </div>
+                                 <div>
+                                    <div className="text-xs font-black text-blue-500 uppercase tracking-wider">วิเคราะห์ด้วยระบบ AI สำเร็จ</div>
+                                    <div className="text-sm font-black text-slate-900">ประเภทเอกสาร: {purchaseForm.document_type}</div>
+                                 </div>
+                              </div>
+                              <Badge className="bg-blue-500 text-white font-bold px-3 py-1">วิเคราะห์โดย AI</Badge>
+                           </div>
+                         )}
+                         
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อรายการเบิก</Label>
+                               <Input 
+                                  placeholder="เช่น ค่าเดินทางไปพบลูกค้า, ค่าวัสดุอุปกรณ์..."
+                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                  value={purchaseForm.title}
+                                  onChange={(e) => {
+                                     const newForm = { ...purchaseForm, title: e.target.value }
+                                     const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                     newForm.manifest_text = generateManifestText(newForm, total)
+                                     setPurchaseForm(newForm)
+                                  }}
+                               />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการเบิก</Label>
+                               <Select 
+                                 value={purchaseForm.category} 
+                                 onValueChange={(val) => {
+                                    const newForm = { ...purchaseForm, category: val }
+                                    const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                    newForm.manifest_text = generateManifestText(newForm, total)
+                                    setPurchaseForm(newForm)
+                                 }}
+                               >
+                                  <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
+                                     <SelectValue placeholder="เลือกประเภทการเบิก" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                     <SelectItem value="ค่าเดินทาง" className="font-bold py-3">ค่าเดินทาง (Travel)</SelectItem>
+                                     <SelectItem value="ค่าอาหาร/รับรองลูกค้า" className="font-bold py-3">ค่าอาหาร/รับรองลูกค้า (Meals & ENT)</SelectItem>
+                                     <SelectItem value="อุปกรณ์สำนักงาน" className="font-bold py-3">อุปกรณ์สำนักงาน (Office Supplies)</SelectItem>
+                                     <SelectItem value="ค่าซ่อมบำรุง" className="font-bold py-3">ค่าซ่อมบำรุง (Maintenance)</SelectItem>
+                                     <SelectItem value="ค่าอินเทอร์เน็ต/โทรศัพท์" className="font-bold py-3">ค่าอินเทอร์เน็ต/โทรศัพท์ (Utilities)</SelectItem>
+                                     <SelectItem value="อื่นๆ" className="font-bold py-3">อื่นๆ (Other)</SelectItem>
+                                  </SelectContent>
+                               </Select>
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน</Label>
+                               <Select 
+                                 value={purchaseForm.payment_method} 
+                                 onValueChange={(val) => {
+                                    const newForm = { ...purchaseForm, payment_method: val }
+                                    const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                    newForm.manifest_text = generateManifestText(newForm, total)
+                                    setPurchaseForm(newForm)
+                                 }}
+                               >
+                                  <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
+                                     <SelectValue placeholder="เลือกวิธีการจ่ายเงิน" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                     <SelectItem value="petty_cash" className="font-bold py-3">เงินสดย่อย (Petty Cash)</SelectItem>
+                                     <SelectItem value="credit_card" className="font-bold py-3">ตัดบัตรเครดิต (Credit Card)</SelectItem>
+                                     <SelectItem value="k_biz" className="font-bold py-3">K BIZ (โอนเงินเกิน 2,000 บาท)</SelectItem>
+                                  </SelectContent>
+                               </Select>
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">จุดประสงค์ / รายละเอียดเพิ่มเติม</Label>
+                               <Input 
+                                  placeholder="ระบุวัตถุประสงค์ในการเบิกจ่าย..."
+                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                  value={purchaseForm.purpose}
+                                  onChange={(e) => {
+                                     const newForm = { ...purchaseForm, purpose: e.target.value }
+                                     const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                     newForm.manifest_text = generateManifestText(newForm, total)
+                                     setPurchaseForm(newForm)
+                                  }}
+                               />
+                            </div>
                          </div>
-                         <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-                            {purchaseForm.items.map((item, idx) => (
-                               <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 group relative">
-                                  <div className="md:col-span-6 space-y-2">
-                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">รายการ</Label>
-                                     <Input 
-                                        placeholder="รายการ" 
-                                        className="h-12 rounded-xl border-slate-100 bg-white"
-                                        value={item.name}
-                                        onChange={(e) => updateItem(idx, 'name', e.target.value)}
-                                     />
+
+                         <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest">รายการสินค้า/บริการ</Label>
+                               <Button variant="ghost" size="sm" onClick={addItem} className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl">
+                                  <Plus className="w-4 h-4 mr-1" /> เพิ่มรายการ
+                               </Button>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                               {purchaseForm.items.map((item, idx) => (
+                                  <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-slate-50/50 p-4 rounded-[1.5rem] border border-slate-100 group relative">
+                                     <div className="md:col-span-6 space-y-2">
+                                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">รายการ</Label>
+                                        <Input 
+                                           placeholder="รายการ" 
+                                           className="h-11 rounded-xl border-slate-100 bg-white"
+                                           value={item.name}
+                                           onChange={(e) => updateItem(idx, 'name', e.target.value)}
+                                        />
+                                     </div>
+                                     <div className="md:col-span-2 space-y-2">
+                                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">จำนวน</Label>
+                                        <Input 
+                                           type="number" 
+                                           placeholder="จำนวน" 
+                                           className="h-11 rounded-xl border-slate-100 bg-white"
+                                           value={item.quantity}
+                                           onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
+                                        />
+                                     </div>
+                                     <div className="md:col-span-3 space-y-2">
+                                        <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">ราคา/หน่วย</Label>
+                                        <Input 
+                                           type="number" 
+                                           placeholder="ราคา/หน่วย" 
+                                           className="h-11 rounded-xl border-slate-100 bg-white text-right"
+                                           value={item.unit_price}
+                                           onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                        />
+                                     </div>
+                                     <div className="md:col-span-1 flex justify-end">
+                                       {purchaseForm.items.length > 1 && (
+                                         <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-rose-500 rounded-xl h-11 w-11">
+                                            <Trash2 size={16} />
+                                         </Button>
+                                       )}
+                                     </div>
                                   </div>
-                                  <div className="md:col-span-2 space-y-2">
-                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">จำนวน</Label>
-                                     <Input 
-                                        type="number" 
-                                        placeholder="จำนวน" 
-                                        className="h-12 rounded-xl border-slate-100 bg-white"
-                                        value={item.quantity}
-                                        onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
-                                     />
-                                  </div>
-                                  <div className="md:col-span-3 space-y-2">
-                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">ราคา/หน่วย</Label>
-                                     <Input 
-                                        type="number" 
-                                        placeholder="ราคา/หน่วย" 
-                                        className="h-12 rounded-xl border-slate-100 bg-white text-right"
-                                        value={item.unit_price}
-                                        onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                                     />
-                                  </div>
-                                  <div className="md:col-span-1 flex justify-end">
-                                    {purchaseForm.items.length > 1 && (
-                                      <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-rose-500 rounded-xl h-12 w-12">
-                                         <Trash2 size={18} />
-                                      </Button>
-                                    )}
-                                  </div>
-                               </div>
-                            ))}
-                         </div>
-                         <div className="flex justify-between items-center p-6 bg-slate-900 rounded-3xl text-white">
-                            <span className="font-bold text-slate-400">ยอดรวมทั้งสิ้น</span>
-                            <span className="text-2xl font-black">{totalAmount.toLocaleString('th-TH')} ฿</span>
+                               ))}
+                            </div>
+                            <div className="flex justify-between items-center p-6 bg-slate-900 rounded-3xl text-white">
+                               <span className="font-bold text-slate-400">ยอดรวมทั้งสิ้น</span>
+                               <span className="text-2xl font-black">{totalAmount.toLocaleString('th-TH')} ฿</span>
+                            </div>
                          </div>
                       </div>
                     )}
 
                     {currentStep === 3 && (
                       <div className="space-y-6 animate-in slide-in-from-right-4">
-                         <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">แนบไฟล์ใบเสร็จ หรือ ถ่ายภาพ</Label>
-                         <div 
-                           className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-6 text-center hover:border-blue-200 hover:bg-blue-50/30 transition-all group cursor-pointer relative min-h-[300px] flex flex-col items-center justify-center"
-                           onClick={() => document.getElementById('receipt-upload')?.click()}
-                         >
-                            <input 
-                              id="receipt-upload" 
-                              type="file" 
-                              accept="image/*,application/pdf"
-                              capture="environment"
-                              className="hidden" 
-                              onChange={(e) => {
-                                const file = e.target.files?.[0] || null;
-                                if (file) {
-                                  setPurchaseForm({
-                                    ...purchaseForm, 
-                                    file, 
-                                    receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
-                                  })
-                                }
-                              }} 
+                         <div className="bg-slate-50 border border-slate-100 rounded-3xl p-6">
+                            <h3 className="text-lg font-black text-slate-900">สรุปไฟล์ข้อความส่งขออนุมัติ (Manifest Text File)</h3>
+                            <p className="text-slate-500 font-medium text-sm mt-1">ไฟล์ข้อความนี้จะแนบไปกับใบเสร็จในฐานข้อมูลเพื่อส่งให้ผู้อนุมัติตรวจสอบได้สะดวกรวดเร็ว</p>
+                         </div>
+                         
+                         <div className="space-y-2">
+                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">เนื้อหาไฟล์ข้อความ (แก้ไขปรับแต่งได้)</Label>
+                            <Textarea 
+                               className="min-h-[300px] rounded-3xl bg-slate-950 text-slate-100 font-mono text-xs p-6 focus:ring-blue-600/20 leading-relaxed border-0 shadow-inner"
+                               value={purchaseForm.manifest_text}
+                               onChange={(e) => setPurchaseForm({ ...purchaseForm, manifest_text: e.target.value })}
                             />
-                            {purchaseForm.file ? (
-                              <div className="flex flex-col items-center w-full">
-                                 {purchaseForm.receipt_url ? (
-                                   <div className="relative w-full max-w-[200px] aspect-square rounded-3xl overflow-hidden border-4 border-white shadow-xl mb-4">
-                                      <img src={purchaseForm.receipt_url} className="w-full h-full object-cover" alt="Preview" />
-                                   </div>
-                                 ) : (
-                                   <div className="p-4 bg-emerald-100 text-emerald-600 rounded-2xl mb-4">
-                                      <CheckCircle2 size={32} />
-                                   </div>
-                                 )}
-                                 <p className="font-bold text-slate-900 truncate max-w-[200px]">{purchaseForm.file.name}</p>
-                                 <p className="text-slate-400 text-xs mt-1">{(purchaseForm.file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                 <Button variant="ghost" className="mt-4 text-rose-500 font-bold" onClick={(e) => {
-                                   e.stopPropagation();
-                                   setPurchaseForm({...purchaseForm, file: null, receipt_url: ""});
-                                 }}>ลบรูปภาพ</Button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                 <div className="p-6 bg-slate-100 text-slate-400 rounded-full mb-6 group-hover:bg-blue-100 group-hover:text-blue-600 transition-all">
-                                    <UploadCloud size={48} />
-                                 </div>
-                                 <h3 className="text-xl font-black text-slate-900">คลิกเพื่ออัปโหลด หรือ ถ่ายรูป</h3>
-                                 <p className="text-slate-400 font-medium mt-2 px-8">หากใช้งานผ่านมือถือ ระบบจะเปิดกล้องให้โดยอัตโนมัติ</p>
-                              </div>
-                            )}
+                         </div>
+                         
+                         <div className="flex justify-end">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="rounded-2xl h-12 border-slate-200 font-bold text-slate-600 hover:bg-slate-50 gap-2"
+                              onClick={() => {
+                                 const element = document.createElement("a");
+                                 const file = new Blob([purchaseForm.manifest_text], {type: 'text/plain'});
+                                 element.href = URL.createObjectURL(file);
+                                 element.download = "Purchase-Request-Manifest.txt";
+                                 document.body.appendChild(element);
+                                 element.click();
+                                 document.body.removeChild(element);
+                              }}
+                            >
+                               <Printer size={16} /> ดาวน์โหลดเป็นไฟล์ข้อความ (.txt)
+                            </Button>
                          </div>
                       </div>
                     )}
@@ -446,6 +655,12 @@ export default function PurchasesPage() {
                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดรวมสุทธิ</Label>
                                   <div className="text-2xl font-black text-blue-600">{totalAmount.toLocaleString('th-TH')} ฿</div>
                                </div>
+                               {purchaseForm.document_type && (
+                                 <div>
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">การวิเคราะห์โดย AI</Label>
+                                    <div className="text-sm font-black text-blue-500">{purchaseForm.document_type}</div>
+                                 </div>
+                               )}
                             </div>
                              {purchaseForm.file && (
                                 <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -603,9 +818,17 @@ export default function PurchasesPage() {
                                  </div>
                               </div>
                               <div className="space-y-6">
-                                 <div>
-                                    <h2 className="text-2xl font-black text-slate-900">{p.title}</h2>
-                                    <p className="text-slate-500 font-medium mt-2 leading-relaxed italic">"{p.purpose}"</p>
+                                 <div className="space-y-3">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                       <h2 className="text-2xl font-black text-slate-900">{p.title}</h2>
+                                       {p.document_type && (
+                                         <Badge className="bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100/50 font-bold py-1 px-3 rounded-xl gap-1 shrink-0">
+                                            <Receipt size={12} />
+                                            <span>AI: {p.document_type}</span>
+                                         </Badge>
+                                       )}
+                                    </div>
+                                    <p className="text-slate-500 font-medium leading-relaxed italic">"{p.purpose}"</p>
                                  </div>
                                  
                                  {/* Expandable Items List */}
@@ -634,6 +857,68 @@ export default function PurchasesPage() {
                                    <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-200 font-bold text-slate-600 gap-2" onClick={() => window.open(p.receipt_url, '_blank')}>
                                       <Receipt size={18} /> ดูไฟล์ใบเสร็จ
                                    </Button>
+                                 )}
+
+                                 {/* AI Manifest Text collapsible block */}
+                                 {p.manifest_text && (
+                                   <div className="space-y-3">
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm" 
+                                       className="w-full h-14 rounded-2xl border-slate-200 font-bold text-slate-600 gap-2 bg-slate-50/50 hover:bg-slate-50"
+                                       onClick={() => {
+                                         const el = document.getElementById(`manifest-collapse-${p.id}`)
+                                         if (el) {
+                                           el.classList.toggle('hidden')
+                                         }
+                                       }}
+                                     >
+                                       <FileText size={18} /> 
+                                       <span>ดูเอกสารคุมสั่งจ่าย (AI Manifest)</span>
+                                     </Button>
+                                     <div id={`manifest-collapse-${p.id}`} className="hidden space-y-3 border border-slate-100 p-6 rounded-3xl bg-slate-50/30">
+                                       <div className="flex justify-between items-center">
+                                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                           AI-Generated Voucher Manifest
+                                         </span>
+                                         <div className="flex gap-2">
+                                           <Button 
+                                             variant="outline" 
+                                             size="sm" 
+                                             className="h-8 rounded-xl font-bold text-[10px] gap-1 border-slate-200 bg-white"
+                                             onClick={() => {
+                                               navigator.clipboard.writeText(p.manifest_text)
+                                               setCopiedId(p.id)
+                                               setTimeout(() => setCopiedId(null), 2000)
+                                             }}
+                                           >
+                                             {copiedId === p.id ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                                             <span>{copiedId === p.id ? "คัดลอกแล้ว!" : "คัดลอก"}</span>
+                                           </Button>
+                                           <Button 
+                                             variant="outline" 
+                                             size="sm" 
+                                             className="h-8 rounded-xl font-bold text-[10px] gap-1 border-slate-200 bg-white"
+                                             onClick={() => {
+                                               const file = new Blob([p.manifest_text], {type: 'text/plain'});
+                                               const element = document.createElement("a");
+                                               element.href = URL.createObjectURL(file);
+                                               element.download = `purchase_voucher_${p.id.substring(0, 8)}.txt`;
+                                               document.body.appendChild(element);
+                                               element.click();
+                                               document.body.removeChild(element);
+                                             }}
+                                           >
+                                             <Download size={10} />
+                                             <span>ดาวน์โหลด</span>
+                                           </Button>
+                                         </div>
+                                       </div>
+                                       <pre className="bg-slate-900 text-slate-100 p-6 rounded-2xl font-mono text-[11px] leading-relaxed overflow-x-auto border border-slate-800 shadow-inner max-h-[250px] custom-scrollbar text-left whitespace-pre">
+                                         {p.manifest_text}
+                                       </pre>
+                                     </div>
+                                   </div>
                                  )}
                               </div>
                            </div>
@@ -708,6 +993,15 @@ export default function PurchasesPage() {
                   <div className="p-10 space-y-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-6">
+                           {selectedPurchase.document_type && (
+                              <div className="space-y-4">
+                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ประเภทเอกสาร (AI วิเคราะห์)</h4>
+                                 <div className="bg-blue-50/50 text-blue-700 rounded-3xl p-6 border border-blue-100 font-bold flex items-center gap-2">
+                                    <Receipt size={16} />
+                                    <span>{selectedPurchase.document_type}</span>
+                                 </div>
+                              </div>
+                           )}
                            <div className="space-y-4">
                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">รายละเอียดรายการ</h4>
                               <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-3">
@@ -754,6 +1048,52 @@ export default function PurchasesPage() {
                            )}
                         </div>
                      </div>
+
+                     {/* Manifest segment if exists */}
+                     {selectedPurchase.manifest_text && (
+                        <div className="space-y-4">
+                           <div className="flex justify-between items-center">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                 <FileText size={14} /> เอกสารคุมสั่งจ่าย (AI Manifest Voucher)
+                              </h4>
+                              <div className="flex gap-2">
+                                 <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-8 rounded-xl font-bold text-xs gap-1 border-slate-200"
+                                    onClick={() => {
+                                       navigator.clipboard.writeText(selectedPurchase.manifest_text)
+                                       setCopiedId('selected')
+                                       setTimeout(() => setCopiedId(null), 2000)
+                                    }}
+                                 >
+                                    {copiedId === 'selected' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                                    <span>{copiedId === 'selected' ? "คัดลอกแล้ว!" : "คัดลอกข้อความ"}</span>
+                                 </Button>
+                                 <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-8 rounded-xl font-bold text-xs gap-1 border-slate-200"
+                                    onClick={() => {
+                                       const file = new Blob([selectedPurchase.manifest_text], {type: 'text/plain'});
+                                       const element = document.createElement("a");
+                                       element.href = URL.createObjectURL(file);
+                                       element.download = `purchase_voucher_${selectedPurchase.id.substring(0, 8)}.txt`;
+                                       document.body.appendChild(element);
+                                       element.click();
+                                       document.body.removeChild(element);
+                                    }}
+                                 >
+                                    <Download size={12} />
+                                    <span>ดาวน์โหลด .txt</span>
+                                 </Button>
+                              </div>
+                           </div>
+                           <pre className="bg-slate-900 text-slate-100 p-6 rounded-3xl font-mono text-sm leading-relaxed overflow-x-auto border border-slate-800 shadow-inner max-h-[300px] custom-scrollbar text-left whitespace-pre">
+                              {selectedPurchase.manifest_text}
+                           </pre>
+                        </div>
+                     )}
 
                      {/* Approval Timeline */}
                      <div className="space-y-6">

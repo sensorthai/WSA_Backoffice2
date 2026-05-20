@@ -20,7 +20,7 @@ export async function PATCH(
     // Verify ownership or permission
     const { data: report } = await supabase
       .from('weekly_reports')
-      .select('*, user:users(supervisor_id)')
+      .select('*, user:users!user_id(supervisor_id)')
       .eq('id', id)
       .single()
 

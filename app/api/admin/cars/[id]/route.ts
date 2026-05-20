@@ -26,7 +26,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const body = await req.json()
-    const validatedData = carUpdateSchema.parse(body)
+    
+    // Normalize empty strings to null for optional/nullable fields
+    const normalizedBody = { ...body }
+    const nullableFields = [
+      'caretaker_id',
+      'tax_renewal_date',
+      'insurance_expiry_date',
+      'ctp_expiry_date',
+      'insurance_file_url',
+      'ctp_file_url'
+    ]
+    nullableFields.forEach(field => {
+      if (normalizedBody[field] === "") {
+        normalizedBody[field] = null
+      }
+    })
+
+    const validatedData = carUpdateSchema.parse(normalizedBody)
     const supabase = createSupabaseServerClient()
 
     const { data, error } = await supabase

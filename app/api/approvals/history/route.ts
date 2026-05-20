@@ -16,9 +16,9 @@ export async function GET(_req: Request) {
   // Actually, a better way is to query items where supervisor_id = me OR it's a final approved state and I am CEO.
   
   const [leaves, purchases, cars] = await Promise.all([
-    supabase.from('leave_requests').select('*, user:users!inner(full_name)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`),
-    supabase.from('purchase_requests').select('*, user:users!inner(full_name)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`),
-    supabase.from('car_bookings').select('*, user:users!inner(full_name), company_cars(license_plate)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`)
+    supabase.from('leave_requests').select('*, user:users!user_id!inner(full_name)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`),
+    supabase.from('purchase_requests').select('*, user:users!user_id!inner(full_name)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`),
+    supabase.from('car_bookings').select('*, user:users!user_id!inner(full_name), company_cars(license_plate)').or(`supervisor_id.eq.${session.user.id},status.neq.pending`)
   ])
 
   const unified = [

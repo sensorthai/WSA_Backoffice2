@@ -26,7 +26,7 @@ export async function GET(
   const supabase = createSupabaseServerClient()
   const { data, error } = await supabase
     .from('leave_requests')
-    .select('*, users!leave_requests_user_id_fkey(full_name, email)')
+    .select('*, users!leave_requests_user_id_fkey(full_name, email), supervisor:supervisor_id(full_name)')
     .eq('id', params.id)
     .single()
 

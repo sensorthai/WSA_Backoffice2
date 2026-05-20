@@ -24,7 +24,8 @@ import {
   FileSpreadsheet,
   BookOpenCheck,
   Grid3X3,
-  ClipboardCheck
+  ClipboardCheck,
+  Coins
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -97,6 +98,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: "ตำแหน่ง", href: "/admin?tab=positions", icon: Briefcase },
         { label: "รถบริษัท", href: "/admin?tab=cars", icon: Car },
         { label: "ตั้งค่าระบบ", href: "/admin?tab=settings", icon: Settings },
+        { label: "เครดิต Google API", href: "/admin?tab=google-api", icon: Coins },
       ]
     },
     {

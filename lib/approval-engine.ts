@@ -36,7 +36,7 @@ export async function processApproval({
   // 1. Fetch record with user info
   const { data: record, error: fetchError } = await supabase
     .from(table)
-    .select('*, user:users!inner(id, full_name, email, position:positions(approval_limit))')
+    .select('*, user:users!user_id!inner(id, full_name, email, position:positions(approval_limit))')
     .eq('id', entityId)
     .single()
 

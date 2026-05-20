@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     supabase.from('purchase_requests').select('id', { count: 'exact' }).or('status.eq.pending,status.eq.supervisor_approved'),
     supabase.from('car_bookings').select('id', { count: 'exact' }).eq('status', 'pending'),
     supabase.from('purchase_requests').select('total_amount').gte('created_at', today),
-    supabase.from('car_bookings').select('*, company_cars(license_plate), user:users(full_name)').gte('start_datetime', today).lte('start_datetime', today + 'T23:59:59')
+    supabase.from('car_bookings').select('*, company_cars(license_plate), user:users!user_id(full_name)').gte('start_datetime', today).lte('start_datetime', today + 'T23:59:59')
   ])
 
   const wfhSummary = {
