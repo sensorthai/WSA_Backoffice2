@@ -285,7 +285,7 @@ export default function WeeklyReportsPage() {
               <DialogTitle className="text-xl font-black">สร้างรายงานประจำสัปดาห์</DialogTitle>
             </DialogHeader>
             <div className="space-y-6 mt-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p - 1)}>← สัปดาห์ก่อน</Button>
                 <div className="text-center">
                   <p className="font-black text-lg text-slate-900">{weekLabel}</p>
@@ -295,7 +295,7 @@ export default function WeeklyReportsPage() {
               </div>
 
               {/* Column Headers */}
-              <div className="grid grid-cols-12 gap-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <div className="hidden md:grid grid-cols-12 gap-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 <div className="col-span-1">✓</div>
                 <div className="col-span-3">แผนงาน</div>
                 <div className="col-span-2">ความคืบหน้า</div>
@@ -383,7 +383,7 @@ export default function WeeklyReportsPage() {
         <Card key={report.id} className="rounded-3xl border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden hover:shadow-lg transition-all duration-300">
           {/* Report Header */}
           <div
-            className="p-6 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+            className="p-4 md:p-6 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
             onClick={() => toggleExpand(report.id)}
           >
             <div className="flex items-center gap-4">
@@ -397,7 +397,7 @@ export default function WeeklyReportsPage() {
               )}
 
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h3 className="font-black text-slate-900 text-lg">สัปดาห์ {report.week_label}</h3>
                   {getStatusBadge(report.status)}
                   {issueCount > 0 && (
@@ -414,7 +414,7 @@ export default function WeeklyReportsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
               {report.status === 'draft' && (
                 <>
                   <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold" onClick={() => startEditing(report)}>
@@ -435,7 +435,7 @@ export default function WeeklyReportsPage() {
                       <CheckCircle2 className="w-3 h-3 mr-1" /> ตรวจรายงาน
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="rounded-3xl">
+                  <DialogContent className="rounded-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle>ตรวจรายงาน</DialogTitle></DialogHeader>
                     <Textarea placeholder="ความคิดเห็น / คำสั่งเพิ่มเติม..." value={reviewComment}
                       onChange={e => setReviewComment(e.target.value)} className="rounded-xl min-h-[100px]" />
@@ -478,23 +478,27 @@ export default function WeeklyReportsPage() {
               ) : (
                 <div className="divide-y divide-slate-50">
                   {report.items?.map((item: any, idx: number) => (
-                    <div key={item.id || idx} className="px-6 py-4 grid grid-cols-12 gap-4 items-start hover:bg-slate-50/30 transition-colors">
-                      <div className="col-span-1 flex items-center gap-2">
+                    <div key={item.id || idx} className="px-4 md:px-6 py-4 flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4 items-start hover:bg-slate-50/30 transition-colors">
+                      <div className="md:col-span-1 flex items-center gap-2">
                         {item.is_completed
                           ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                           : <div className="w-5 h-5 rounded-full border-2 border-slate-200" />}
                       </div>
-                      <div className="col-span-3">
-                        <p className={cn("font-bold text-sm", item.is_completed && "line-through text-slate-400")}>{item.plan}</p>
+                      <div className="md:col-span-3">
+                        <span className="text-[10px] font-bold text-slate-400 md:hidden">แผนงาน: </span>
+                        <p className={cn("font-bold text-sm inline md:block", item.is_completed && "line-through text-slate-400")}>{item.plan}</p>
                       </div>
-                      <div className="col-span-2">{getProgressBadge(item.progress)}</div>
-                      <div className="col-span-2">
-                        {item.problems && <p className="text-xs text-rose-600 font-medium">⚠ {item.problems}</p>}
+                      <div className="md:col-span-2">
+                        <span className="text-[10px] font-bold text-slate-400 md:hidden">ความคืบหน้า: </span>
+                        {getProgressBadge(item.progress)}
                       </div>
-                      <div className="col-span-2">
-                        {item.suggestions && <p className="text-xs text-blue-600 font-medium">{item.suggestions}</p>}
+                      <div className="md:col-span-2">
+                        {item.problems && <p className="text-xs text-rose-600 font-medium"><span className="text-[10px] font-bold text-slate-400 md:hidden">ปัญหา: </span>⚠ {item.problems}</p>}
                       </div>
-                      <div className="col-span-2">
+                      <div className="md:col-span-2">
+                        {item.suggestions && <p className="text-xs text-blue-600 font-medium"><span className="text-[10px] font-bold text-slate-400 md:hidden">ข้อเสนอแนะ: </span>{item.suggestions}</p>}
+                      </div>
+                      <div className="md:col-span-2">
                         {item.file_name && (
                           <a href={item.file_url || '#'} target="_blank" rel="noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-1 rounded-lg">

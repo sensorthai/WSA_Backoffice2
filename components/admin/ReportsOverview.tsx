@@ -104,7 +104,7 @@ export function ReportsOverview() {
           )}
 
           {/* School Breakdown Table */}
-          <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
             <div className="px-5 py-4 border-b bg-slate-50">
               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <School className="h-4 w-4 text-blue-500" /> สรุปรายโรงเรียน

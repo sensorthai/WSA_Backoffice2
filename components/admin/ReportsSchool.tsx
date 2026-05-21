@@ -203,7 +203,7 @@ export function ReportsSchool() {
 
           {/* Attendance by Classroom */}
           {(report.attendance_by_classroom || []).length > 0 && (
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
               <div className="px-5 py-4 border-b bg-slate-50">
                 <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-emerald-500" /> การเข้าเรียนรายห้อง
@@ -241,7 +241,7 @@ export function ReportsSchool() {
           )}
 
           {/* Subject Details */}
-          <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
             <div className="px-5 py-4 border-b bg-slate-50">
               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-amber-500" /> สรุปรายวิชา
@@ -304,7 +304,7 @@ export function ReportsSchool() {
 
           {/* Concern Students */}
           {report.concern_students.length > 0 && (
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden border-red-200">
+            <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto border-red-200">
               <div className="px-5 py-4 border-b bg-red-50">
                 <h3 className="text-sm font-bold text-red-700 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" /> นักเรียนที่ต้องดูแล (ขาด/สาย ≥ 2 ครั้ง)
@@ -345,7 +345,7 @@ export function ReportsSchool() {
 
           {/* Teacher Remarks */}
           {(report.teacher_remarks || []).length > 0 && (
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden border-amber-200">
+            <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto border-amber-200">
               <div className="px-5 py-4 border-b bg-amber-50">
                 <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
                   <FileText className="h-4 w-4" /> หมายเหตุ / ข้อเสนอแนะจากครู

@@ -137,7 +137,7 @@ export function MaterialsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มสื่อการสอน
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[560px] max-h-[90vh]">
+          <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-indigo-500" />
@@ -245,7 +245,7 @@ export function MaterialsTable() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+      <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">

@@ -262,7 +262,7 @@ export function UsersTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มพนักงาน
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingUser ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงานใหม่'}</DialogTitle>
             </DialogHeader>

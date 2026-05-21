@@ -434,7 +434,7 @@ export default function CarsPage() {
                  </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 md:gap-6">
                  {eachDayOfInterval({ start: startOfWeek(new Date()), end: endOfWeek(new Date()) }).map((day, idx) => (
                     <div key={idx} className="space-y-6">
                        <div className={cn(
@@ -574,7 +574,7 @@ export default function CarsPage() {
 
       {/* Return Car Dialog */}
       <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
-         <DialogContent className="max-w-md rounded-[3rem] p-10 border-0 shadow-2xl overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+         <DialogContent className="max-w-md rounded-[3rem] p-10 border-0 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader className="mb-8">
                <DialogTitle className="text-3xl font-black">บันทึกการคืนรถ</DialogTitle>
                <p className="text-slate-400 mt-2">กรุณาระบุเลขไมล์เพื่อปิดจบรายการจอง</p>

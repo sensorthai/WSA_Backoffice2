@@ -95,7 +95,7 @@ export function PositionsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มตำแหน่ง
             </Button>
           </DialogTrigger>
-          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingPos ? 'แก้ไขตำแหน่ง' : 'เพิ่มตำแหน่งใหม่'}</DialogTitle>
             </DialogHeader>
@@ -133,7 +133,7 @@ export function PositionsTable() {
         </Dialog>
       </div>
 
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+      <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">

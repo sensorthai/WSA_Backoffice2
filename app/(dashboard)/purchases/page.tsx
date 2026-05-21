@@ -82,7 +82,16 @@ export default function PurchasesPage() {
     receipt_url: "",
     payment_method: "petty_cash",
     document_type: "" as string | null,
-    manifest_text: ""
+    manifest_text: "",
+    document_number: "",
+    document_date: format(new Date(), "yyyy-MM-dd"),
+    subtotal: 0,
+    vat_amount: 0,
+    vendor_address: "",
+    vendor_tax_id: "",
+    customer_name: "",
+    customer_tax_id: "",
+    project_name: "",
   })
 
   const [isScanning, setIsScanning] = useState(false)
@@ -120,7 +129,16 @@ export default function PurchasesPage() {
           items: payload.items,
           payment_method: payload.payment_method,
           document_type: payload.document_type,
-          manifest_text: payload.manifest_text
+          manifest_text: payload.manifest_text,
+          document_number: payload.document_number,
+          document_date: payload.document_date,
+          subtotal: payload.subtotal,
+          vat_amount: payload.vat_amount,
+          vendor_address: payload.vendor_address,
+          vendor_tax_id: payload.vendor_tax_id,
+          customer_name: payload.customer_name,
+          customer_tax_id: payload.customer_tax_id,
+          project_name: payload.project_name
         }),
         headers: { "Content-Type": "application/json" }
       })
@@ -176,8 +194,17 @@ export default function PurchasesPage() {
       receipt_url: "",
       payment_method: "petty_cash",
       document_type: "",
-      manifest_text: ""
-    })
+      manifest_text: "",
+      document_number: "",
+      document_date: format(new Date(), "yyyy-MM-dd"),
+      subtotal: 0,
+      vat_amount: 0,
+      vendor_address: "",
+      vendor_tax_id: "",
+      customer_name: "",
+      customer_tax_id: "",
+      project_name: "",
+    } as any)
     setCurrentStep(1)
     setIsScanning(false)
     setScanStatus("")
@@ -207,7 +234,14 @@ export default function PurchasesPage() {
 ข้อมูลการวิเคราะห์ประเภทเอกสารโดย AI:
 --------------------------------------------------
 ชนิดของเอกสาร: ${form.document_type || "ไม่ระบุ"}
+เลขที่เอกสาร: ${form.document_number || "ไม่ระบุ"}
+วันที่เอกสาร: ${form.document_date || "ไม่ระบุ"}
 ร้านค้า/ผู้ให้บริการ: ${form.vendor || "ไม่ระบุ"}
+ที่อยู่คู่ค้า: ${form.vendor_address || "-"}
+เลขประจำตัวผู้เสียภาษี (คู่ค้า): ${form.vendor_tax_id || "-"}
+ลูกค้า (ผู้ซื้อ): ${form.customer_name || "-"}
+เลขประจำตัวผู้เสียภาษี (ลูกค้า): ${form.customer_tax_id || "-"}
+ชื่องาน/โครงการ: ${form.project_name || "-"}
 วิธีการชำระเงินต้นทาง: ${getPaymentMethodLabel(form.payment_method)}
 ประเภทบัญชีค่าใช้จ่าย: ${form.category}
 
@@ -216,7 +250,9 @@ export default function PurchasesPage() {
 --------------------------------------------------
 ${itemsList}
 
-ยอดเงินรวมทั้งสิ้น: ${total.toLocaleString('th-TH')} บาท
+ยอดก่อน VAT: ${form.subtotal ? Number(form.subtotal).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
+VAT 7%: ${form.vat_amount ? Number(form.vat_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
+ยอดรวมหลัง VAT: ${total.toLocaleString('th-TH')} บาท
 
 --------------------------------------------------
 วัตถุประสงค์ในการเบิกจ่าย:
@@ -263,6 +299,15 @@ ${form.purpose || "-"}
         purpose: data.purpose || "",
         items: data.items && data.items.length > 0 ? data.items : [{ name: "", quantity: 1, unit_price: 0 }],
         document_type: data.documentType || "ใบเสร็จรับเงิน",
+        document_number: data.documentNumber || "",
+        document_date: data.documentDate || format(new Date(), "yyyy-MM-dd"),
+        subtotal: data.subtotal || 0,
+        vat_amount: data.vatAmount || 0,
+        vendor_address: data.vendorAddress || "",
+        vendor_tax_id: data.vendorTaxId || "",
+        customer_name: data.customerName || "",
+        customer_tax_id: data.customerTaxId || "",
+        project_name: data.projectName || "",
         file,
         receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
       }
@@ -340,16 +385,17 @@ ${form.purpose || "-"}
   return (
     <div className="space-y-8 animate-in fade-in duration-700 max-w-6xl mx-auto pb-12">
       {/* Hero Header */}
-      <div className="bg-slate-900 rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl">
+      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl">
          <div className="absolute top-0 right-0 w-1/3 h-full bg-blue-600/10 blur-[100px] rounded-full" />
-         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-6">
-               <div className="p-5 bg-blue-600 rounded-[2rem] shadow-lg shadow-blue-600/20">
-                  <Wallet size={48} />
+         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+            <div className="flex items-center gap-4 md:gap-6">
+               <div className="p-3 md:p-5 bg-blue-600 rounded-xl md:rounded-[2rem] shadow-lg shadow-blue-600/20">
+                  <Wallet size={32} className="md:hidden" />
+                  <Wallet size={48} className="hidden md:block" />
                </div>
                <div>
-                  <h1 className="text-4xl font-black tracking-tight">ระบบเบิกจ่ายค่าใช้จ่าย</h1>
-                  <p className="text-slate-400 font-medium mt-2">จัดการคำขอเบิกเงินและติดตามสถานะการจ่ายเงิน</p>
+                  <h1 className="text-2xl md:text-4xl font-black tracking-tight">ระบบเบิกจ่ายค่าใช้จ่าย</h1>
+                  <p className="text-slate-400 font-medium mt-1 md:mt-2 text-sm md:text-base">จัดการคำขอเบิกเงินและติดตามสถานะ</p>
                </div>
             </div>
             <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
@@ -357,14 +403,14 @@ ${form.purpose || "-"}
               if (!open) resetForm()
             }}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 rounded-2xl px-8 h-16 font-black text-lg shadow-xl transition-all active:scale-95">
+                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 rounded-2xl px-6 md:px-8 h-12 md:h-16 font-black text-base md:text-lg shadow-xl transition-all active:scale-95 w-full md:w-auto">
                   <Plus className="mr-2 w-6 h-6" /> สร้างใบเบิกเงิน
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
                  {/* Modal Header & Progress */}
-                 <div className="bg-slate-900 p-8 text-white shrink-0">
-                    <div className="flex items-center justify-between mb-6">
+                 <div className="bg-slate-900 p-6 md:p-8 text-white shrink-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                        <DialogTitle className="text-2xl font-black">สร้างใบเบิกเงินใหม่</DialogTitle>
                        <div className="flex gap-2">
                           {[1, 2, 3, 4].map(step => (
@@ -377,7 +423,7 @@ ${form.purpose || "-"}
                     </div>
                  </div>
 
-                 <div className="p-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                 <div className="p-6 md:p-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     {currentStep === 1 && (
                       isScanning ? (
                         <div className="flex flex-col items-center justify-center min-h-[350px] p-8 text-center bg-slate-900 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
@@ -463,6 +509,89 @@ ${form.purpose || "-"}
                               <Badge className="bg-blue-500 text-white font-bold px-3 py-1">วิเคราะห์โดย AI</Badge>
                            </div>
                          )}
+
+                         {/* Document Number & Date */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">เลขที่เอกสาร</Label>
+                               <Input 
+                                  placeholder="เช่น INV-2025-001234"
+                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                  value={(purchaseForm as any).document_number || ""}
+                                  onChange={(e) => setPurchaseForm({ ...purchaseForm, document_number: e.target.value } as any)}
+                               />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วันที่เอกสาร</Label>
+                               <Input 
+                                  type="date"
+                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                  value={(purchaseForm as any).document_date || ""}
+                                  onChange={(e) => setPurchaseForm({ ...purchaseForm, document_date: e.target.value } as any)}
+                               />
+                            </div>
+                         </div>
+
+                         {/* Vendor / Customer / Project */}
+                         <div className="p-5 md:p-6 bg-slate-50/70 rounded-3xl border border-slate-100 space-y-5">
+                            <div className="text-xs font-black text-slate-400 uppercase tracking-widest">ข้อมูลคู่ค้า / ลูกค้า</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อคู่ค้า (ผู้ขาย)</Label>
+                                  <Input 
+                                     placeholder="ชื่อบริษัท/ร้านค้า"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm"
+                                     value={(purchaseForm as any).vendor || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vendor: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เลขประจำตัวผู้เสียภาษี (คู่ค้า)</Label>
+                                  <Input 
+                                     placeholder="เช่น 0105548091234"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm font-mono"
+                                     value={(purchaseForm as any).vendor_tax_id || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vendor_tax_id: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="md:col-span-2 space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ที่อยู่คู่ค้า</Label>
+                                  <Input 
+                                     placeholder="ที่อยู่ตามใบกำกับภาษี"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm"
+                                     value={(purchaseForm as any).vendor_address || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vendor_address: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อลูกค้า (ผู้ซื้อ)</Label>
+                                  <Input 
+                                     placeholder="ชื่อบริษัท/ผู้ซื้อ"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm"
+                                     value={(purchaseForm as any).customer_name || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, customer_name: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เลขประจำตัวผู้เสียภาษี (ลูกค้า)</Label>
+                                  <Input 
+                                     placeholder="เช่น 0105565012345"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm font-mono"
+                                     value={(purchaseForm as any).customer_tax_id || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, customer_tax_id: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="md:col-span-2 space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่องาน / โครงการ</Label>
+                                  <Input 
+                                     placeholder="ระบุชื่องานหรือโครงการที่เกี่ยวข้อง"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm"
+                                     value={(purchaseForm as any).project_name || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, project_name: e.target.value } as any)}
+                                  />
+                               </div>
+                            </div>
+                         </div>
                          
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -579,19 +708,48 @@ ${form.purpose || "-"}
                                            onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
                                         />
                                      </div>
-                                     <div className="md:col-span-1 flex justify-end">
+                                     <div className="md:col-span-1 flex items-end justify-between gap-2">
+                                       <div className="text-xs font-bold text-emerald-600 whitespace-nowrap pb-2.5 md:hidden">
+                                         = {(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿
+                                       </div>
                                        {purchaseForm.items.length > 1 && (
                                          <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-rose-500 rounded-xl h-11 w-11">
                                             <Trash2 size={16} />
                                          </Button>
                                        )}
                                      </div>
+                                     <div className="hidden md:flex md:col-span-12 justify-end -mt-2 mb-1 pr-1">
+                                       <span className="text-xs font-bold text-emerald-600">ยอดรวม: {(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
+                                     </div>
                                   </div>
                                ))}
                             </div>
-                            <div className="flex justify-between items-center p-6 bg-slate-900 rounded-3xl text-white">
-                               <span className="font-bold text-slate-400">ยอดรวมทั้งสิ้น</span>
-                               <span className="text-2xl font-black">{totalAmount.toLocaleString('th-TH')} ฿</span>
+                            {/* VAT Breakdown */}
+                            <div className="rounded-3xl overflow-hidden border border-slate-200">
+                               <div className="flex justify-between items-center px-6 py-4 bg-slate-50">
+                                  <span className="font-bold text-slate-500 text-sm">ยอดก่อน VAT</span>
+                                  <Input 
+                                     type="number" 
+                                     className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
+                                     value={(purchaseForm as any).subtotal || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, subtotal: parseFloat(e.target.value) || 0 } as any)}
+                                     placeholder="0.00"
+                                  />
+                               </div>
+                               <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-t border-slate-200">
+                                  <span className="font-bold text-slate-500 text-sm">VAT 7%</span>
+                                  <Input 
+                                     type="number" 
+                                     className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
+                                     value={(purchaseForm as any).vat_amount || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_amount: parseFloat(e.target.value) || 0 } as any)}
+                                     placeholder="0.00"
+                                  />
+                               </div>
+                               <div className="flex justify-between items-center px-6 py-5 bg-slate-900 text-white">
+                                  <span className="font-bold text-slate-400">ยอดรวมหลัง VAT</span>
+                                  <span className="text-2xl font-black">{totalAmount.toLocaleString('th-TH')} ฿</span>
+                               </div>
                             </div>
                          </div>
                       </div>
@@ -642,7 +800,7 @@ ${form.purpose || "-"}
                                <div className="text-2xl font-black text-slate-900">{purchaseForm.title}</div>
                                <Badge className="mt-1 bg-blue-50 text-blue-600 border-blue-100">{purchaseForm.category}</Badge>
                             </div>
-                            <div className="grid grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                                <div>
                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">จำนวนรายการ</Label>
                                   <div className="text-lg font-bold text-slate-700">{purchaseForm.items.length} รายการ</div>
@@ -711,12 +869,12 @@ ${form.purpose || "-"}
       </div>
 
       <Tabs defaultValue="my-purchases" className="w-full space-y-8">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-100 flex flex-nowrap overflow-x-auto custom-scrollbar shadow-sm">
-          <TabsTrigger value="my-purchases" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0">
+        <TabsList className="bg-white/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl border border-slate-100 flex flex-nowrap overflow-x-auto custom-scrollbar shadow-sm w-full">
+          <TabsTrigger value="my-purchases" className="rounded-xl px-4 md:px-8 py-2.5 md:py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0 flex-1 md:flex-none text-sm md:text-base">
             ใบเบิกของฉัน
           </TabsTrigger>
           {userRole !== 'employee' && (
-            <TabsTrigger value="approve" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0">
+            <TabsTrigger value="approve" className="rounded-xl px-4 md:px-8 py-2.5 md:py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0 flex-1 md:flex-none text-sm md:text-base">
               พิจารณาอนุมัติ
               {pendingPurchases?.length > 0 && (
                 <Badge className="ml-2 bg-blue-600 text-white">{pendingPurchases.length}</Badge>
@@ -726,9 +884,9 @@ ${form.purpose || "-"}
         </TabsList>
 
         <TabsContent value="my-purchases" className="space-y-6">
-           <Card className="rounded-[2.5rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+           <Card className="rounded-[2rem] md:rounded-[2.5rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
-                 <Table>
+                 <Table className="min-w-[600px]">
                  <TableHeader className="bg-slate-50/50">
                     <TableRow className="border-slate-100 hover:bg-transparent">
                        <TableHead className="py-6 pl-8 font-black text-slate-400 uppercase tracking-widest text-[10px]">วันที่</TableHead>
@@ -931,7 +1089,7 @@ ${form.purpose || "-"}
                                     className="min-h-[150px] rounded-3xl border-slate-100 bg-white shadow-inner p-5 focus:ring-blue-600/20 font-medium"
                                  />
                               </div>
-                              <div className="grid grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                  <Button 
                                    variant="ghost" 
                                    className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
@@ -967,9 +1125,9 @@ ${form.purpose || "-"}
          <DialogContent className="max-w-4xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
             {selectedPurchase && (
                <div className="flex flex-col h-full overflow-hidden">
-                  <div className="bg-slate-900 p-10 text-white shrink-0">
+                  <div className="bg-slate-900 p-6 md:p-10 text-white shrink-0">
                     <DialogHeader className="pb-4">
-                       <div className="flex items-center justify-between">
+                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
                              <div className="p-4 bg-blue-600 rounded-3xl">
                                 <Wallet className="text-white" size={32} />
@@ -990,7 +1148,7 @@ ${form.purpose || "-"}
                     </DialogHeader>
                   </div>
 
-                  <div className="p-10 space-y-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                  <div className="p-6 md:p-10 space-y-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         <div className="space-y-6">
                            {selectedPurchase.document_type && (
@@ -999,6 +1157,46 @@ ${form.purpose || "-"}
                                  <div className="bg-blue-50/50 text-blue-700 rounded-3xl p-6 border border-blue-100 font-bold flex items-center gap-2">
                                     <Receipt size={16} />
                                     <span>{selectedPurchase.document_type}</span>
+                                 </div>
+                              </div>
+                           )}
+                           {/* Document Number & Date */}
+                           {(selectedPurchase.document_number || selectedPurchase.document_date) && (
+                              <div className="grid grid-cols-2 gap-4">
+                                 {selectedPurchase.document_number && (
+                                    <div className="space-y-2">
+                                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">เลขที่เอกสาร</h4>
+                                       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 font-bold text-slate-800 text-sm">{selectedPurchase.document_number}</div>
+                                    </div>
+                                 )}
+                                 {selectedPurchase.document_date && (
+                                    <div className="space-y-2">
+                                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">วันที่เอกสาร</h4>
+                                       <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 font-bold text-slate-800 text-sm">{selectedPurchase.document_date}</div>
+                                    </div>
+                                 )}
+                              </div>
+                           )}
+                           {/* Vendor / Customer / Project */}
+                           {(selectedPurchase.vendor_address || selectedPurchase.vendor_tax_id || selectedPurchase.customer_name || selectedPurchase.project_name) && (
+                              <div className="space-y-4">
+                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ข้อมูลคู่ค้า / ลูกค้า</h4>
+                                 <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100 space-y-3 text-sm">
+                                    {selectedPurchase.vendor_address && (
+                                       <div><span className="text-slate-400 font-bold">ที่อยู่คู่ค้า:</span> <span className="font-bold text-slate-700">{selectedPurchase.vendor_address}</span></div>
+                                    )}
+                                    {selectedPurchase.vendor_tax_id && (
+                                       <div><span className="text-slate-400 font-bold">Tax ID (คู่ค้า):</span> <span className="font-mono font-bold text-slate-700">{selectedPurchase.vendor_tax_id}</span></div>
+                                    )}
+                                    {selectedPurchase.customer_name && (
+                                       <div><span className="text-slate-400 font-bold">ลูกค้า:</span> <span className="font-bold text-slate-700">{selectedPurchase.customer_name}</span></div>
+                                    )}
+                                    {selectedPurchase.customer_tax_id && (
+                                       <div><span className="text-slate-400 font-bold">Tax ID (ลูกค้า):</span> <span className="font-mono font-bold text-slate-700">{selectedPurchase.customer_tax_id}</span></div>
+                                    )}
+                                    {selectedPurchase.project_name && (
+                                       <div><span className="text-slate-400 font-bold">ชื่องาน:</span> <span className="font-bold text-slate-700">{selectedPurchase.project_name}</span></div>
+                                    )}
                                  </div>
                               </div>
                            )}
@@ -1011,6 +1209,25 @@ ${form.purpose || "-"}
                                        <span className="font-black text-slate-900">{(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
                                     </div>
                                  ))}
+                                 {/* VAT Breakdown */}
+                                 <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
+                                    {selectedPurchase.amount_before_vat > 0 && (
+                                       <div className="flex justify-between items-center text-sm">
+                                          <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
+                                          <span className="font-bold text-slate-600">{Number(selectedPurchase.amount_before_vat).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                       </div>
+                                    )}
+                                    {selectedPurchase.vat_amount > 0 && (
+                                       <div className="flex justify-between items-center text-sm">
+                                          <span className="text-slate-400 font-bold">VAT 7%</span>
+                                          <span className="font-bold text-slate-600">{Number(selectedPurchase.vat_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                       </div>
+                                    )}
+                                    <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-200">
+                                       <span className="font-black text-slate-900 text-sm">ยอดรวมหลัง VAT</span>
+                                       <span className="font-black text-slate-900 text-lg">{Number(selectedPurchase.total_amount).toLocaleString('th-TH')} ฿</span>
+                                    </div>
+                                 </div>
                               </div>
                            </div>
                            <div className="space-y-4">

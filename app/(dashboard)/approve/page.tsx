@@ -201,7 +201,7 @@ export default function ApprovePage() {
 
       {/* Approval Dialog */}
       <Dialog open={!!selectedLeave} onOpenChange={(open) => !open && setSelectedLeave(null)}>
-        <DialogContent className="rounded-[3rem] sm:max-w-[600px] border-0 shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="rounded-[3rem] sm:max-w-[600px] border-0 shadow-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {selectedLeave && (
             <>
               <div className="bg-slate-900 p-10 text-white relative">
@@ -217,7 +217,7 @@ export default function ApprovePage() {
                      </div>
                   </div>
                 </DialogHeader>
-                <div className="grid grid-cols-2 gap-8 pt-4 border-t border-white/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 pt-4 border-t border-white/10">
                    <div>
                       <div className="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-1">ประเภทการลา</div>
                       <div className="text-xl font-bold uppercase">{selectedLeave.leave_type}</div>
@@ -229,7 +229,7 @@ export default function ApprovePage() {
                 </div>
               </div>
 
-              <div className="p-10 space-y-8 bg-white">
+              <div className="p-6 md:p-10 space-y-8 bg-white">
                 <div className="space-y-4">
                    <div className="flex items-center gap-2 text-slate-900 font-black uppercase tracking-widest text-xs">
                       <CalendarDays size={16} className="text-blue-600" /> ช่วงเวลาที่ขอลา

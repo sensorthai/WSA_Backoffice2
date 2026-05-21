@@ -254,7 +254,7 @@ export default function LeavesPage() {
               <Plus className="mr-2 w-5 h-5" /> สร้างใบลาใหม่
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[2.5rem] sm:max-w-[500px] border-0 shadow-2xl p-0 overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="rounded-[2.5rem] sm:max-w-[500px] border-0 shadow-2xl p-0 overflow-hidden max-h-[90vh]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <div className="bg-emerald-600 p-8 text-white">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black flex items-center gap-3">
@@ -280,7 +280,7 @@ export default function LeavesPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วันที่เริ่ม</Label>
                   <Input 

@@ -117,7 +117,7 @@ export function TeachingLogsReview() {
           className="w-[200px]" placeholder="กรองตามวันที่" />
       </div>
 
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+      <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">

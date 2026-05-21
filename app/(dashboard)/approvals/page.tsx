@@ -131,10 +131,10 @@ export default function ApprovalsPage() {
            </div>
         </div>
 
-        <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6">
+        <div className="p-4 md:p-8 bg-slate-50 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-100 space-y-6">
            {item.type === 'leave' && (
              <>
-               <div className="grid grid-cols-2 gap-6">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ประเภทการลา</Label>
                     <div className="text-lg font-black text-slate-900">{item.leave_type}</div>
@@ -165,7 +165,7 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">หมวดหมู่</Label>
                     <div className="font-bold text-slate-700 text-sm mt-1 bg-white p-3 rounded-xl border border-slate-100">{item.category || "อื่นๆ"}</div>
@@ -275,7 +275,7 @@ export default function ApprovalsPage() {
                    onChange={e => setRejectNote(e.target.value)}
                 />
              </div>
-             <div className="grid grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Button 
                    variant="ghost" 
                    className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50"
@@ -309,10 +309,10 @@ export default function ApprovalsPage() {
   return (
     <div className="space-y-10 animate-in fade-in duration-700 max-w-7xl mx-auto pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
          <div>
-            <h1 className="text-4xl font-black tracking-tight text-slate-900">ศูนย์กลางการอนุมัติ</h1>
-            <p className="text-slate-400 font-medium mt-2">พิจารณาคำขอลา ใบเบิกเงิน และการจองรถในที่เดียว</p>
+            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900">ศูนย์กลางการอนุมัติ</h1>
+            <p className="text-slate-400 font-medium mt-1 md:mt-2 text-sm md:text-base">พิจารณาคำขอลา ใบเบิกเงิน และการจองรถในที่เดียว</p>
          </div>
          <div className="flex gap-4">
             <div className="h-14 px-6 bg-white rounded-2xl border border-slate-100 flex items-center gap-3 shadow-sm">
@@ -323,19 +323,20 @@ export default function ApprovalsPage() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full space-y-10">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1.5 rounded-3xl border border-slate-100 inline-flex shadow-sm">
-           <TabsTrigger value="pending" className="rounded-2xl px-10 py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-base transition-all">
-              รายการรอดำเนินการ
+        <TabsList className="bg-white/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl md:rounded-3xl border border-slate-100 flex w-full shadow-sm">
+           <TabsTrigger value="pending" className="rounded-xl md:rounded-2xl px-4 md:px-10 py-2.5 md:py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-sm md:text-base transition-all flex-1 md:flex-none">
+              รายการรอ
               {pendingItems?.length > 0 && <Badge className="ml-2 bg-blue-600 text-white border-0">{pendingItems.length}</Badge>}
            </TabsTrigger>
-           <TabsTrigger value="history" className="rounded-2xl px-10 py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-base transition-all">
-              <HistoryIcon className="w-5 h-5 mr-2" /> ประวัติการอนุมัติ
+           <TabsTrigger value="history" className="rounded-xl md:rounded-2xl px-4 md:px-10 py-2.5 md:py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-sm md:text-base transition-all flex-1 md:flex-none">
+              <HistoryIcon className="w-4 h-4 md:w-5 md:h-5 mr-1.5 md:mr-2" /> ประวัติ
            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <Card className="rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-              <Table>
+           <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+              <Table className="min-w-[700px]">
                  <TableHeader className="bg-slate-50/50">
                     <TableRow className="border-slate-100 hover:bg-transparent">
                        <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
@@ -388,13 +389,15 @@ export default function ApprovalsPage() {
                     ))}
                  </TableBody>
               </Table>
+              </div>
            </Card>
         </TabsContent>
 
         <TabsContent value="history" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
            {/* Similar Table for History */}
-           <Card className="rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-              <Table>
+           <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+              <Table className="min-w-[600px]">
                  <TableHeader className="bg-slate-50/50">
                     <TableRow className="border-slate-100">
                        <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
@@ -429,13 +432,14 @@ export default function ApprovalsPage() {
                     ))}
                  </TableBody>
               </Table>
+              </div>
            </Card>
         </TabsContent>
       </Tabs>
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-         <DialogContent className="max-w-xl rounded-[3rem] p-10 border-0 shadow-2xl overflow-y-auto max-h-[90vh]">
+         <DialogContent className="max-w-xl rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 border-0 shadow-2xl overflow-y-auto max-h-[90vh]">
             <DialogHeader>
                <DialogTitle className="text-slate-400 font-black text-xs uppercase tracking-widest mb-4">รายละเอียดคำขอ</DialogTitle>
             </DialogHeader>

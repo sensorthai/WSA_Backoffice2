@@ -95,25 +95,58 @@ export async function GET(req: Request) {
     ]
   }
 
-  // --- Type 3: Purchase Report ---
+  // --- Type 3: Purchase Report (Full Accounting) ---
   else if (type === 'purchase') {
     const { data: purchases } = await supabase.from('purchase_requests')
-      .select('*, user:users!user_id(full_name, role)') // Simplified join
-      .eq('status', 'approved')
+      .select('*, user:users!user_id(full_name, role, email)')
       .gte('created_at', startDateStr)
       .lte('created_at', endDateStr + 'T23:59:59.999Z')
+      .order('created_at', { ascending: true })
 
     data = purchases || []
-    csvHeaders = ['Date', 'Title', 'Requester', 'Amount', 'Category']
-    // For JSON we might want to group it, but for simplicity we return raw or let CSV handle it
+    csvHeaders = [
+      'ลำดับ','วันที่เอกสาร','เลขที่เอกสาร','ประเภทเอกสาร','รายการ','หมวดหมู่',
+      'ชื่อคู่ค้า','ที่อยู่คู่ค้า','Tax ID คู่ค้า',
+      'ชื่อลูกค้า','Tax ID ลูกค้า',
+      'ชื่องาน/โครงการ',
+      'รายการสินค้า',
+      'วิธีชำระเงิน','ยอดก่อน VAT','VAT','ยอดรวมหลัง VAT',
+      'สถานะ','ผู้ขอเบิก','ตำแหน่ง','วันที่ขอเบิก',
+      'หมายเหตุหัวหน้า','หมายเหตุ CEO'
+    ]
     if (isCsv) {
-      data = data.map(p => ({
-        date: format(new Date(p.created_at), "yyyy-MM-dd"),
-        title: p.title,
-        requester: p.user?.full_name,
-        amount: p.total_amount,
-        category: p.category
-      }))
+      data = data.map((p: any, idx: number) => {
+        const itemsText = (p.items || []).map((item: any, i: number) =>
+          `${i + 1}. ${item.name} x${item.quantity} @${item.unit_price}`
+        ).join(' | ')
+        const paymentLabels: Record<string, string> = { petty_cash: 'เงินสดย่อย', credit_card: 'บัตรเครดิต', k_biz: 'K-Biz' }
+        const statusLabels: Record<string, string> = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ถูกปฏิเสธ' }
+        return {
+          'ลำดับ': idx + 1,
+          'วันที่เอกสาร': p.document_date || (p.created_at ? format(new Date(p.created_at), 'yyyy-MM-dd') : '-'),
+          'เลขที่เอกสาร': p.document_number || '-',
+          'ประเภทเอกสาร': p.document_type || '-',
+          'รายการ': p.title || '-',
+          'หมวดหมู่': p.category || '-',
+          'ชื่อคู่ค้า': p.vendor || '-',
+          'ที่อยู่คู่ค้า': p.vendor_address || '-',
+          'Tax ID คู่ค้า': p.vendor_tax_id || '-',
+          'ชื่อลูกค้า': p.customer_name || '-',
+          'Tax ID ลูกค้า': p.customer_tax_id || '-',
+          'ชื่องาน/โครงการ': p.project_name || '-',
+          'รายการสินค้า': itemsText || '-',
+          'วิธีชำระเงิน': paymentLabels[p.payment_method] || p.payment_method || '-',
+          'ยอดก่อน VAT': p.amount_before_vat || 0,
+          'VAT': p.vat_amount || 0,
+          'ยอดรวมหลัง VAT': p.total_amount || 0,
+          'สถานะ': statusLabels[p.status] || p.status || '-',
+          'ผู้ขอเบิก': p.user?.full_name || '-',
+          'ตำแหน่ง': p.user?.role || '-',
+          'วันที่ขอเบิก': p.created_at ? format(new Date(p.created_at), 'yyyy-MM-dd HH:mm') : '-',
+          'หมายเหตุหัวหน้า': p.supervisor_note || '-',
+          'หมายเหตุ CEO': p.ceo_note || '-'
+        }
+      })
     }
   }
 
@@ -151,13 +184,13 @@ export async function GET(req: Request) {
   if (isCsv) {
     const headerRow = csvHeaders.join(',')
     const bodyRows = data.map(row => 
-      Object.values(row).map(val => `"${val}"`).join(',')
+      Object.values(row).map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(',')
     )
-    const csvContent = [headerRow, ...bodyRows].join('\n')
+    const csvContent = '\uFEFF' + [headerRow, ...bodyRows].join('\n')
     
     return new Response(csvContent, {
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="report-${type}-${month}.csv"`
       }
     })

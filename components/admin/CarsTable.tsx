@@ -189,7 +189,7 @@ export function CarsTable() {
               <Plus className="mr-2 h-4 w-4" /> เพิ่มรถใหม่
             </Button>
           </DialogTrigger>
-          <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editingCar ? 'แก้ไขข้อมูลรถ' : 'เพิ่มรถยนต์ใหม่'}</DialogTitle>
             </DialogHeader>

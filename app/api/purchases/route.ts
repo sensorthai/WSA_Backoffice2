@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { title, category, items, purpose, receipt_url, payment_method, document_type, manifest_text } = await req.json()
+    const { title, category, items, purpose, receipt_url, payment_method, document_type, manifest_text, document_number, document_date, subtotal, vat_amount, vendor_address, vendor_tax_id, customer_name, customer_tax_id, project_name } = await req.json()
 
     if (!title || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "กรุณาระบุชื่อเรื่องและรายการสินค้า" }, { status: 400 })
@@ -69,7 +69,16 @@ export async function POST(req: Request) {
         supervisor_id: user.supervisor_id,
         status: 'pending',
         document_type: document_type || null,
-        manifest_text: manifest_text || null
+        manifest_text: manifest_text || null,
+        document_number: document_number || null,
+        document_date: document_date || null,
+        amount_before_vat: subtotal || 0,
+        vat_amount: vat_amount || 0,
+        vendor_address: vendor_address || null,
+        vendor_tax_id: vendor_tax_id || null,
+        customer_name: customer_name || null,
+        customer_tax_id: customer_tax_id || null,
+        project_name: project_name || null
       })
       .select()
       .single()

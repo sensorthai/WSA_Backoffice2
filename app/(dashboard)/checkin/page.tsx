@@ -349,7 +349,7 @@ export default function CheckinPage() {
           {['admin', 'ceo', 'supervisor'].includes((session?.user as any)?.role) ? (
             <div className="space-y-8 animate-in slide-in-from-right duration-700">
               {/* Summary Bar */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {[
                   { label: 'Office', count: summary.office, color: 'emerald', icon: Building2 },
                   { label: 'WFH', count: summary.home, color: 'blue', icon: Home },

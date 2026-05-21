@@ -239,7 +239,7 @@ export function StudentsTable() {
             <DialogTrigger asChild>
               <Button onClick={handleAddNew}><UserPlus className="mr-2 h-4 w-4" /> เพิ่มนักเรียน</Button>
             </DialogTrigger>
-          <DialogContent className="sm:max-w-[560px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-blue-500" />
@@ -356,7 +356,7 @@ export function StudentsTable() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+      <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">

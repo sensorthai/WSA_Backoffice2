@@ -169,7 +169,7 @@ function TimetableContent() {
       </div>
 
       {/* View Mode Toggle + Navigation */}
-      <div className="flex items-center justify-between bg-white rounded-2xl border p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-2xl border p-4 shadow-sm">
         <Button variant="outline" size="icon" onClick={() => viewMode === "week" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -210,8 +210,8 @@ function TimetableContent() {
         <div className="text-center py-16"><Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-400" /></div>
       ) : viewMode === "week" ? (
         /* ========== WEEKLY VIEW ========== */
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-          <div className="grid grid-cols-7 divide-x">
+        <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
+          <div className="grid grid-cols-7 divide-x min-w-[700px]">
             {DAYS.map((day, dayIdx) => {
               const date = weekDates[dayIdx]
               const isToday = date === today
@@ -281,9 +281,9 @@ function TimetableContent() {
         </div>
       ) : (
         /* ========== MONTHLY VIEW ========== */
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
           {/* Day headers */}
-          <div className="grid grid-cols-7 border-b">
+          <div className="grid grid-cols-7 border-b min-w-[700px]">
             {MONTH_DAYS.map(d => (
               <div key={d.key} className={`py-2 text-center text-xs font-bold tracking-wider ${d.key === "sun" || d.key === "sat" ? "text-red-400 bg-red-50/50" : "text-slate-500 bg-slate-50"}`}>
                 {d.label}
@@ -291,7 +291,7 @@ function TimetableContent() {
             ))}
           </div>
           {/* Calendar cells */}
-          <div className="grid grid-cols-7 divide-x divide-y">
+          <div className="grid grid-cols-7 divide-x divide-y min-w-[700px]">
             {monthCells.map((cell, i) => {
               const isToday = cell.date === today
               const dayAssignments = cell.isCurrentMonth ? getAssignmentsForDate(cell.date) : []

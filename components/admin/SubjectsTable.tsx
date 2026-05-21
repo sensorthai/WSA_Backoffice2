@@ -160,7 +160,7 @@ export function SubjectsTable() {
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingSubject(null); form.reset() }}><Plus className="mr-2 h-4 w-4" /> เพิ่มวิชา</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-blue-500" /> {editingSubject ? 'แก้ไขวิชา' : 'เพิ่มวิชาใหม่'}</DialogTitle></DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4 pt-4">
@@ -192,7 +192,7 @@ export function SubjectsTable() {
 
       {/* Material Dialog */}
       <Dialog open={isMaterialModalOpen} onOpenChange={(open) => { setIsMaterialModalOpen(open); if (!open) { setEditingMaterial(null); matForm.reset() } }}>
-        <DialogContent className="sm:max-w-[560px]" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader><DialogTitle>{editingMaterial ? 'แก้ไขสื่อ' : 'เพิ่มสื่อการสอน'}</DialogTitle></DialogHeader>
           <Form {...matForm}>
             <form onSubmit={matForm.handleSubmit((v) => matMutation.mutate(v))} className="space-y-4 pt-2">
@@ -228,7 +228,7 @@ export function SubjectsTable() {
       </Dialog>
 
       {/* Subjects Table */}
-      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+      <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
