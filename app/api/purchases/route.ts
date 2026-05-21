@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         user_id: user.supervisor_id,
         type: 'purchase_request',
         title: 'คำขอเบิกเงินใหม่',
-        message: `${user.full_name} ได้ส่งคำขอเบิก "${title}" ยอดรวม ${totalAmount.toLocaleString()} บาท`,
+        message: `${user.full_name} ได้ส่งคำขอเบิก "${title}" ยอดรวม ${grandTotal.toLocaleString()} บาท`,
         reference_id: purchase.id,
         reference_type: 'purchase_requests'
       })
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         sendPurchaseSubmitted(supervisor.email, {
           requesterName: user.full_name,
           title,
-          totalAmount
+          totalAmount: grandTotal
         })
       }
     }
