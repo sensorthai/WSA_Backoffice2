@@ -37,9 +37,11 @@ export async function POST(req: Request) {
     }
 
     // 1. Calculate Total
-    const totalAmount = items.reduce((acc: number, item: any) => {
+    const itemsTotal = items.reduce((acc: number, item: any) => {
       return acc + (Number(item.quantity) * Number(item.unit_price))
     }, 0)
+    // If VAT breakdown is provided, grand total = subtotal + vat; otherwise items total
+    const grandTotal = (subtotal && subtotal > 0) ? (Number(subtotal) + Number(vat_amount || 0)) : itemsTotal
 
     const supabase = createSupabaseServerClient()
 
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
         title,
         category: category || 'อื่นๆ',
         items,
-        total_amount: totalAmount,
+        total_amount: grandTotal,
         purpose,
         receipt_url,
         payment_method: payment_method || 'petty_cash',

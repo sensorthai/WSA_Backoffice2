@@ -210,9 +210,17 @@ export default function PurchasesPage() {
     setScanStatus("")
   }
 
-  const totalAmount = useMemo(() => {
+  const itemsTotal = useMemo(() => {
     return purchaseForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }, [purchaseForm.items])
+
+  // Grand total: if VAT data exists use subtotal + vat, otherwise items total
+  const grandTotal = useMemo(() => {
+    const sub = Number((purchaseForm as any).subtotal) || 0
+    const vat = Number((purchaseForm as any).vat_amount) || 0
+    if (sub > 0) return sub + vat
+    return itemsTotal
+  }, [(purchaseForm as any).subtotal, (purchaseForm as any).vat_amount, itemsTotal])
 
   const generateManifestText = (form: any, total: number) => {
     const todayStr = format(new Date(), "d MMMM yyyy HH:mm", { locale: th })
@@ -252,7 +260,7 @@ ${itemsList}
 
 ยอดก่อน VAT: ${form.subtotal ? Number(form.subtotal).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
 VAT 7%: ${form.vat_amount ? Number(form.vat_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
-ยอดรวมหลัง VAT: ${total.toLocaleString('th-TH')} บาท
+ยอดรวมหลัง VAT: ${form.subtotal && form.vat_amount ? (Number(form.subtotal) + Number(form.vat_amount)).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : total.toLocaleString('th-TH')} บาท
 
 --------------------------------------------------
 วัตถุประสงค์ในการเบิกจ่าย:
@@ -748,7 +756,7 @@ ${form.purpose || "-"}
                                </div>
                                <div className="flex justify-between items-center px-6 py-5 bg-slate-900 text-white">
                                   <span className="font-bold text-slate-400">ยอดรวมหลัง VAT</span>
-                                  <span className="text-2xl font-black">{totalAmount.toLocaleString('th-TH')} ฿</span>
+                                  <span className="text-2xl font-black">{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
                                </div>
                             </div>
                          </div>
@@ -811,7 +819,7 @@ ${form.purpose || "-"}
                                </div>
                                <div>
                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดรวมสุทธิ</Label>
-                                  <div className="text-2xl font-black text-blue-600">{totalAmount.toLocaleString('th-TH')} ฿</div>
+                                  <div className="text-2xl font-black text-blue-600">{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</div>
                                </div>
                                {purchaseForm.document_type && (
                                  <div>

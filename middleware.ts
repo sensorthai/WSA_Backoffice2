@@ -47,13 +47,13 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/dashboard', nextUrl))
   }
 
-  // 5. Outsource users: restrict access
+  // 5. Outsource users: restrict to teaching only
   if (userRole === 'outsource') {
     // Block dashboard — redirect to teaching
     if (nextUrl.pathname === '/dashboard') {
       return NextResponse.redirect(new URL('/teaching', nextUrl))
     }
-    const allowedPaths = ['/teaching', '/checkin']
+    const allowedPaths = ['/teaching']
     const isAllowed = allowedPaths.some(p => nextUrl.pathname.startsWith(p))
     if (isDashboardRoute && !isAllowed) {
       return NextResponse.redirect(new URL('/teaching', nextUrl))

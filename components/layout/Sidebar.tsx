@@ -65,8 +65,8 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const navItems = [
     { label: "CEO Dashboard", href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor", "ceo", "outsource"] },
-    { label: "Check-in วันนี้", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo", "outsource"] },
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: "Check-in วันนี้", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: "ใบลา", href: "/leaves", icon: CalendarRange, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: "ใบเบิก", href: "/purchases", icon: ShoppingBag, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: "ขอใช้รถ", href: "/cars", icon: Car, roles: ["admin", "employee", "supervisor", "ceo"] },
