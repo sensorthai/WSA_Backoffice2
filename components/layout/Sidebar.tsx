@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
@@ -56,6 +56,12 @@ export function Sidebar({ onClose }: SidebarProps) {
   const role = profile?.role || 'employee'
   const { t, locale, setLocale } = useTranslation()
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([t("sidebar.admin")])
 
   const toggleSubmenu = (label: string) => {
@@ -261,7 +267,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
         >
           <div className="flex items-center gap-3">
-            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+            {mounted && theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
             <span>{t("sidebar.theme_toggle")}</span>
           </div>
         </button>
