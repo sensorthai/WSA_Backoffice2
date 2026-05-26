@@ -9,8 +9,32 @@
     "ceo": "CEO Overview",
     "profile": "Profile",
     "logout": "Logout",
-    "pending": "Pending",
+    "pending": "Pending Approvals",
     "theme_toggle": "Toggle Theme",
-    "lang_toggle": "ภาษาไทย"
+    "lang_toggle": "ภาษาไทย",
+    "noticeboard": "Noticeboard",
+    "checkin": "Check-in",
+    "reimbursements": "Reimbursements",
+    "weekly_reports": "Weekly Reports",
+    "meeting_rooms": "Meeting Room Booking",
+    "assets": "Asset Management",
+    "directory": "Employee Directory",
+    "helpdesk": "Helpdesk / IT Support",
+    "knowledge": "Knowledge Base",
+    "teaching_mgmt": "Teaching Management",
+    "reports": "Reports",
+    "wfh": "WFH Reports",
+    "users": "Users",
+    "departments": "Departments",
+    "positions": "Positions",
+    "settings": "Settings",
+    "google_api": "Google API",
+    "teaching_sub": {
+      "timetable": "Teaching Timetable",
+      "checkin": "Teaching Check-in",
+      "logbook": "Logbook & Reports",
+      "materials": "Teaching Materials",
+      "timetable_grid": "Weekly/Monthly Timetable"
+    }
   }
 }

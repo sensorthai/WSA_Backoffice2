@@ -83,21 +83,21 @@ export function Sidebar({ onClose }: SidebarProps) {
   const pendingCount = Array.isArray(pendingApprovals) ? pendingApprovals.length : 0
 
   const navItems = [
-    { label: "กระดานข่าวสาร", href: "/noticeboard", icon: Megaphone, roles: ["admin", "employee", "supervisor", "ceo"] },   
+    { label: t("sidebar.noticeboard"), href: "/noticeboard", icon: Megaphone, roles: ["admin", "employee", "supervisor", "ceo"] },   
     { label: t("sidebar.ceo"), href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
     { label: t("sidebar.dashboard"), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor"] },
-    { label: "Check-in", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: t("sidebar.checkin"), href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: t("sidebar.leaves"), href: "/leaves", icon: CalendarRange, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: t("sidebar.purchases"), href: "/purchases", icon: ShoppingBag, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "เบิกค่าใช้จ่าย", href: "/reimbursements", icon: Wallet, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "Weekly Reports", href: "/weekly-reports", icon: ClipboardCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
-        { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
+    { label: t("sidebar.reimbursements"), href: "/reimbursements", icon: Wallet, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: t("sidebar.weekly_reports"), href: "/weekly-reports", icon: ClipboardCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
     { label: t("sidebar.cars"), href: "/cars", icon: Car, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "จองห้องประชุม", href: "/meeting-rooms", icon: Users, roles:  ["ceo", "admin"] },
-    { label: "ทรัพย์สิน", href: "/assets", icon: MonitorSmartphone, roles:  ["ceo", "admin"] },
-     { label: "ทำเนียบพนักงาน", href: "/directory", icon: Contact, roles:  ["ceo", "admin"] },
-    { label: "แจ้งซ่อม/Helpdesk", href: "/helpdesk", icon: Headset, roles:  ["ceo", "admin"] },
-    { label: "ศูนย์รวมเอกสาร", href: "/knowledge", icon: BookText, roles:  ["ceo", "admin"] },
+    { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles:  ["ceo", "admin"] },
+    { label: t("sidebar.assets"), href: "/assets", icon: MonitorSmartphone, roles:  ["ceo", "admin"] },
+    { label: t("sidebar.directory"), href: "/directory", icon: Contact, roles:  ["ceo", "admin"] },
+    { label: t("sidebar.helpdesk"), href: "/helpdesk", icon: Headset, roles:  ["ceo", "admin"] },
+    { label: t("sidebar.knowledge"), href: "/knowledge", icon: BookText, roles:  ["ceo", "admin"] },
 
     {
       label: t("sidebar.teaching"),
@@ -106,40 +106,40 @@ export function Sidebar({ onClose }: SidebarProps) {
       roles: ["outsource", "admin", "employee", "supervisor"],
       requireTeacher: true,
       subItems: [
-        { label: "ตารางสอน", href: "/teaching", icon: CalendarRange },
-        { label: "เช็คอิน", href: "/teaching/checkin", icon: UserCheck },
-        { label: "สมุดบันทึก & รายงาน", href: "/teaching/logbook", icon: BookOpenCheck },
-        { label: "สื่อการสอน", href: "/teaching/materials", icon: FileSpreadsheet },
-        { label: "ตารางสอน (สัปดาห์/เดือน)", href: "/teaching/timetable", icon: Grid3X3 },
+        { label: t("sidebar.teaching_sub.timetable"), href: "/teaching", icon: CalendarRange },
+        { label: t("sidebar.teaching_sub.checkin"), href: "/teaching/checkin", icon: UserCheck },
+        { label: t("sidebar.teaching_sub.logbook"), href: "/teaching/logbook", icon: BookOpenCheck },
+        { label: t("sidebar.teaching_sub.materials"), href: "/teaching/materials", icon: FileSpreadsheet },
+        { label: t("sidebar.teaching_sub.timetable_grid"), href: "/teaching/timetable", icon: Grid3X3 },
       ]
     },
 
     {
-      label: "Reports",
+      label: t("sidebar.reports"),
       href: "/reports",
       icon: FileBarChart,
       roles: ["admin", "ceo"],
       subItems: [
-        { label: "WFH", href: "/reports?tab=wfh", icon: Users },
-        { label: "Leaves", href: "/reports?tab=leave", icon: Palmtree },
-        { label: "Purchases", href: "/reports?tab=purchase", icon: ShoppingBag },
-        { label: "Cars", href: "/reports?tab=car", icon: Car },
+        { label: t("sidebar.wfh"), href: "/reports?tab=wfh", icon: Users },
+        { label: t("sidebar.leaves"), href: "/reports?tab=leave", icon: Palmtree },
+        { label: t("sidebar.purchases"), href: "/reports?tab=purchase", icon: ShoppingBag },
+        { label: t("sidebar.cars"), href: "/reports?tab=car", icon: Car },
       ]
     },
 
-    { label: "Teaching Mgmt", href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
+    { label: t("sidebar.teaching_mgmt"), href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
     {
       label: t("sidebar.admin"),
       href: "/admin",
       icon: Settings,
       roles: ["admin"],
       subItems: [
-        { label: "Users", href: "/admin?tab=users", icon: Users },
-        { label: "Departments", href: "/admin?tab=departments", icon: Layers },
-        { label: "Positions", href: "/admin?tab=positions", icon: Briefcase },
-        { label: "Cars", href: "/admin?tab=cars", icon: Car },
-        { label: "Settings", href: "/admin?tab=settings", icon: Settings },
-        { label: "Google API", href: "/admin?tab=google-api", icon: Coins },
+        { label: t("sidebar.users"), href: "/admin?tab=users", icon: Users },
+        { label: t("sidebar.departments"), href: "/admin?tab=departments", icon: Layers },
+        { label: t("sidebar.positions"), href: "/admin?tab=positions", icon: Briefcase },
+        { label: t("sidebar.cars"), href: "/admin?tab=cars", icon: Car },
+        { label: t("sidebar.settings"), href: "/admin?tab=settings", icon: Settings },
+        { label: t("sidebar.google_api"), href: "/admin?tab=google-api", icon: Coins },
       ]
     },
   ]

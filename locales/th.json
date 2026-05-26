@@ -11,6 +11,30 @@
     "logout": "ออกจากระบบ",
     "pending": "รออนุมัติ",
     "theme_toggle": "เปลี่ยนธีม",
-    "lang_toggle": "English"
+    "lang_toggle": "English",
+    "noticeboard": "กระดานข่าวสาร",
+    "checkin": "ลงเวลาทำงาน",
+    "reimbursements": "เบิกค่าใช้จ่าย",
+    "weekly_reports": "รายงานประจำสัปดาห์",
+    "meeting_rooms": "จองห้องประชุม",
+    "assets": "ระบบจัดการทรัพย์สิน",
+    "directory": "ทำเนียบพนักงาน",
+    "helpdesk": "แจ้งซ่อม / Helpdesk",
+    "knowledge": "ศูนย์รวมเอกสาร",
+    "teaching_mgmt": "ระบบจัดการการสอน",
+    "reports": "รายงานสรุป",
+    "wfh": "ระบบ WFH",
+    "users": "ผู้ใช้งาน",
+    "departments": "แผนก",
+    "positions": "ตำแหน่ง",
+    "settings": "ตั้งค่าระบบ",
+    "google_api": "ตั้งค่า Google API",
+    "teaching_sub": {
+      "timetable": "ตารางสอน",
+      "checkin": "เช็คอินการสอน",
+      "logbook": "สมุดบันทึก & รายงาน",
+      "materials": "สื่อการสอน",
+      "timetable_grid": "ตารางสอน (สัปดาห์/เดือน)"
+    }
   }
 }
