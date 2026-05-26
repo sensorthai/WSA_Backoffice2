@@ -233,74 +233,126 @@ export default function WeeklyReportsPage() {
 
   // Render item editor rows
   const renderItemEditor = (items: ReportItem[], setItems: (items: ReportItem[]) => void) => (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {items.map((item, idx) => (
-        <div key={idx} className="grid grid-cols-12 gap-3 items-start p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
-          <div className="col-span-12 md:col-span-1 flex items-center gap-2">
-            <Checkbox
-              checked={item.is_completed}
-              onCheckedChange={(v) => {
-                const next = [...items]; next[idx].is_completed = !!v
-                if (v) next[idx].progress = 'completed'
-                setItems(next)
-              }}
-            />
-            <span className="text-xs text-slate-400 font-bold">#{idx + 1}</span>
+        <div 
+          key={idx} 
+          className="p-6 rounded-[2rem] bg-muted/20 border border-border shadow-sm space-y-4 hover:shadow-md hover:bg-muted/40 transition-all duration-300 relative group"
+        >
+          {/* Header row of the card */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={item.is_completed}
+                onCheckedChange={(v) => {
+                  const next = [...items]; next[idx].is_completed = !!v
+                  if (v) next[idx].progress = 'completed'
+                  setItems(next)
+                }}
+                className="h-5 w-5 rounded-lg border-border text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs font-black text-foreground bg-card shadow-sm ring-1 ring-border px-3 py-1.5 rounded-xl">
+                รายการที่ #{idx + 1}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">ความคืบหน้า:</span>
+              <Select 
+                value={item.progress} 
+                onValueChange={v => { 
+                  const next = [...items]
+                  next[idx].progress = v
+                  if (v === 'completed') next[idx].is_completed = true
+                  setItems(next) 
+                }}
+              >
+                <SelectTrigger className={cn("rounded-xl border-border text-xs font-bold h-9 px-4 min-w-[140px] shadow-sm bg-card", 
+                  PROGRESS_OPTIONS.find(o => o.value === item.progress)?.color
+                )}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {PROGRESS_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value} className="text-xs font-bold rounded-lg m-1">{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl h-9 w-9 transition-colors ml-2"
+                onClick={() => { const next = items.filter((_, i) => i !== idx); setItems(next) }}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          <div className="col-span-12 md:col-span-3">
-            <Input
-              placeholder="แผนงาน / หัวข้องาน"
-              value={item.plan}
-              onChange={e => { const next = [...items]; next[idx].plan = e.target.value; setItems(next) }}
-              className="rounded-xl border-slate-200 text-sm font-medium"
-            />
-          </div>
-          <div className="col-span-6 md:col-span-2">
-            <Select value={item.progress} onValueChange={v => { const next = [...items]; next[idx].progress = v; setItems(next) }}>
-              <SelectTrigger className="rounded-xl border-slate-200 text-xs h-10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PROGRESS_OPTIONS.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-6 md:col-span-2">
-            <Input
-              placeholder="ปัญหาที่พบ"
-              value={item.problems}
-              onChange={e => { const next = [...items]; next[idx].problems = e.target.value; setItems(next) }}
-              className="rounded-xl border-slate-200 text-sm"
-            />
-          </div>
-          <div className="col-span-6 md:col-span-2">
-            <Input
-              placeholder="ข้อเสนอแนะ"
-              value={item.suggestions}
-              onChange={e => { const next = [...items]; next[idx].suggestions = e.target.value; setItems(next) }}
-              className="rounded-xl border-slate-200 text-sm"
-            />
-          </div>
-          <div className="col-span-5 md:col-span-1">
-            <Input
-              placeholder="ไฟล์"
-              value={item.file_name}
-              onChange={e => { const next = [...items]; next[idx].file_name = e.target.value; setItems(next) }}
-              className="rounded-xl border-slate-200 text-xs"
-            />
-          </div>
-          <div className="col-span-1 flex justify-end">
-            <Button variant="ghost" size="icon" className="text-rose-400 hover:bg-rose-50 rounded-xl h-10 w-10"
-              onClick={() => { const next = items.filter((_, i) => i !== idx); setItems(next) }}
-            ><Trash2 className="w-4 h-4" /></Button>
+
+          {/* Body fields of the card */}
+          <div className="grid grid-cols-12 gap-4 pt-1">
+            {/* Plan / Work details (spacious textarea) */}
+            <div className="col-span-12 lg:col-span-7 space-y-2">
+              <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block">📝 แผนงาน / หัวข้องาน หรือรายละเอียดเนื้องาน</label>
+              <Textarea
+                placeholder="ระบุแผนงานหรือรายละเอียดผลงานประจำสัปดาห์นี้..."
+                value={item.plan}
+                onChange={e => { const next = [...items]; next[idx].plan = e.target.value; setItems(next) }}
+                className="rounded-2xl border-border bg-card text-foreground focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/30 focus:border-blue-500 transition-all resize-none min-h-[96px] p-4 text-xs font-medium leading-relaxed"
+              />
+            </div>
+
+            {/* Right side: Problems & Suggestions & File */}
+            <div className="col-span-12 lg:col-span-5 space-y-4">
+              <div className="grid grid-cols-12 gap-3">
+                {/* Problems */}
+                <div className="col-span-12 sm:col-span-6 space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block">⚠ ปัญหาที่พบ (ถ้ามี)</label>
+                  <Input
+                    placeholder="ระบุอุปสรรคหรือปัญหา..."
+                    value={item.problems}
+                    onChange={e => { const next = [...items]; next[idx].problems = e.target.value; setItems(next) }}
+                    className="rounded-2xl border-border bg-card text-foreground text-xs h-11"
+                  />
+                </div>
+
+                {/* Suggestions */}
+                <div className="col-span-12 sm:col-span-6 space-y-2">
+                  <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block">💡 ข้อเสนอแนะ (ถ้ามี)</label>
+                  <Input
+                    placeholder="ระบุข้อเสนอแนะหรือแนวทาง..."
+                    value={item.suggestions}
+                    onChange={e => { const next = [...items]; next[idx].suggestions = e.target.value; setItems(next) }}
+                    className="rounded-2xl border-border bg-card text-foreground text-xs h-11"
+                  />
+                </div>
+              </div>
+
+              {/* File input / name */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block">📎 ลิงก์ไฟล์หรือเอกสารแนบ (ถ้ามี)</label>
+                <div className="relative">
+                  <Paperclip className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="ระบุชื่อหรือ URL ของเอกสารแนบ..."
+                    value={item.file_name}
+                    onChange={e => { const next = [...items]; next[idx].file_name = e.target.value; setItems(next) }}
+                    className="rounded-2xl border-border bg-card text-foreground pl-10 text-xs h-11"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ))}
-      <Button variant="outline" className="rounded-xl border-dashed border-slate-300 text-slate-500 w-full h-12"
+      <Button 
+        variant="outline" 
+        className="rounded-[1.5rem] border-dashed border-border text-muted-foreground w-full h-14 bg-muted/10 hover:bg-muted/30 hover:text-blue-600 hover:border-blue-300 dark:hover:text-blue-400 dark:hover:border-blue-700 transition-all duration-300 font-black flex items-center justify-center gap-2 border-2"
         onClick={() => setItems([...items, emptyItem()])}
-      ><Plus className="w-4 h-4 mr-2" /> เพิ่มรายการ</Button>
+      >
+        <Plus className="w-5 h-5 mr-1" /> เพิ่มรายการงานใหม่
+      </Button>
     </div>
   )
 
@@ -557,44 +609,78 @@ export default function WeeklyReportsPage() {
               {isEditing ? (
                 <div className="p-6 space-y-4">
                   {renderItemEditor(editItems, setEditItems)}
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" className="rounded-xl" onClick={() => setEditingReport(null)}>ยกเลิก</Button>
-                    <Button className="rounded-xl bg-blue-600 font-bold"
+                  <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-6">
+                    <Button variant="outline" className="rounded-2xl px-6 h-12 font-bold text-slate-500 hover:bg-slate-100 transition-all duration-300" onClick={() => setEditingReport(null)}>ยกเลิก</Button>
+                    <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold px-6 h-12 shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all duration-300"
                       onClick={() => updateMutation.mutate({ id: report.id, items: editItems })}
                       disabled={updateMutation.isPending}
-                    ><Save className="w-4 h-4 mr-2" /> บันทึก</Button>
+                    >
+                      {updateMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      <span>บันทึกการแก้ไข</span>
+                    </Button>
                   </div>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-50">
+                <div className="p-6 space-y-4 divide-y divide-slate-100 dark:divide-slate-800/50 bg-slate-50/20 dark:bg-slate-900/10">
                   {report.items?.map((item: any, idx: number) => (
-                    <div key={item.id || idx} className="px-4 md:px-6 py-4 flex flex-col md:grid md:grid-cols-12 gap-2 md:gap-4 items-start hover:bg-slate-50/30 transition-colors">
-                      <div className="md:col-span-1 flex items-center gap-2">
-                        {item.is_completed
-                          ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          : <div className="w-5 h-5 rounded-full border-2 border-slate-200" />}
-                      </div>
-                      <div className="md:col-span-3">
-                        <span className="text-[10px] font-bold text-slate-400 md:hidden">แผนงาน: </span>
-                        <p className={cn("font-bold text-sm inline md:block", item.is_completed && "line-through text-slate-400")}>{item.plan}</p>
-                      </div>
-                      <div className="md:col-span-2">
-                        <span className="text-[10px] font-bold text-slate-400 md:hidden">ความคืบหน้า: </span>
-                        {getProgressBadge(item.progress)}
-                      </div>
-                      <div className="md:col-span-2">
-                        {item.problems && <p className="text-xs text-rose-600 font-medium"><span className="text-[10px] font-bold text-slate-400 md:hidden">ปัญหา: </span>⚠ {item.problems}</p>}
-                      </div>
-                      <div className="md:col-span-2">
-                        {item.suggestions && <p className="text-xs text-blue-600 font-medium"><span className="text-[10px] font-bold text-slate-400 md:hidden">ข้อเสนอแนะ: </span>{item.suggestions}</p>}
-                      </div>
-                      <div className="md:col-span-2">
-                        {item.file_name && (
-                          <a href={item.file_url || '#'} target="_blank" rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 font-bold hover:underline bg-blue-50 px-2 py-1 rounded-lg">
-                            <Paperclip className="w-3 h-3" /> {item.file_name}
-                          </a>
+                    <div key={item.id || idx} className={cn("pt-4 first:pt-0 flex items-start gap-4 hover:translate-x-1 transition-all duration-300")}>
+                      {/* Check/Circle Status Indicator */}
+                      <div className="mt-1 flex-shrink-0">
+                        {item.is_completed ? (
+                          <div className="p-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 rounded-full border border-emerald-100 dark:border-emerald-500/20 shadow-sm">
+                            <CheckCircle2 className="w-5 h-5" />
+                          </div>
+                        ) : (
+                          <div className="p-1 bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-700 rounded-full border border-slate-200 dark:border-slate-850 shadow-sm">
+                            <div className="w-5 h-5 rounded-full border-2 border-current" />
+                          </div>
                         )}
+                      </div>
+
+                      {/* Content block */}
+                      <div className="flex-1 space-y-3">
+                        {/* Work description / Plan text (very large and readable) */}
+                        <div className="pr-4">
+                          <p className={cn(
+                            "text-sm font-semibold text-foreground leading-relaxed whitespace-pre-wrap",
+                            item.is_completed && "text-muted-foreground/70 line-through decoration-slate-400/30"
+                          )}>
+                            {item.plan}
+                          </p>
+                        </div>
+
+                        {/* Metadata Tag Row */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {/* Progress Badge */}
+                          {getProgressBadge(item.progress)}
+
+                          {/* Attachment Link */}
+                          {item.file_name && (
+                            <a 
+                              href={item.file_url || '#'} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all font-bold"
+                            >
+                              <Paperclip className="w-3.5 h-3.5" /> 
+                              <span>{item.file_name}</span>
+                            </a>
+                          )}
+
+                          {/* Problems Tag */}
+                          {item.problems && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400 font-bold max-w-sm truncate">
+                              <span className="font-extrabold">⚠ ปัญหา:</span> {item.problems}
+                            </span>
+                          )}
+
+                          {/* Suggestions Tag */}
+                          {item.suggestions && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold max-w-sm truncate">
+                              <span className="font-extrabold">💡 ข้อเสนอแนะ:</span> {item.suggestions}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

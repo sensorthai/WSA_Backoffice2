@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth"
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { startOfWeek, endOfWeek, format, parseISO } from 'date-fns'
+import { th } from 'date-fns/locale'
 
 const TIMEZONE = 'Asia/Bangkok'
 
@@ -164,11 +166,115 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: fallbackError.message }, { status: 500 })
       }
 
+      await syncCheckinToWeeklyReport(supabase, session.user.id, today, work_done)
+
       return NextResponse.json({ ...fallbackUpdated, work_done })
     }
 
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
+  await syncCheckinToWeeklyReport(supabase, session.user.id, today, work_done)
+
   return NextResponse.json(updated)
+}
+
+async function syncCheckinToWeeklyReport(supabase: any, userId: string, today: string, work_done: string) {
+  try {
+    const dateObj = parseISO(today)
+    const weekStart = startOfWeek(dateObj, { weekStartsOn: 1 })
+    const weekEnd = endOfWeek(dateObj, { weekStartsOn: 1 })
+    const weekStartStr = format(weekStart, 'yyyy-MM-dd')
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd')
+    const weekLabel = `${format(weekStart, 'd')}-${format(weekEnd, 'd MMM', { locale: th })}`
+
+    // 1. Check if weekly report already exists for this user and this week
+    const { data: existingReport, error: reportError } = await supabase
+      .from('weekly_reports')
+      .select('id, status')
+      .eq('user_id', userId)
+      .eq('week_start', weekStartStr)
+      .maybeSingle()
+
+    if (reportError) {
+      console.error("Error finding weekly report:", reportError)
+      return
+    }
+
+    let reportId = existingReport?.id
+
+    if (!existingReport) {
+      // 2. If it doesn't exist, create a new draft weekly report
+      const { data: newReport, error: createReportError } = await supabase
+        .from('weekly_reports')
+        .insert({
+          user_id: userId,
+          week_start: weekStartStr,
+          week_end: weekEndStr,
+          week_label: weekLabel,
+          status: 'draft'
+        })
+        .select()
+        .single()
+
+      if (createReportError) {
+        console.error("Error creating weekly report:", createReportError)
+        return
+      }
+
+      reportId = newReport.id
+    } else if (existingReport.status !== 'draft') {
+      // If report already submitted/reviewed, skip auto-update
+      return
+    }
+
+    // 3. Fetch current items in this weekly report
+    const { data: items, error: itemsError } = await supabase
+      .from('weekly_report_items')
+      .select('id, plan, sort_order')
+      .eq('report_id', reportId)
+
+    if (itemsError) {
+      console.error("Error fetching weekly report items:", itemsError)
+      return
+    }
+
+    const datePrefix = `[บันทึกรายวัน ${format(parseISO(today), 'dd/MM/yyyy')}]:`
+    const existingItem = items?.find((item: any) => item.plan.startsWith(datePrefix))
+
+    if (existingItem) {
+      // 4. Update the existing item
+      const { error: updateItemError } = await supabase
+        .from('weekly_report_items')
+        .update({
+          plan: `${datePrefix} ${work_done}`
+        })
+        .eq('id', existingItem.id)
+
+      if (updateItemError) {
+        console.error("Error updating weekly report item:", updateItemError)
+      }
+    } else {
+      // 5. Insert new item
+      const maxSortOrder = items && items.length > 0
+        ? Math.max(...items.map((i: any) => i.sort_order))
+        : -1
+
+      const { error: insertItemError } = await supabase
+        .from('weekly_report_items')
+        .insert({
+          report_id: reportId,
+          plan: `${datePrefix} ${work_done}`,
+          progress: 'completed',
+          is_completed: true,
+          sort_order: maxSortOrder + 1
+        })
+
+      if (insertItemError) {
+        console.error("Error inserting weekly report item:", insertItemError)
+      }
+    }
+  } catch (err) {
+    console.error("Error in syncCheckinToWeeklyReport:", err)
+  }
 }
