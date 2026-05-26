@@ -155,16 +155,16 @@ export function Sidebar({ onClose }: SidebarProps) {
   })
 
   return (
-    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
+    <div className="flex flex-col h-full bg-slate-900 text-slate-300">
       {/* Sidebar Header */}
-      <div className="h-16 flex items-center justify-between px-6 border-b border-sidebar-border">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <span className="text-sidebar-primary-foreground font-bold text-xs">SME</span>
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-xs">SME</span>
           </div>
-          <span className="font-bold tracking-tight">Backoffice</span>
+          <span className="font-bold text-white tracking-tight">Backoffice</span>
         </div>
-        <Button variant="ghost" size="icon" className="md:hidden text-sidebar-foreground/50" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="md:hidden text-slate-400" onClick={onClose}>
           <X className="h-5 w-5" />
         </Button>
       </div>
@@ -261,20 +261,10 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {/* Footer / Toggles */}
-      <div className="p-4 border-t border-sidebar-border space-y-2">
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            {mounted && theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-            <span>{t("sidebar.theme_toggle")}</span>
-          </div>
-        </button>
-
+      <div className="p-4 border-t border-slate-800 space-y-2">
         <button
           onClick={() => setLocale(locale === 'th' ? 'en' : 'th')}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-slate-800 hover:text-white transition-colors"
         >
           <div className="flex items-center gap-3">
             <Globe size={18} />
