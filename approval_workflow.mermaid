@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor Emp as พนักงาน (Employee)
+    actor Sup as หัวหน้างาน (Supervisor)
+    actor CEO as ผู้บริหาร (CEO)
+    participant DB as ฐานข้อมูล (Supabase)
+    participant Mail as ระบบอีเมล (Gmail)
+
+    Emp->>DB: ยื่นคำร้องขอ (ลา, จัดซื้อ, จองรถ)
+    DB-->>Emp: ตรวจสอบโควตา / วงเงินอนุมัติ
+    
+    rect rgb(240, 248, 255)
+        note right of DB: กรณีเป็นคำขอลา หรือคำขอจองรถยนต์
+        DB->>Sup: ส่ง Notification แจ้งคำขอใหม่เข้าระบบ
+        DB->>Mail: ส่งอีเมลคำขอรอการอนุมัติ
+        Sup->>DB: ดำเนินการอนุมัติ (Approve)
+    end
+
+    rect rgb(255, 240, 245)
+        note right of DB: กรณีเป็นคำขอจัดซื้อ (Purchase Request)
+        alt ยอดจัดซื้อ <= วงเงินอนุมัติของหัวหน้างาน
+            DB->>Sup: ส่งอีเมล/แจ้งเตือนคำขอให้ Supervisor
+            Sup->>DB: ดำเนินการอนุมัติ (Approve)
+        else ยอดจัดซื้อ > วงเงินอนุมัติของหัวหน้างาน
+            DB->>CEO: ส่งแจ้งเตือนคำขอให้ CEO โดยตรง
+        end
+    end
+
+    DB->>CEO: ส่งคำขอการลา/จัดซื้อระดับสูงให้อนุมัติขั้นสุดท้าย
+    CEO->>DB: อนุมัติการทำรายการขั้นสุดท้าย (Final Approval)
+    
+    DB->>Emp: ส่ง Notification แจ้งผลคำร้องได้รับการอนุมัติสำเร็จ
+    DB->>Mail: ส่งอีเมลแจ้งผลการทำรายการอนุมัติสำเร็จ

@@ -1,0 +1,16 @@
+{
+  "sidebar": {
+    "dashboard": "หน้าหลัก (Dashboard)",
+    "purchases": "ระบบเบิกจ่ายค่าใช้จ่าย",
+    "leaves": "ระบบลาพักผ่อน",
+    "cars": "ระบบจองรถยนต์",
+    "teaching": "รายงานการสอน",
+    "admin": "ผู้ดูแลระบบ (Admin)",
+    "ceo": "ภาพรวมผู้บริหาร (CEO)",
+    "profile": "โปรไฟล์",
+    "logout": "ออกจากระบบ",
+    "pending": "รออนุมัติ",
+    "theme_toggle": "เปลี่ยนธีม",
+    "lang_toggle": "English"
+  }
+}

@@ -16,8 +16,7 @@
 ## Development Guidelines
 1. Always maintain **Premium UI Aesthetics** — gradients, glassmorphism, animations
 2. All schema changes → `supabase/migrations/` with chronological naming
-3. Use **URL search params** (`?tab=...`) for tab-based admin dashboards
-4. Ensure **Print-Friendly** versions for forms and reports (`.no-print` utility)
+3. Ensure **Print-Friendly** versions for forms and reports (`.no-print` utility)
 5. All API routes must verify user roles before sensitive operations
 6. Use `zodResolver() as any` when combining Zod schemas with react-hook-form (known type mismatch)
 7. All dashboard pages are `"use client"` with `export const dynamic = 'force-dynamic'`

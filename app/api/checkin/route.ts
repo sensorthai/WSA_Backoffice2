@@ -105,3 +105,70 @@ export async function POST(req: Request) {
 
   return NextResponse.json(checkin)
 }
+
+export async function PATCH(req: Request) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const supabase = createSupabaseServerClient()
+  const now = new Date()
+  const today = formatInTimeZone(now, TIMEZONE, 'yyyy-MM-dd')
+
+  const { work_done } = await req.json()
+
+  if (work_done === undefined || work_done === null) {
+    return NextResponse.json({ error: "กรุณาระบุเนื้องานที่ทำ" }, { status: 400 })
+  }
+
+  // Find today's check-in
+  const { data: existing, error: findError } = await supabase
+    .from('wfh_checkins')
+    .select('id, note')
+    .eq('user_id', session.user.id)
+    .eq('check_date', today)
+    .maybeSingle()
+
+  if (findError) {
+    return NextResponse.json({ error: findError.message }, { status: 500 })
+  }
+
+  if (!existing) {
+    return NextResponse.json({ error: "คุณยังไม่ได้เช็คอินเข้างานในวันนี้ ไม่สามารถบันทึกเนื้องานได้" }, { status: 400 })
+  }
+
+  // Update check-in record with work_done
+  // Fallback: try to write to 'work_done', if column missing, write to 'note' with prefix
+  const { data: updated, error: updateError } = await supabase
+    .from('wfh_checkins')
+    .update({ work_done })
+    .eq('id', existing.id)
+    .select()
+    .single()
+
+  if (updateError) {
+    if (updateError.code === '42703' || updateError.message.includes('work_done')) {
+      const fallbackNote = existing.note 
+        ? `${existing.note}\n\n[บันทึกงานประจำวัน]: ${work_done}`
+        : `[บันทึกงานประจำวัน]: ${work_done}`
+
+      const { data: fallbackUpdated, error: fallbackError } = await supabase
+        .from('wfh_checkins')
+        .update({ note: fallbackNote })
+        .eq('id', existing.id)
+        .select()
+        .single()
+
+      if (fallbackError) {
+        return NextResponse.json({ error: fallbackError.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ ...fallbackUpdated, work_done })
+    }
+
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  return NextResponse.json(updated)
+}

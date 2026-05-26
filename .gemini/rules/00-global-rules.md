@@ -30,6 +30,8 @@
 - **Schema**: Any schema change requires a new migration file in `supabase/migrations/`.
 - **Naming**: Use chronological prefixes (e.g., `009_add_teaching_fees.sql`).
 - **Comments**: Add comments to SQL migrations explaining the "Why" and "What."
+- **Fullbackup**: On every migration database it must full database backup to local folder `supabase/backups/` before run migration and push back to git
+
 
 ## 5. Documentation & Communication
 - **Agent Context**: Refer to `.gemini/AGENTS.md` and `DESIGN.md` for context before major tasks.

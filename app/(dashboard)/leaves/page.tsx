@@ -6,7 +6,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { format } from "date-fns"
+import { format, parseISO, isWeekend, addDays } from "date-fns"
 import { th } from "date-fns/locale"
 import { 
   Plus, 
@@ -55,6 +55,31 @@ export default function LeavesPage() {
   const [reason, setReason] = useState("")
   const [attachment, setAttachment] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+
+  // Helper to calculate working days excluding weekends on the client side
+  const calculateDaysCount = () => {
+    if (!startDate || !endDate) return 0
+    try {
+      const start = parseISO(startDate)
+      const end = parseISO(endDate)
+      if (start > end) return 0
+      
+      let count = 0
+      let current = start
+      while (current <= end) {
+        if (!isWeekend(current)) {
+          count++
+        }
+        current = addDays(current, 1)
+      }
+      return count
+    } catch {
+      return 0
+    }
+  }
+
+  const daysCount = calculateDaysCount()
+  const isSickLeaveAttachmentRequired = leaveType === 'sick' && daysCount > 3
 
   // 1. Fetch User's Leaves
   const { data, isLoading } = useQuery({
@@ -191,11 +216,11 @@ export default function LeavesPage() {
             </div>
             <div className="space-y-1">
               <div className="text-3xl font-black text-slate-900">
-                {stats?.personal || 0} <span className="text-slate-300 text-xl">/ {stats?.quotas?.personal_quota || 6}</span>
+                {stats?.personal || 0} <span className="text-slate-300 text-xl">/ {stats?.quotas?.personal_quota || 3}</span>
               </div>
               <div className="text-xs font-bold text-slate-400 flex justify-between items-center">
                 <span>ลากิจในปีนี้ (วัน)</span>
-                <span className="text-blue-600">คงเหลือ {(stats?.quotas?.personal_quota || 6) - (stats?.personal || 0)}</span>
+                <span className="text-blue-600">คงเหลือ {(stats?.quotas?.personal_quota || 3) - (stats?.personal || 0)}</span>
               </div>
             </div>
           </CardContent>
@@ -314,7 +339,7 @@ export default function LeavesPage() {
               {leaveType === 'sick' && (
                 <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
                   <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                    <FileText size={14} className="text-amber-500" /> ใบรับรองแพทย์ (บังคับ)
+                    <FileText size={14} className="text-amber-500" /> ใบรับรองแพทย์ {isSickLeaveAttachmentRequired ? "(บังคับ)" : "(ถ้ามี)"}
                   </Label>
                   <Input 
                     type="file" 
@@ -322,7 +347,11 @@ export default function LeavesPage() {
                     className="rounded-2xl h-12 border-slate-100 bg-amber-50/30 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200 cursor-pointer"
                     onChange={(e) => setAttachment(e.target.files?.[0] || null)}
                   />
-                  <p className="text-[10px] text-amber-600 font-bold ml-1">* จำเป็นต้องแนบเอกสารเพื่อยืนยันการลาป่วย</p>
+                  <p className="text-[10px] text-amber-600 font-bold ml-1">
+                    {isSickLeaveAttachmentRequired 
+                      ? "* จำเป็นต้องแนบเอกสารเพื่อยืนยันการลาป่วยมากกว่า 3 วัน" 
+                      : "* ไม่จำเป็นต้องแนบเอกสารสำหรับการลาป่วยไม่เกิน 3 วัน"}
+                  </p>
                 </div>
               )}
 
@@ -340,11 +369,12 @@ export default function LeavesPage() {
                       setIsUploading(true)
                       let url = null
                       if (leaveType === 'sick') {
-                        if (!attachment) {
+                        if (attachment) {
+                          url = await handleFileUpload(attachment)
+                        } else if (isSickLeaveAttachmentRequired) {
                           alert("กรุณาแนบใบรับรองแพทย์")
                           return
                         }
-                        url = await handleFileUpload(attachment)
                       }
                       createMutation.mutate({ 
                         leave_type: leaveType, 
@@ -359,7 +389,7 @@ export default function LeavesPage() {
                       setIsUploading(false)
                     }
                   }}
-                  disabled={!startDate || !endDate || !reason || (leaveType === 'sick' && !attachment) || createMutation.isPending || isUploading}
+                  disabled={!startDate || !endDate || !reason || (isSickLeaveAttachmentRequired && !attachment) || createMutation.isPending || isUploading}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl h-14 px-8 font-black shadow-lg shadow-emerald-600/20"
                 >
                   {(createMutation.isPending || isUploading) && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}

@@ -33,7 +33,7 @@ export async function GET() {
     vacation: 0,
     other: 0,
     total: 0,
-    quotas: user || { sick_quota: 30, personal_quota: 6, vacation_quota: 6 }
+    quotas: user || { sick_quota: 30, personal_quota: 3, vacation_quota: 6 }
   }
 
   data?.forEach((leave: any) => {

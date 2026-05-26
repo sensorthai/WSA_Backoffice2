@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor Admin as ผู้จัดตารางสอน (Admin)
+    actor Teacher as พนักงาน (ครูผู้สอน)
+    participant DB as ฐานข้อมูล (Supabase)
+
+    Admin->>DB: กำหนดตารางการสอน (Teaching Assignment)
+    note over Admin, DB: กำหนดวัน, เวลา, โรงเรียน และวิชาที่มอบหมาย
+    
+    Teacher->>DB: ตรวจสอบตารางสอนประจำวันของตนเอง
+    
+    rect rgb(240, 255, 240)
+        note over Teacher, DB: เมื่อถึงโรงเรียนปลายทาง
+        Teacher->>DB: ลงเวลาเข้าสอน (Check-in) พร้อมบันทึกพิกัด GPS (Lat, Lng)
+    end
+    
+    Teacher->>DB: ทำการเรียนการสอนจริงที่โรงเรียน
+    
+    rect rgb(255, 248, 240)
+        note over Teacher, DB: เมื่อจบคาบเรียนการสอน
+        Teacher->>DB: ลงเวลาออกสอน (Check-out)
+        Teacher->>DB: กรอกรายงานการสอนรายวัน (Teaching Logs)<br>(ระบุหัวข้อ, จำนวนนักเรียน, พฤติกรรมนักเรียน)
+    end
+    
+    Admin->>DB: ตรวจสอบและอนุมัติความถูกต้องของรายงานสอน (Review & Approve)

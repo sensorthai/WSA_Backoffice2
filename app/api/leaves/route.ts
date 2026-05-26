@@ -71,26 +71,62 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "วันเริ่มต้นต้องไม่มากกว่าวันสิ้นสุด" }, { status: 400 })
     }
 
-    if (leave_type === 'sick' && !attachment_url) {
-      return NextResponse.json({ error: "การลาป่วยจำเป็นต้องแนบใบรับรองแพทย์" }, { status: 400 })
-    }
-
     const daysCount = calculateWorkingDays(start, end)
     if (daysCount === 0) {
       return NextResponse.json({ error: "กรุณาเลือกช่วงเวลาที่มีวันทำการ" }, { status: 400 })
     }
 
+    if (leave_type === 'sick' && daysCount > 3 && !attachment_url) {
+      return NextResponse.json({ error: "การลาป่วยมากกว่า 3 วันจำเป็นต้องแนบใบรับรองแพทย์" }, { status: 400 })
+    }
+
     const supabase = createSupabaseServerClient()
 
-    // 2. Get User Info (Supervisor)
+    // 2. Get User Info (Supervisor & Quotas)
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('supervisor_id, full_name')
+      .select('supervisor_id, full_name, sick_quota, personal_quota, vacation_quota')
       .eq('id', session.user.id)
       .single()
 
     if (userError || !user) {
       return NextResponse.json({ error: "ไม่พบข้อมูลผู้ใช้" }, { status: 500 })
+    }
+
+    // 2.5 Quota Validation Check
+    const quotaKeyMap: Record<string, string> = {
+      sick: 'sick_quota',
+      personal: 'personal_quota',
+      vacation: 'vacation_quota'
+    }
+
+    const quotaKey = quotaKeyMap[leave_type]
+    if (quotaKey) {
+      const quotaValue = (user as any)[quotaKey] ?? 0
+      const requestYear = start.getFullYear()
+
+      // Fetch all non-rejected leave requests of this type in the requested year
+      const { data: existingLeaves, error: leavesErr } = await supabase
+        .from('leave_requests')
+        .select('days_count')
+        .eq('user_id', session.user.id)
+        .eq('leave_type', leave_type)
+        .neq('status', 'rejected')
+        .gte('start_date', `${requestYear}-01-01`)
+        .lte('start_date', `${requestYear}-12-31`)
+
+      if (leavesErr) {
+        return NextResponse.json({ error: "ไม่สามารถตรวจสอบโควตาวันลาได้" }, { status: 500 })
+      }
+
+      const totalUsed = (existingLeaves || []).reduce((sum, l) => sum + Number(l.days_count), 0)
+
+      if (totalUsed + daysCount > quotaValue) {
+        const remaining = Math.max(0, quotaValue - totalUsed)
+        return NextResponse.json({
+          error: `จำนวนวันลาของคุณเต็มโควตาสำหรับปี ${requestYear} แล้ว (โควตาปีนี้: ${quotaValue} วัน, ใช้ไปแล้ว: ${totalUsed} วัน, คงเหลือสิทธิ์ลา: ${remaining} วัน, ต้องการลาเพิ่ม: ${daysCount} วัน)`
+        }, { status: 400 })
+      }
     }
 
     // 3. Create Leave Request

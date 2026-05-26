@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns"
 import { th } from "date-fns/locale"
@@ -25,7 +25,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
 } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 const PROGRESS_OPTIONS = [
@@ -53,15 +52,61 @@ const emptyItem = (): ReportItem => ({
 export default function WeeklyReportsPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState("my")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   const [showCreate, setShowCreate] = useState(false)
   const [expandedReports, setExpandedReports] = useState<string[]>([])
   const [editingReport, setEditingReport] = useState<string | null>(null)
   const [editItems, setEditItems] = useState<ReportItem[]>([])
   const [reviewComment, setReviewComment] = useState("")
+  const [isImporting, setIsImporting] = useState(false)
 
   // New report form
   const [newWeekOffset, setNewWeekOffset] = useState(0)
   const [newItems, setNewItems] = useState<ReportItem[]>([emptyItem(), emptyItem(), emptyItem()])
+
+  const handleImportDailyLogs = async () => {
+    try {
+      setIsImporting(true)
+      const startStr = format(weekStart, 'yyyy-MM-dd')
+      const endStr = format(weekEnd, 'yyyy-MM-dd')
+      const res = await fetch(`/api/checkin/weekly-summary?start_date=${startStr}&end_date=${endStr}`)
+      if (!res.ok) throw new Error("ดึงบันทึกงานไม่สำเร็จ")
+      const logs = await res.json()
+
+      if (logs.length === 0) {
+        alert("ไม่พบบันทึกเนื้องานรายวันในช่วงเวลาสัปดาห์นี้")
+        return
+      }
+
+      // Convert daily logs to ReportItems
+      const importedItems: ReportItem[] = logs.map((log: any) => ({
+        plan: `[บันทึกรายวัน ${format(new Date(log.date), 'dd/MM/yyyy')}]: ${log.work}`,
+        progress: 'completed',
+        problems: '',
+        suggestions: '',
+        file_url: '',
+        file_name: '',
+        is_completed: true
+      }))
+
+      if (confirm(`พบข้อมูลเนื้องานรายวัน ${logs.length} รายการ คุณต้องการเขียนทับรายการในตารางด้านล่างหรือไม่? (กด Cancel เพื่อต่อท้ายข้อมูลเดิม)`)) {
+        setNewItems(importedItems)
+      } else {
+        setNewItems(prev => {
+          const filteredPrev = prev.filter(i => i.plan.trim() !== "")
+          return [...filteredPrev, ...importedItems]
+        })
+      }
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsImporting(false)
+    }
+  }
 
   const weekStart = startOfWeek(addWeeks(new Date(), newWeekOffset), { weekStartsOn: 1 })
   const weekEnd = endOfWeek(addWeeks(new Date(), newWeekOffset), { weekStartsOn: 1 })
@@ -259,6 +304,15 @@ export default function WeeklyReportsPage() {
     </div>
   )
 
+  if (!mounted) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <RefreshCw className="animate-spin text-blue-600 w-10 h-10" />
+        <p className="text-slate-400 font-bold animate-pulse">กำลังโหลดรายงาน...</p>
+      </div>
+    )
+  }
+
   if (isLoading) return (
     <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
       <RefreshCw className="animate-spin text-blue-600 w-10 h-10" />
@@ -285,13 +339,27 @@ export default function WeeklyReportsPage() {
               <DialogTitle className="text-xl font-black">สร้างรายงานประจำสัปดาห์</DialogTitle>
             </DialogHeader>
             <div className="space-y-6 mt-4">
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p - 1)}>← สัปดาห์ก่อน</Button>
-                <div className="text-center">
-                  <p className="font-black text-lg text-slate-900">{weekLabel}</p>
-                  <p className="text-xs text-slate-400">{format(weekStart, 'yyyy-MM-dd')} ถึง {format(weekEnd, 'yyyy-MM-dd')}</p>
+              <div className="flex flex-col items-center justify-center gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p - 1)}>← สัปดาห์ก่อน</Button>
+                  <div className="text-center min-w-[200px]">
+                    <p className="font-black text-lg text-slate-900">{weekLabel}</p>
+                    <p className="text-xs text-slate-400">{format(weekStart, 'yyyy-MM-dd')} ถึง {format(weekEnd, 'yyyy-MM-dd')}</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p + 1)}>สัปดาห์หน้า →</Button>
                 </div>
-                <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p + 1)}>สัปดาห์หน้า →</Button>
+
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-2xl border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-100/70 font-bold h-10 px-6 gap-2 flex items-center justify-center transition-all duration-300"
+                  onClick={handleImportDailyLogs}
+                  disabled={isImporting}
+                >
+                  {isImporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-blue-500" />}
+                  ดึงข้อมูลจากบันทึกเนื้องานรายวันของสัปดาห์นี้
+                </Button>
               </div>
 
               {/* Column Headers */}
@@ -321,24 +389,46 @@ export default function WeeklyReportsPage() {
         </Dialog>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-white rounded-2xl p-1.5 border border-slate-100 shadow-sm">
-          <TabsTrigger value="my" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold px-6 gap-2">
-            <FileText className="w-4 h-4" /> รายงานของฉัน
-          </TabsTrigger>
-          <TabsTrigger value="team" className="rounded-xl data-[state=active]:bg-blue-600 data-[state=active]:text-white font-bold px-6 gap-2">
-            <Users className="w-4 h-4" /> รายงานทีม
-          </TabsTrigger>
-        </TabsList>
+      {/* Sub Menu Navigation */}
+      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+        <button 
+          onClick={() => setActiveTab("my")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+            activeTab === "my" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <FileText className="w-4 h-4" />
+          <span>รายงานของฉัน</span>
+          {activeTab === "my" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveTab("team")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+            activeTab === "team" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <Users className="w-4 h-4" />
+          <span>รายงานทีม</span>
+          {activeTab === "team" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          )}
+        </button>
+      </div>
 
-        <TabsContent value="my" className="mt-6 space-y-4">
+      {activeTab === "my" && (
+        <div className="mt-6 space-y-4">
           {renderReportList(reports)}
-        </TabsContent>
-        <TabsContent value="team" className="mt-6 space-y-4">
+        </div>
+      )}
+      {activeTab === "team" && (
+        <div className="mt-6 space-y-4">
           {renderReportList(reports)}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   )
 

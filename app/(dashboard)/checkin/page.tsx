@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
@@ -19,7 +19,9 @@ import {
   Loader2,
   Users,
   AlertCircle,
-  MapPin
+  MapPin,
+  Save,
+  FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -45,6 +47,30 @@ export default function CheckinPage() {
   const [deptFilter, setDeptFilter] = useState("all")
   const [isLocating, setIsLocating] = useState(false)
   const [location, setLocation] = useState<{lat: number, lng: number, accuracy: number} | null>(null)
+  const [workDone, setWorkDone] = useState("")
+
+  // Mutation to Save Daily Work Done
+  const saveWorkDoneMutation = useMutation({
+    mutationFn: async (work_done: string) => {
+      const res = await fetch("/api/checkin", {
+        method: "PATCH",
+        body: JSON.stringify({ work_done }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "บันทึกไม่สำเร็จ")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-checkin"] })
+      alert("บันทึกเนื้องานวันนี้เรียบร้อยแล้ว! ข้อมูลนี้จะนำไปสรุปในรายงานประจำสัปดาห์ของคุณ")
+    },
+    onError: (err: any) => {
+      alert(err.message)
+    }
+  })
 
   // 1. Fetch User's Today Check-in
   const { data: myStatus, isLoading: myLoading } = useQuery({
@@ -55,6 +81,15 @@ export default function CheckinPage() {
       return res.json()
     }
   })
+
+  // Synchronize workDone when today's checkin status fetches
+  useEffect(() => {
+    if (myStatus?.work_done) {
+      setWorkDone(myStatus.work_done)
+    } else if (myStatus?.note && myStatus.note.includes('[บันทึกงานประจำวัน]:')) {
+      setWorkDone(myStatus.note.split('[บันทึกงานประจำวัน]:')[1]?.trim() || "")
+    }
+  }, [myStatus])
 
   const today = new Date()
   const nowHour = parseInt(formatInTimeZone(today, TZ, 'H'))
@@ -199,6 +234,37 @@ export default function CheckinPage() {
                     <div className="p-5 bg-slate-50/80 backdrop-blur-sm rounded-3xl text-slate-600 text-sm leading-relaxed border border-slate-100 italic relative group">
                       <MessageSquare size={16} className="absolute -top-2 -left-2 text-slate-200" />
                       "{myStatus.note}"
+                    </div>
+                  )}
+
+                  {['office', 'home', 'onsite'].includes(myStatus.status) && (
+                    <div className="pt-6 border-t border-slate-100 space-y-4 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                          <FileText size={16} />
+                        </span>
+                        <h4 className="text-sm font-black text-slate-700 uppercase tracking-wide">📝 พิมพ์เนื้องานประจำวันนี้</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Textarea
+                          placeholder="พิมพ์ระบุเนื้องานหรือผลงานที่คุณทำสำเร็จในวันนี้ เช่น พัฒนา API เสร็จสิ้น, แก้บั๊กหน้าเช็คอิน..."
+                          className="rounded-2xl border-slate-100 bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-blue-100 transition-all resize-none h-28 p-4 text-xs text-slate-700 leading-relaxed font-medium"
+                          value={workDone}
+                          onChange={(e) => setWorkDone(e.target.value)}
+                        />
+                        <Button
+                          className="w-full rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 text-xs shadow-md shadow-blue-600/10 flex items-center justify-center gap-1.5"
+                          disabled={saveWorkDoneMutation.isPending || !workDone.trim()}
+                          onClick={() => saveWorkDoneMutation.mutate(workDone)}
+                        >
+                          {saveWorkDoneMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          บันทึกเนื้องานวันนี้
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-medium italic text-center">
+                        * ข้อมูลนี้จะเชื่อมโยงไปสร้างรายงานประจำสัปดาห์โดยอัตโนมัติ
+                      </p>
                     </div>
                   )}
 

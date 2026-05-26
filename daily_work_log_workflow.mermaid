@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    actor Emp as พนักงาน (Employee)
+    participant Cron as ระบบตั้งเวลา (Cron Job)
+    participant Web as ระบบ WSA Backoffice (Next.js)
+    participant DB as ฐานข้อมูล (Supabase)
+    participant Mail as ระบบอีเมล (Gmail)
+
+    Emp->>DB: ลงเวลาเช็คอินเข้างาน (Office / WFH / Onsite) ในตอนเช้า
+    
+    Note over Cron, DB: หลังเลิกงาน (เวลา 17:30 น. ของทุกวันจันทร์ - ศุกร์)
+    Cron->>DB: ค้นหาพนักงานที่เช็คอินแล้วแต่ยังไม่ได้บันทึกเนื้องาน
+    DB-->>Cron: คืนค่าข้อมูลพนักงานที่ต้องแจ้งเตือน
+    Cron->>Mail: ส่งอีเมลคำขอ "พิมพ์ระบุเนื้องานวันนี้" ไปยังพนักงาน
+    
+    Emp->>Mail: เปิดลิงก์จากอีเมลเพื่อเข้าหน้าเช็คอิน
+    Emp->>Web: พิมพ์กรอกเนื้องานประจำวันนี้ (Daily Work Log)
+    Web->>DB: PATCH อัปเดตเนื้องานลงตาราง wfh_checkins
+    DB-->>Web: ยืนยันบันทึกผลงานสำเร็จ
+    
+    Note over Emp, Web: สิ้นสุดสัปดาห์ (วันศุกร์)
+    Emp->>Web: เข้าสู่หน้ารายงานประจำสัปดาห์ (Weekly Report)
+    Emp->>Web: คลิกปุ่ม "ดึงข้อมูลจากบันทึกงานรายวัน" (Import Daily Logs)
+    Web->>DB: ดึงข้อมูลประวัติบันทึกงานของพนักงานในสัปดาห์นี้
+    DB-->>Web: คืนข้อมูลเนื้องานรายวัน
+    Web->>Web: แปลงข้อมูลบันทึกรายวันลงช่องรายการแผนงานให้อัตโนมัติ
+    Emp->>Web: ตรวจสอบความถูกต้องและกดยืนยันส่งรายงาน (Submit)

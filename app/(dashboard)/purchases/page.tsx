@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
@@ -71,6 +71,12 @@ export default function PurchasesPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null)
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState("my-purchases")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // --- Form State ---
   const [purchaseForm, setPurchaseForm] = useState({
@@ -388,6 +394,14 @@ ${form.purpose || "-"}
 
   const handlePrint = () => {
     window.print()
+  }
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    )
   }
 
   return (
@@ -876,22 +890,41 @@ ${form.purpose || "-"}
          </div>
       </div>
 
-      <Tabs defaultValue="my-purchases" className="w-full space-y-8">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl border border-slate-100 flex flex-nowrap overflow-x-auto custom-scrollbar shadow-sm w-full">
-          <TabsTrigger value="my-purchases" className="rounded-xl px-4 md:px-8 py-2.5 md:py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0 flex-1 md:flex-none text-sm md:text-base">
-            ใบเบิกของฉัน
-          </TabsTrigger>
-          {userRole !== 'employee' && (
-            <TabsTrigger value="approve" className="rounded-xl px-4 md:px-8 py-2.5 md:py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 font-bold transition-all shrink-0 flex-1 md:flex-none text-sm md:text-base">
-              พิจารณาอนุมัติ
-              {pendingPurchases?.length > 0 && (
-                <Badge className="ml-2 bg-blue-600 text-white">{pendingPurchases.length}</Badge>
-              )}
-            </TabsTrigger>
+      {/* Sub Menu Navigation */}
+      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+        <button 
+          onClick={() => setActiveView("my-purchases")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative",
+            activeView === "my-purchases" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
           )}
-        </TabsList>
+        >
+          ใบเบิกของฉัน
+          {activeView === "my-purchases" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          )}
+        </button>
+        {userRole !== 'employee' && (
+          <button 
+            onClick={() => setActiveView("approve")}
+            className={cn(
+              "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+              activeView === "approve" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <span>พิจารณาอนุมัติ</span>
+            {pendingPurchases?.length > 0 && (
+              <Badge className="bg-blue-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{pendingPurchases.length}</Badge>
+            )}
+            {activeView === "approve" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            )}
+          </button>
+        )}
+      </div>
 
-        <TabsContent value="my-purchases" className="space-y-6">
+      {activeView === "my-purchases" && (
+        <div className="space-y-6">
            <Card className="rounded-[2rem] md:rounded-[2.5rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
                  <Table className="min-w-[600px]">
@@ -954,9 +987,11 @@ ${form.purpose || "-"}
                </Table>
             </div>
            </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="approve" className="space-y-6">
+      {activeView === "approve" && (
+        <div className="space-y-6">
            {isPendingLoading ? (
              <div className="py-32 text-center">
                 <Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" />
@@ -1125,8 +1160,8 @@ ${form.purpose || "-"}
                 ))}
              </div>
            )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDrawerOpen} onOpenChange={setIsDetailDrawerOpen}>

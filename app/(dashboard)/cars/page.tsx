@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns"
@@ -58,6 +58,12 @@ export default function CarsPage() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
+  const [activeView, setActiveView] = useState("my-bookings")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // --- Form State ---
   const [bookingForm, setBookingForm] = useState({
@@ -185,6 +191,14 @@ export default function CarsPage() {
     }
   }
 
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700 max-w-7xl mx-auto pb-20">
       {/* Hero Section */}
@@ -206,27 +220,58 @@ export default function CarsPage() {
          </div>
       </div>
 
-      <Tabs defaultValue="my-bookings" className="w-full space-y-10">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1.5 rounded-3xl border border-slate-100 inline-flex shadow-sm">
-          <TabsTrigger value="my-bookings" className="rounded-2xl px-10 py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-indigo-600 font-black text-base transition-all">
-            <History className="w-5 h-5 mr-2" /> การจองของฉัน
-          </TabsTrigger>
-          {userRole !== 'employee' && (
-            <TabsTrigger value="manage" className="rounded-2xl px-10 py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-indigo-600 font-black text-base transition-all">
-              <Settings className="w-5 h-5 mr-2" /> จัดการคำขอ
-              {allPendingBookings?.length > 0 && (
-                <Badge className="ml-2 bg-indigo-600 text-white border-0">{allPendingBookings.length}</Badge>
-              )}
-            </TabsTrigger>
+      {/* Sub Menu Navigation */}
+      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+        <button 
+          onClick={() => setActiveView("my-bookings")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+            activeView === "my-bookings" ? "text-indigo-600 font-black" : "text-slate-400 hover:text-slate-600"
           )}
-          {userRole === 'admin' && (
-            <TabsTrigger value="calendar" className="rounded-2xl px-10 py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-indigo-600 font-black text-base transition-all">
-              <CalendarIcon className="w-5 h-5 mr-2" /> ปฏิทินรถ
-            </TabsTrigger>
+        >
+          <History className="w-5 h-5" />
+          <span>การจองของฉัน</span>
+          {activeView === "my-bookings" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full animate-in fade-in zoom-in duration-300" />
           )}
-        </TabsList>
+        </button>
+        {userRole !== 'employee' && (
+          <button 
+            onClick={() => setActiveView("manage")}
+            className={cn(
+              "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+              activeView === "manage" ? "text-indigo-600 font-black" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <Settings className="w-5 h-5" />
+            <span>จัดการคำขอ</span>
+            {allPendingBookings?.length > 0 && (
+              <Badge className="bg-indigo-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{allPendingBookings.length}</Badge>
+            )}
+            {activeView === "manage" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            )}
+          </button>
+        )}
+        {userRole === 'admin' && (
+          <button 
+            onClick={() => setActiveView("calendar")}
+            className={cn(
+              "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+              activeView === "calendar" ? "text-indigo-600 font-black" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <CalendarIcon className="w-5 h-5" />
+            <span>ปฏิทินรถ</span>
+            {activeView === "calendar" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            )}
+          </button>
+        )}
+      </div>
 
-        <TabsContent value="my-bookings" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeView === "my-bookings" && (
+        <div className="space-y-6">
            <Card className="rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <Table>
                  <TableHeader className="bg-slate-50/50">
@@ -294,9 +339,11 @@ export default function CarsPage() {
                  </TableBody>
               </Table>
            </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="manage" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeView === "manage" && (
+        <div className="space-y-6">
            <div className="grid grid-cols-1 gap-8">
               {isAllPendingLoading ? (
                  <div className="py-32 text-center"><Loader2 className="animate-spin inline-block text-indigo-200 w-16 h-16" /></div>
@@ -418,9 +465,11 @@ export default function CarsPage() {
                 </div>
               )}
            </div>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeView === "calendar" && (
+        <div className="space-y-6">
            {/* Simple Weekly Calendar Implementation */}
            <div className="bg-white rounded-[3.5rem] p-10 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-center justify-between mb-10">
@@ -458,8 +507,8 @@ export default function CarsPage() {
                  ))}
               </div>
            </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Booking Modal */}
       <Dialog open={isBookingModalOpen} onOpenChange={setIsBookingModalOpen}>

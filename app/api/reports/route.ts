@@ -79,9 +79,9 @@ export async function GET(req: Request) {
         sick_quota: u.sick_quota || 30,
         sick_used: sickUsed,
         sick_remaining: (u.sick_quota || 30) - sickUsed,
-        personal_quota: u.personal_quota || 6,
+        personal_quota: u.personal_quota || 3,
         personal_used: personalUsed,
-        personal_remaining: (u.personal_quota || 6) - personalUsed,
+        personal_remaining: (u.personal_quota || 3) - personalUsed,
         vacation_quota: u.vacation_quota || 6,
         vacation_used: vacationUsed,
         vacation_remaining: (u.vacation_quota || 6) - vacationUsed

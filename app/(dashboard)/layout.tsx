@@ -24,6 +24,13 @@ export default function DashboardLayout({
     if (path.startsWith('/approve')) return 'เมนูอนุมัติ'
     if (path.startsWith('/admin')) return 'จัดการระบบ'
     if (path.startsWith('/ceo')) return 'CEO Insights'
+    if (path.startsWith('/reimbursements')) return 'เบิกค่าใช้จ่าย'
+    if (path.startsWith('/meeting-rooms')) return 'จองห้องประชุม'
+    if (path.startsWith('/assets')) return 'ทรัพย์สินบริษัท'
+    if (path.startsWith('/noticeboard')) return 'กระดานข่าวสาร'
+    if (path.startsWith('/directory')) return 'ทำเนียบพนักงาน'
+    if (path.startsWith('/helpdesk')) return 'แจ้งซ่อม/Helpdesk'
+    if (path.startsWith('/knowledge')) return 'ศูนย์รวมเอกสาร'
     return 'Dashboard'
   }
 

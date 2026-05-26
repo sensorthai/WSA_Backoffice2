@@ -3,6 +3,8 @@ import { useState } from "react"
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
+import { useTranslation } from "@/contexts/I18nContext"
+import { useTheme } from "next-themes"
 import {
   LayoutDashboard,
   UserCheck,
@@ -25,7 +27,16 @@ import {
   BookOpenCheck,
   Grid3X3,
   ClipboardCheck,
-  Coins
+  Coins,
+  Sun,
+  Moon,
+  Globe,
+  Wallet,
+  MonitorSmartphone,
+  Megaphone,
+  Contact,
+  Headset,
+  BookText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -43,7 +54,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   const searchParams = useSearchParams()
   const { profile } = useUser()
   const role = profile?.role || 'employee'
-  const [openSubmenus, setOpenSubmenus] = useState<string[]>(["จัดการระบบ"])
+  const { t, locale, setLocale } = useTranslation()
+  const { theme, setTheme } = useTheme()
+  const [openSubmenus, setOpenSubmenus] = useState<string[]>([t("sidebar.admin")])
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev =>
@@ -64,15 +77,24 @@ export function Sidebar({ onClose }: SidebarProps) {
   const pendingCount = Array.isArray(pendingApprovals) ? pendingApprovals.length : 0
 
   const navItems = [
-    { label: "CEO Dashboard", href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "Check-in วันนี้", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "ใบลา", href: "/leaves", icon: CalendarRange, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "ใบเบิก", href: "/purchases", icon: ShoppingBag, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "ขอใช้รถ", href: "/cars", icon: Car, roles: ["admin", "employee", "supervisor", "ceo"] },
-    { label: "รายงานรายสัปดาห์", href: "/weekly-reports", icon: ClipboardCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: "กระดานข่าวสาร", href: "/noticeboard", icon: Megaphone, roles: ["admin", "employee", "supervisor", "ceo"] },   
+    { label: t("sidebar.ceo"), href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
+    { label: t("sidebar.dashboard"), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor"] },
+    { label: "Check-in", href: "/checkin", icon: UserCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: t("sidebar.leaves"), href: "/leaves", icon: CalendarRange, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: t("sidebar.purchases"), href: "/purchases", icon: ShoppingBag, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: "เบิกค่าใช้จ่าย", href: "/reimbursements", icon: Wallet, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: "Weekly Reports", href: "/weekly-reports", icon: ClipboardCheck, roles: ["admin", "employee", "supervisor", "ceo"] },
+        { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
+    { label: t("sidebar.cars"), href: "/cars", icon: Car, roles: ["admin", "employee", "supervisor", "ceo"] },
+    { label: "จองห้องประชุม", href: "/meeting-rooms", icon: Users, roles:  ["ceo", "admin"] },
+    { label: "ทรัพย์สิน", href: "/assets", icon: MonitorSmartphone, roles:  ["ceo", "admin"] },
+     { label: "ทำเนียบพนักงาน", href: "/directory", icon: Contact, roles:  ["ceo", "admin"] },
+    { label: "แจ้งซ่อม/Helpdesk", href: "/helpdesk", icon: Headset, roles:  ["ceo", "admin"] },
+    { label: "ศูนย์รวมเอกสาร", href: "/knowledge", icon: BookText, roles:  ["ceo", "admin"] },
+
     {
-      label: "งานสอน",
+      label: t("sidebar.teaching"),
       href: "/teaching",
       icon: ClipboardList,
       roles: ["outsource", "admin", "employee", "supervisor"],
@@ -85,35 +107,35 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: "ตารางสอน (สัปดาห์/เดือน)", href: "/teaching/timetable", icon: Grid3X3 },
       ]
     },
-    { label: "เมนูอนุมัติ", href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
-    { label: "จัดการงานสอน", href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
+
     {
-      label: "จัดการระบบ",
-      href: "/admin",
-      icon: Settings,
-      roles: ["admin"],
-      subItems: [
-        { label: "พนักงาน", href: "/admin?tab=users", icon: Users },
-        { label: "กลุ่มงาน", href: "/admin?tab=departments", icon: Layers },
-        { label: "ตำแหน่ง", href: "/admin?tab=positions", icon: Briefcase },
-        { label: "รถบริษัท", href: "/admin?tab=cars", icon: Car },
-        { label: "ตั้งค่าระบบ", href: "/admin?tab=settings", icon: Settings },
-        { label: "เครดิต Google API", href: "/admin?tab=google-api", icon: Coins },
-      ]
-    },
-    {
-      label: "รายงานสรุป",
+      label: "Reports",
       href: "/reports",
       icon: FileBarChart,
       roles: ["admin", "ceo"],
       subItems: [
-        { label: "สรุปการเข้างาน", href: "/reports?tab=wfh", icon: Users },
-        { label: "สรุปการลา", href: "/reports?tab=leave", icon: Palmtree },
-        { label: "สรุปการเบิกจ่าย", href: "/reports?tab=purchase", icon: ShoppingBag },
-        { label: "สรุปการใช้รถ", href: "/reports?tab=car", icon: Car },
+        { label: "WFH", href: "/reports?tab=wfh", icon: Users },
+        { label: "Leaves", href: "/reports?tab=leave", icon: Palmtree },
+        { label: "Purchases", href: "/reports?tab=purchase", icon: ShoppingBag },
+        { label: "Cars", href: "/reports?tab=car", icon: Car },
       ]
     },
 
+    { label: "Teaching Mgmt", href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
+    {
+      label: t("sidebar.admin"),
+      href: "/admin",
+      icon: Settings,
+      roles: ["admin"],
+      subItems: [
+        { label: "Users", href: "/admin?tab=users", icon: Users },
+        { label: "Departments", href: "/admin?tab=departments", icon: Layers },
+        { label: "Positions", href: "/admin?tab=positions", icon: Briefcase },
+        { label: "Cars", href: "/admin?tab=cars", icon: Car },
+        { label: "Settings", href: "/admin?tab=settings", icon: Settings },
+        { label: "Google API", href: "/admin?tab=google-api", icon: Coins },
+      ]
+    },
   ]
 
   const filteredItems = navItems.filter(item => {
@@ -127,16 +149,16 @@ export function Sidebar({ onClose }: SidebarProps) {
   })
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-300">
+    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border text-sidebar-foreground">
       {/* Sidebar Header */}
-      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
+      <div className="h-16 flex items-center justify-between px-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xs">SME</span>
+          <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
+            <span className="text-sidebar-primary-foreground font-bold text-xs">SME</span>
           </div>
-          <span className="font-bold text-white tracking-tight">Backoffice</span>
+          <span className="font-bold tracking-tight">Backoffice</span>
         </div>
-        <Button variant="ghost" size="icon" className="md:hidden text-slate-400" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="md:hidden text-sidebar-foreground/50" onClick={onClose}>
           <X className="h-5 w-5" />
         </Button>
       </div>
@@ -232,6 +254,28 @@ export function Sidebar({ onClose }: SidebarProps) {
         })}
       </nav>
 
+      {/* Footer / Toggles */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+            <span>{t("sidebar.theme_toggle")}</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setLocale(locale === 'th' ? 'en' : 'th')}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Globe size={18} />
+            <span>{t("sidebar.lang_toggle")}</span>
+          </div>
+        </button>
+      </div>
 
     </div>
   )

@@ -1,0 +1,16 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "purchases": "Purchases",
+    "leaves": "Leave Requests",
+    "cars": "Car Booking",
+    "teaching": "Teaching Logs",
+    "admin": "Admin Panel",
+    "ceo": "CEO Overview",
+    "profile": "Profile",
+    "logout": "Logout",
+    "pending": "Pending",
+    "theme_toggle": "Toggle Theme",
+    "lang_toggle": "ภาษาไทย"
+  }
+}

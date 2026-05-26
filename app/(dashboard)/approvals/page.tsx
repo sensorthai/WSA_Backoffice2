@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
@@ -24,7 +24,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -54,6 +53,12 @@ export default function ApprovalsPage() {
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [rejectNote, setRejectNote] = useState("")
+  const [activeView, setActiveView] = useState("pending")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // --- Queries ---
   const { data: pendingItems, isLoading: isPendingLoading } = useQuery({
@@ -306,6 +311,14 @@ export default function ApprovalsPage() {
     )
   }
 
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700 max-w-7xl mx-auto pb-20">
       {/* Header */}
@@ -322,18 +335,40 @@ export default function ApprovalsPage() {
          </div>
       </div>
 
-      <Tabs defaultValue="pending" className="w-full space-y-10">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl md:rounded-3xl border border-slate-100 flex w-full shadow-sm">
-           <TabsTrigger value="pending" className="rounded-xl md:rounded-2xl px-4 md:px-10 py-2.5 md:py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-sm md:text-base transition-all flex-1 md:flex-none">
-              รายการรอ
-              {pendingItems?.length > 0 && <Badge className="ml-2 bg-blue-600 text-white border-0">{pendingItems.length}</Badge>}
-           </TabsTrigger>
-           <TabsTrigger value="history" className="rounded-xl md:rounded-2xl px-4 md:px-10 py-2.5 md:py-4 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-600 font-black text-sm md:text-base transition-all flex-1 md:flex-none">
-              <HistoryIcon className="w-4 h-4 md:w-5 md:h-5 mr-1.5 md:mr-2" /> ประวัติ
-           </TabsTrigger>
-        </TabsList>
+      {/* Sub Menu Navigation */}
+      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+        <button 
+          onClick={() => setActiveView("pending")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+            activeView === "pending" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <span>รายการรอ</span>
+          {pendingItems?.length > 0 && (
+            <Badge className="bg-blue-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{pendingItems.length}</Badge>
+          )}
+          {activeView === "pending" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          )}
+        </button>
+        <button 
+          onClick={() => setActiveView("history")}
+          className={cn(
+            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+            activeView === "history" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <HistoryIcon className="w-4 h-4" />
+          <span>ประวัติ</span>
+          {activeView === "history" && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          )}
+        </button>
+      </div>
 
-        <TabsContent value="pending" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeView === "pending" && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
            <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
               <Table className="min-w-[700px]">
@@ -391,9 +426,11 @@ export default function ApprovalsPage() {
               </Table>
               </div>
            </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="history" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeView === "history" && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
            {/* Similar Table for History */}
            <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
@@ -434,8 +471,8 @@ export default function ApprovalsPage() {
               </Table>
               </div>
            </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
