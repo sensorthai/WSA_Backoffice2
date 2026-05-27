@@ -34,6 +34,11 @@ export async function GET(req: NextRequest) {
   const userId = (session.user as any).id
   const supabase = createSupabaseServerClient()
 
+  const pageParam = req.nextUrl.searchParams.get('page')
+  const isPaginated = !!pageParam
+  const page = parseInt(pageParam || '1')
+  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50')
+
   let query = supabase
     .from('teaching_logs')
     .select(`
@@ -48,7 +53,7 @@ export async function GET(req: NextRequest) {
       teacher:teacher_id (id, full_name, email),
       school:school_id (id, name, district),
       reviewer:reviewed_by (id, full_name)
-    `)
+    `, isPaginated ? { count: 'exact' } : undefined)
     .order('teach_date', { ascending: false })
 
   // Outsource teachers & employee-teachers only see own logs
@@ -72,15 +77,31 @@ export async function GET(req: NextRequest) {
   const teacherId = req.nextUrl.searchParams.get('teacher_id')
   if (teacherId) query = query.eq('teacher_id', teacherId)
 
-  // Limit results
-  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50')
-  query = query.limit(limit)
+  const schoolId = req.nextUrl.searchParams.get('school_id')
+  if (schoolId) query = query.eq('school_id', schoolId)
 
-  const { data, error } = await query
+  if (isPaginated) {
+    const offset = (page - 1) * limit
+    query = query.range(offset, offset + limit - 1)
+  } else {
+    query = query.limit(limit)
+  }
+
+  const { data, error, count } = await query
 
   if (error) {
     console.error("Fetch teaching_logs error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (isPaginated) {
+    const totalPages = count ? Math.ceil(count / limit) : 0
+    return NextResponse.json({
+      data,
+      count,
+      totalPages,
+      page
+    })
   }
 
   return NextResponse.json(data)

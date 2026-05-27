@@ -9,7 +9,7 @@ import { th } from "date-fns/locale"
 import {
   Plus, Trash2, Send, CheckCircle2, Clock, FileText,
   ChevronDown, ChevronRight, Paperclip, AlertCircle,
-  Users, RefreshCw, MessageSquare, Save
+  Users, RefreshCw, MessageSquare, Save, ArrowLeft
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,9 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
-} from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 
@@ -62,6 +59,7 @@ export default function WeeklyReportsPage() {
   const [editingReport, setEditingReport] = useState<string | null>(null)
   const [editItems, setEditItems] = useState<ReportItem[]>([])
   const [reviewComment, setReviewComment] = useState("")
+  const [reviewingReport, setReviewingReport] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
 
   // New report form
@@ -188,6 +186,7 @@ export default function WeeklyReportsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
       setReviewComment("")
+      setReviewingReport(null)
     }
   })
 
@@ -374,23 +373,21 @@ export default function WeeklyReportsPage() {
 
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto pb-20 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">📋 รายงานรายสัปดาห์</h1>
-          <p className="text-slate-400 font-medium text-sm mt-1">สั่งงาน ติดตาม และรายงานความคืบหน้า</p>
-        </div>
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
-          <DialogTrigger asChild>
-            <Button className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black px-6 h-12 shadow-lg shadow-blue-600/20">
-              <Plus className="w-5 h-5 mr-2" /> สร้างรายงานใหม่
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black">สร้างรายงานประจำสัปดาห์</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6 mt-4">
+      {showCreate ? (
+        /* ===== IN-PAGE CREATE FORM (แทนที่ Dialog modal) ===== */
+        <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+          <Button 
+            variant="ghost" 
+            onClick={() => { setShowCreate(false); setNewItems([emptyItem(), emptyItem(), emptyItem()]); }} 
+            className="mb-4 rounded-xl text-slate-500 hover:text-slate-700 font-bold"
+          >
+            <ArrowLeft className="mr-2 w-4 h-4" /> กลับไปรายการ
+          </Button>
+          <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-blue-600 p-8 text-white">
+              <CardTitle className="text-2xl font-black">สร้างรายงานประจำสัปดาห์</CardTitle>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
               <div className="flex flex-col items-center justify-center gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p - 1)}>← สัปดาห์ก่อน</Button>
@@ -426,60 +423,78 @@ export default function WeeklyReportsPage() {
               </div>
 
               {renderItemEditor(newItems, setNewItems)}
+
+              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                <Button variant="outline" className="rounded-xl" onClick={() => { setShowCreate(false); setNewItems([emptyItem(), emptyItem(), emptyItem()]); }}>ยกเลิก</Button>
+                <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 font-bold"
+                  onClick={() => createMutation.mutate()}
+                  disabled={createMutation.isPending || !newItems.some(i => i.plan.trim())}
+                >
+                  {createMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  บันทึกแบบร่าง
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        /* ===== NORMAL PAGE CONTENT ===== */
+        <>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight text-slate-900">📋 รายงานรายสัปดาห์</h1>
+              <p className="text-slate-400 font-medium text-sm mt-1">สั่งงาน ติดตาม และรายงานความคืบหน้า</p>
             </div>
-            <DialogFooter className="mt-6">
-              <Button variant="outline" className="rounded-xl" onClick={() => setShowCreate(false)}>ยกเลิก</Button>
-              <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 font-bold"
-                onClick={() => createMutation.mutate()}
-                disabled={createMutation.isPending || !newItems.some(i => i.plan.trim())}
-              >
-                {createMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                บันทึกแบบร่าง
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <Button 
+              className="rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black px-6 h-12 shadow-lg shadow-blue-600/20"
+              onClick={() => setShowCreate(true)}
+            >
+              <Plus className="w-5 h-5 mr-2" /> สร้างรายงานใหม่
+            </Button>
+          </div>
 
-      {/* Sub Menu Navigation */}
-      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
-        <button 
-          onClick={() => setActiveTab("my")}
-          className={cn(
-            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
-            activeTab === "my" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <FileText className="w-4 h-4" />
-          <span>รายงานของฉัน</span>
+          {/* Sub Menu Navigation */}
+          <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+            <button 
+              onClick={() => setActiveTab("my")}
+              className={cn(
+                "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+                activeTab === "my" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <FileText className="w-4 h-4" />
+              <span>รายงานของฉัน</span>
+              {activeTab === "my" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab("team")}
+              className={cn(
+                "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+                activeTab === "team" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <Users className="w-4 h-4" />
+              <span>รายงานทีม</span>
+              {activeTab === "team" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
+            </button>
+          </div>
+
           {activeTab === "my" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            <div className="mt-6 space-y-4">
+              {renderReportList(reports)}
+            </div>
           )}
-        </button>
-        <button 
-          onClick={() => setActiveTab("team")}
-          className={cn(
-            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
-            activeTab === "team" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <Users className="w-4 h-4" />
-          <span>รายงานทีม</span>
           {activeTab === "team" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            <div className="mt-6 space-y-4">
+              {renderReportList(reports)}
+            </div>
           )}
-        </button>
-      </div>
-
-      {activeTab === "my" && (
-        <div className="mt-6 space-y-4">
-          {renderReportList(reports)}
-        </div>
-      )}
-      {activeTab === "team" && (
-        <div className="mt-6 space-y-4">
-          {renderReportList(reports)}
-        </div>
+        </>
       )}
     </div>
   )
@@ -517,6 +532,7 @@ export default function WeeklyReportsPage() {
     return reportList.map((report: any) => {
       const isExpanded = expandedReports.includes(report.id)
       const isEditing = editingReport === report.id
+      const isReviewing = reviewingReport === report.id
       const completedCount = report.items?.filter((i: any) => i.is_completed).length || 0
       const totalCount = report.items?.length || 0
       const issueCount = report.items?.filter((i: any) => i.progress === 'has_issue').length || 0
@@ -571,23 +587,17 @@ export default function WeeklyReportsPage() {
                 </>
               )}
               {report.status === 'submitted' && activeTab === 'team' && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold">
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> ตรวจรายงาน
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-3xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader><DialogTitle>ตรวจรายงาน</DialogTitle></DialogHeader>
-                    <Textarea placeholder="ความคิดเห็น / คำสั่งเพิ่มเติม..." value={reviewComment}
-                      onChange={e => setReviewComment(e.target.value)} className="rounded-xl min-h-[100px]" />
-                    <DialogFooter>
-                      <Button className="rounded-xl bg-emerald-600 font-bold"
-                        onClick={() => reviewMutation.mutate({ id: report.id, comment: reviewComment })}
-                      >ยืนยันการตรวจ</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  size="sm" 
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold"
+                  onClick={() => {
+                    setReviewingReport(report.id)
+                    // Auto-expand
+                    setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
+                  }}
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1" /> ตรวจรายงาน
+                </Button>
               )}
               {report.status === 'reviewed' && (
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -695,6 +705,32 @@ export default function WeeklyReportsPage() {
                           <p className="text-sm text-slate-700 mt-1 font-medium">{report.reviewer_comment}</p>
                           {report.reviewer && <p className="text-xs text-slate-400 mt-1">— {report.reviewer.full_name}</p>}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline Review Section (แทนที่ Dialog modal) */}
+                  {isReviewing && (
+                    <div className="p-6 bg-emerald-50/30 border-t border-emerald-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <h4 className="text-sm font-black text-emerald-700 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" /> ตรวจรายงาน
+                      </h4>
+                      <Textarea 
+                        placeholder="ความคิดเห็น / คำสั่งเพิ่มเติม..." 
+                        value={reviewComment}
+                        onChange={e => setReviewComment(e.target.value)} 
+                        className="rounded-xl min-h-[100px] border-emerald-200 focus:ring-emerald-500/20" 
+                      />
+                      <div className="flex justify-end gap-3">
+                        <Button variant="outline" className="rounded-xl" onClick={() => { setReviewingReport(null); setReviewComment(""); }}>ยกเลิก</Button>
+                        <Button 
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
+                          onClick={() => reviewMutation.mutate({ id: report.id, comment: reviewComment })}
+                          disabled={reviewMutation.isPending}
+                        >
+                          {reviewMutation.isPending && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
+                          ยืนยันการตรวจ
+                        </Button>
                       </div>
                     </div>
                   )}

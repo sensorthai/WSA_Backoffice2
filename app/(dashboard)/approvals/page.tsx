@@ -18,18 +18,13 @@ import {
   History as HistoryIcon,
   Bell,
   LayoutGrid,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -51,7 +46,6 @@ export default function ApprovalsPage() {
 
   // --- States ---
   const [selectedItem, setSelectedItem] = useState<any>(null)
-  const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [rejectNote, setRejectNote] = useState("")
   const [activeView, setActiveView] = useState("pending")
   const [mounted, setMounted] = useState(false)
@@ -95,7 +89,7 @@ export default function ApprovalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
       queryClient.invalidateQueries({ queryKey: ["approval-history"] })
-      setIsDetailOpen(false)
+      setSelectedItem(null)
       setRejectNote("")
     },
     onError: (e: any) => alert(e.message)
@@ -335,154 +329,166 @@ export default function ApprovalsPage() {
          </div>
       </div>
 
-      {/* Sub Menu Navigation */}
-      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
-        <button 
-          onClick={() => setActiveView("pending")}
-          className={cn(
-            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
-            activeView === "pending" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <span>รายการรอ</span>
-          {pendingItems?.length > 0 && (
-            <Badge className="bg-blue-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{pendingItems.length}</Badge>
-          )}
+      {selectedItem ? (
+        /* ===== IN-PAGE DETAIL PANEL (แทนที่ Dialog modal) ===== */
+        <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+          <Button 
+            variant="ghost" 
+            onClick={() => { setSelectedItem(null); setRejectNote(''); }} 
+            className="mb-4 rounded-xl text-slate-500 hover:text-slate-700 font-bold"
+          >
+            <ArrowLeft className="mr-2 w-4 h-4" /> กลับไปรายการ
+          </Button>
+          <Card className="rounded-[2rem] md:rounded-[3rem] border-0 shadow-xl overflow-hidden">
+            <CardContent className="p-6 md:p-10">
+              <h3 className="text-slate-400 font-black text-xs uppercase tracking-widest mb-6">รายละเอียดคำขอ</h3>
+              {renderDetail(selectedItem)}
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        /* ===== NORMAL PAGE CONTENT (Tabs + Tables) ===== */
+        <>
+          {/* Sub Menu Navigation */}
+          <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+            <button 
+              onClick={() => setActiveView("pending")}
+              className={cn(
+                "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+                activeView === "pending" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <span>รายการรอ</span>
+              {pendingItems?.length > 0 && (
+                <Badge className="bg-blue-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{pendingItems.length}</Badge>
+              )}
+              {activeView === "pending" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveView("history")}
+              className={cn(
+                "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+                activeView === "history" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <HistoryIcon className="w-4 h-4" />
+              <span>ประวัติ</span>
+              {activeView === "history" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
+            </button>
+          </div>
+
           {activeView === "pending" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                  <div className="overflow-x-auto custom-scrollbar">
+                  <Table className="min-w-[700px]">
+                     <TableHeader className="bg-slate-50/50">
+                        <TableRow className="border-slate-100 hover:bg-transparent">
+                           <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอ</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายละเอียด</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่ส่ง</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะ</TableHead>
+                           <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">จัดการ</TableHead>
+                        </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                        {isPendingLoading ? (
+                          <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
+                        ) : !Array.isArray(pendingItems) || pendingItems.length === 0 ? (
+                          <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีรายการรอดำเนินการในขณะนี้</TableCell></TableRow>
+                        ) : pendingItems.map((item: any) => (
+                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" onClick={() => setSelectedItem(item)}>
+                             <TableCell className="py-8 pl-10">
+                                <div className="flex items-center gap-3">
+                                   <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm", item.color)}>
+                                      {getIcon(item.type)}
+                                   </div>
+                                   <span className="font-black text-slate-700">{item.label}</span>
+                                </div>
+                             </TableCell>
+                             <TableCell>
+                                <div className="flex items-center gap-3">
+                                   <Avatar className="h-8 w-8">
+                                      <AvatarImage src={item.user?.avatar_url} />
+                                      <AvatarFallback>{item.user?.full_name?.charAt(0)}</AvatarFallback>
+                                   </Avatar>
+                                   <span className="font-bold text-slate-900">{item.user?.full_name}</span>
+                                </div>
+                             </TableCell>
+                             <TableCell className="max-w-[200px] truncate font-medium text-slate-500">
+                                {item.type === 'leave' ? `ลา${item.leave_type} ${item.days_count} วัน` : item.type === 'purchase' ? item.title : item.destination}
+                             </TableCell>
+                             <TableCell className="text-slate-400 font-medium">
+                                {format(new Date(item.created_at), "d MMM HH:mm", { locale: th })}
+                             </TableCell>
+                             <TableCell>
+                                {getStatusBadge(item.status)}
+                             </TableCell>
+                             <TableCell className="pr-10 text-right">
+                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
+                                   <ChevronRight size={20} />
+                                </Button>
+                             </TableCell>
+                          </TableRow>
+                        ))}
+                     </TableBody>
+                  </Table>
+                  </div>
+               </Card>
+            </div>
           )}
-        </button>
-        <button 
-          onClick={() => setActiveView("history")}
-          className={cn(
-            "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
-            activeView === "history" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <HistoryIcon className="w-4 h-4" />
-          <span>ประวัติ</span>
+
           {activeView === "history" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               {/* Similar Table for History */}
+               <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                  <div className="overflow-x-auto custom-scrollbar">
+                  <Table className="min-w-[600px]">
+                     <TableHeader className="bg-slate-50/50">
+                        <TableRow className="border-slate-100">
+                           <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอ</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายละเอียด</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะสุดท้าย</TableHead>
+                           <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่อัปเดต</TableHead>
+                        </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                        {isHistoryLoading ? (
+                          <TableRow><TableCell colSpan={5} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200" /></TableCell></TableRow>
+                        ) : !Array.isArray(historyItems) || historyItems.length === 0 ? (
+                          <TableRow><TableCell colSpan={5} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
+                        ) : historyItems.map((item: any) => (
+                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors" onClick={() => setSelectedItem(item)}>
+                             <TableCell className="py-8 pl-10">
+                                <div className="flex items-center gap-3">
+                                   <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-400">
+                                      {getIcon(item.type)}
+                                   </div>
+                                   <span className="font-bold text-slate-500">{item.label}</span>
+                                </div>
+                             </TableCell>
+                             <TableCell className="font-bold text-slate-900">{item.user?.full_name}</TableCell>
+                             <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.destination}</TableCell>
+                             <TableCell>{getStatusBadge(item.status)}</TableCell>
+                             <TableCell className="pr-10 text-right text-slate-400 font-medium">
+                                {format(new Date(item.updated_at || item.created_at), "d MMM yy", { locale: th })}
+                             </TableCell>
+                          </TableRow>
+                        ))}
+                     </TableBody>
+                  </Table>
+                  </div>
+               </Card>
+            </div>
           )}
-        </button>
-      </div>
-
-      {activeView === "pending" && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-           <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-              <div className="overflow-x-auto custom-scrollbar">
-              <Table className="min-w-[700px]">
-                 <TableHeader className="bg-slate-50/50">
-                    <TableRow className="border-slate-100 hover:bg-transparent">
-                       <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอ</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายละเอียด</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่ส่ง</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะ</TableHead>
-                       <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">จัดการ</TableHead>
-                    </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                    {isPendingLoading ? (
-                      <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
-                    ) : !Array.isArray(pendingItems) || pendingItems.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีรายการรอดำเนินการในขณะนี้</TableCell></TableRow>
-                    ) : pendingItems.map((item: any) => (
-                      <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" onClick={() => { setSelectedItem(item); setIsDetailOpen(true); }}>
-                         <TableCell className="py-8 pl-10">
-                            <div className="flex items-center gap-3">
-                               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm", item.color)}>
-                                  {getIcon(item.type)}
-                               </div>
-                               <span className="font-black text-slate-700">{item.label}</span>
-                            </div>
-                         </TableCell>
-                         <TableCell>
-                            <div className="flex items-center gap-3">
-                               <Avatar className="h-8 w-8">
-                                  <AvatarImage src={item.user?.avatar_url} />
-                                  <AvatarFallback>{item.user?.full_name?.charAt(0)}</AvatarFallback>
-                               </Avatar>
-                               <span className="font-bold text-slate-900">{item.user?.full_name}</span>
-                            </div>
-                         </TableCell>
-                         <TableCell className="max-w-[200px] truncate font-medium text-slate-500">
-                            {item.type === 'leave' ? `ลา${item.leave_type} ${item.days_count} วัน` : item.type === 'purchase' ? item.title : item.destination}
-                         </TableCell>
-                         <TableCell className="text-slate-400 font-medium">
-                            {format(new Date(item.created_at), "d MMM HH:mm", { locale: th })}
-                         </TableCell>
-                         <TableCell>
-                            {getStatusBadge(item.status)}
-                         </TableCell>
-                         <TableCell className="pr-10 text-right">
-                            <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
-                               <ChevronRight size={20} />
-                            </Button>
-                         </TableCell>
-                      </TableRow>
-                    ))}
-                 </TableBody>
-              </Table>
-              </div>
-           </Card>
-        </div>
+        </>
       )}
-
-      {activeView === "history" && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-           {/* Similar Table for History */}
-           <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-              <div className="overflow-x-auto custom-scrollbar">
-              <Table className="min-w-[600px]">
-                 <TableHeader className="bg-slate-50/50">
-                    <TableRow className="border-slate-100">
-                       <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอ</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายละเอียด</TableHead>
-                       <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะสุดท้าย</TableHead>
-                       <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่อัปเดต</TableHead>
-                    </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                    {isHistoryLoading ? (
-                      <TableRow><TableCell colSpan={5} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200" /></TableCell></TableRow>
-                    ) : !Array.isArray(historyItems) || historyItems.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
-                    ) : historyItems.map((item: any) => (
-                      <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors" onClick={() => { setSelectedItem(item); setIsDetailOpen(true); }}>
-                         <TableCell className="py-8 pl-10">
-                            <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-400">
-                                  {getIcon(item.type)}
-                               </div>
-                               <span className="font-bold text-slate-500">{item.label}</span>
-                            </div>
-                         </TableCell>
-                         <TableCell className="font-bold text-slate-900">{item.user?.full_name}</TableCell>
-                         <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.destination}</TableCell>
-                         <TableCell>{getStatusBadge(item.status)}</TableCell>
-                         <TableCell className="pr-10 text-right text-slate-400 font-medium">
-                            {format(new Date(item.updated_at || item.created_at), "d MMM yy", { locale: th })}
-                         </TableCell>
-                      </TableRow>
-                    ))}
-                 </TableBody>
-              </Table>
-              </div>
-           </Card>
-        </div>
-      )}
-
-      {/* Detail Dialog */}
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-         <DialogContent className="max-w-xl rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 border-0 shadow-2xl overflow-y-auto max-h-[90vh]">
-            <DialogHeader>
-               <DialogTitle className="text-slate-400 font-black text-xs uppercase tracking-widest mb-4">รายละเอียดคำขอ</DialogTitle>
-            </DialogHeader>
-            {renderDetail(selectedItem)}
-         </DialogContent>
-      </Dialog>
     </div>
   )
 }

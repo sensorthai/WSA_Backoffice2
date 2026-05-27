@@ -9,8 +9,8 @@ export async function GET(req: Request) {
   const session = await auth()
   const userRole = (session?.user as any)?.role
 
-  // Only Supervisor/CEO/Admin
-  if (!session || !['supervisor', 'ceo', 'admin'].includes(userRole)) {
+  // All employees except Outsource
+  if (!session || userRole === 'outsource') {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

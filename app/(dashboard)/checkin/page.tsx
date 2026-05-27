@@ -108,7 +108,7 @@ export default function CheckinPage() {
       if (!res.ok) return []
       return res.json()
     },
-    enabled: !!session?.user && ['admin', 'ceo', 'supervisor'].includes((session.user as any).role)
+    enabled: !!session?.user && (session.user as any).role !== 'outsource'
   })
 
   // 3. Fetch Departments for filter
@@ -412,7 +412,7 @@ export default function CheckinPage() {
 
         {/* Section 2: Team Today */}
         <div className="lg:col-span-7 xl:col-span-8">
-          {['admin', 'ceo', 'supervisor'].includes((session?.user as any)?.role) ? (
+          {(session?.user as any)?.role !== 'outsource' ? (
             <div className="space-y-8 animate-in slide-in-from-right duration-700">
               {/* Summary Bar */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -566,9 +566,9 @@ export default function CheckinPage() {
                   <AlertCircle size={40} className="text-blue-400 opacity-50" />
                 </div>
               </div>
-              <h3 className="text-2xl font-black text-blue-900 tracking-tight">พื้นที่หัวหน้างาน (Supervisor)</h3>
+              <h3 className="text-2xl font-black text-blue-900 tracking-tight">ไม่มีสิทธิ์เข้าถึงข้อมูลทีม</h3>
               <p className="text-blue-600/60 max-w-sm mx-auto mt-4 text-base leading-relaxed font-medium">
-                เฉพาะ Supervisor, CEO หรือ Admin เท่านั้นที่สามารถดูสถานะการเช็คอินแบบรายทีมได้
+                พนักงาน Outsource ไม่สามารถดูสถานะการเช็คอินแบบรายทีมได้
               </p>
               <div className="mt-8 flex gap-2">
                 <div className="w-2 h-2 rounded-full bg-blue-200" />

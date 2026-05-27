@@ -29,6 +29,9 @@ export function TeachingLogsReview() {
   const [statusFilter, setStatusFilter] = useState("submitted")
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [dateFilter, setDateFilter] = useState("")
+  const [schoolFilter, setSchoolFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const limit = 20
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
   const [classStudents, setClassStudents] = useState<any[]>([])
@@ -36,17 +39,30 @@ export function TeachingLogsReview() {
   const [editAttendance, setEditAttendance] = useState<Record<string, string>>({})
   const [classLevelChanged, setClassLevelChanged] = useState(false)
 
-  const { data: logs, isLoading } = useQuery({
-    queryKey: ["teaching-logs-review", statusFilter, dateFilter],
+  const { data: schools } = useQuery({
+    queryKey: ["admin-schools-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/schools")
+      return res.ok ? res.json() : []
+    }
+  })
+
+  const { data: logsData, isLoading } = useQuery({
+    queryKey: ["teaching-logs-review", statusFilter, dateFilter, schoolFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
       if (dateFilter) params.set('date', dateFilter)
-      params.set('limit', '100')
+      if (schoolFilter !== "all") params.set('school_id', schoolFilter)
+      params.set('page', String(page))
+      params.set('limit', String(limit))
       const res = await fetch(`/api/teaching-logs?${params.toString()}`)
-      return res.ok ? res.json() : []
+      return res.ok ? res.json() : { data: [], totalPages: 1 }
     }
   })
+
+  const logs = logsData?.data || []
+  const totalPages = logsData?.totalPages || 1
 
   // Fetch attendance for selected log
   const { data: logAttendance } = useQuery({
@@ -234,27 +250,37 @@ export function TeachingLogsReview() {
           <div className="flex gap-1 ml-4">
             {["submitted", "reviewed", "pending", "draft", ""].map(s => (
               <Button key={s || "all"} variant={statusFilter === s ? "default" : "outline"}
-                size="sm" className="text-xs h-7" onClick={() => setStatusFilter(s)}>
+                size="sm" className="text-xs h-7" onClick={() => { setStatusFilter(s); setPage(1); }}>
                 {s ? statusLabels[s] : "ทั้งหมด"}
               </Button>
             ))}
           </div>
+          <Select value={schoolFilter} onValueChange={(v) => { setSchoolFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[180px] h-8 ml-2 text-xs">
+              <SelectValue placeholder="ทุกโรงเรียน" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกโรงเรียน</SelectItem>
+              {(schools || []).map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
-          className="w-[200px]" placeholder="กรองตามวันที่" />
+        <Input type="date" value={dateFilter} onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
+          className="w-[180px] h-8 text-sm" placeholder="กรองตามวันที่" />
       </div>
 
       <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50">
-              <TableHead>วันที่</TableHead>
-              <TableHead>ครู</TableHead>
-              <TableHead>โรงเรียน</TableHead>
-              <TableHead>วิชา / ระดับชั้น</TableHead>
-              <TableHead>เนื้อหาที่สอน</TableHead>
-              <TableHead>เช็คอิน / เอาท์</TableHead>
-              <TableHead>สถานะ</TableHead>
+              <TableHead className="min-w-[100px] whitespace-nowrap">วันที่</TableHead>
+              <TableHead className="min-w-[120px] whitespace-nowrap">เช็คอิน / เอาท์</TableHead>
+              <TableHead className="min-w-[150px] whitespace-nowrap">ครู</TableHead>
+              <TableHead className="min-w-[200px]">โรงเรียน</TableHead>
+              <TableHead className="min-w-[150px]">วิชา / ระดับชั้น</TableHead>
+              <TableHead className="min-w-[100px]">สถานะ</TableHead>
               <TableHead className="w-[80px] text-right">ดู</TableHead>
             </TableRow>
           </TableHeader>
@@ -265,9 +291,19 @@ export function TeachingLogsReview() {
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">ไม่มีรายงาน</TableCell></TableRow>
             ) : logs?.map((log: any) => (
               <TableRow key={log.id} className="hover:bg-slate-50/50">
-                <TableCell className="font-mono text-sm">{fmtDate(log.teach_date)}</TableCell>
+                <TableCell className="font-mono text-sm min-w-[100px] whitespace-nowrap">{fmtDate(log.teach_date)}</TableCell>
                 <TableCell>
-                  <span className="font-medium text-sm">{log.teacher?.full_name || '-'}</span>
+                  <div className="flex flex-col text-xs text-slate-500">
+                    {log.check_in_time && (
+                      <span className="text-emerald-600">เข้า {new Date(log.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                    )}
+                    {log.check_out_time && (
+                      <span className="text-blue-600">ออก {new Date(log.check_out_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="min-w-[150px]">
+                  <span className="font-medium text-sm whitespace-nowrap">{log.teacher?.full_name || '-'}</span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -285,19 +321,6 @@ export function TeachingLogsReview() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <p className="text-sm text-slate-600 truncate max-w-[200px]">{log.topics_covered || '-'}</p>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col text-xs text-slate-500">
-                    {log.check_in_time && (
-                      <span className="text-emerald-600">เข้า {new Date(log.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
-                    )}
-                    {log.check_out_time && (
-                      <span className="text-blue-600">ออก {new Date(log.check_out_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
                   <Badge className={`text-xs ${statusColors[log.status] || statusColors.pending}`}>
                     {statusLabels[log.status] || log.status}
                   </Badge>
@@ -312,6 +335,35 @@ export function TeachingLogsReview() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Footer */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-slate-500 font-medium">
+            หน้า {page} จาก {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              ก่อนหน้า
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              ถัดไป
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Detail / Review / Edit Modal */}
       <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) { setSelectedLog(null); setIsEditing(false) } }}>

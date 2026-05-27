@@ -16,24 +16,28 @@ export async function GET(req: Request) {
 
   const supabase = createSupabaseServerClient()
 
-  // Fetch all wfh_checkins for this user in that date range that have work_done
+  // Fetch all wfh_checkins for this user in that date range
   const { data, error } = await supabase
     .from('wfh_checkins')
-    .select('check_date, status, work_done, note')
+    .select('check_date, status, note')
     .eq('user_id', session.user.id)
     .gte('check_date', start_date)
     .lte('check_date', end_date)
     .order('check_date', { ascending: true })
 
   if (error) {
+    console.error("Weekly summary query error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   // Filter logs that have work_done
   const summaries = data?.map(c => {
-    let text = c.work_done || ""
-    if (!text && c.note && c.note.includes('[บันทึกงานประจำวัน]:')) {
+    let text = ""
+    if (c.note && c.note.includes('[บันทึกงานประจำวัน]:')) {
       text = c.note.split('[บันทึกงานประจำวัน]:')[1]?.trim() || ""
+    } else if (c.note && c.note.trim().length > 0) {
+      // Fallback: If there's a note but no tag, just use the note
+      text = c.note.trim()
     }
     return {
       date: c.check_date,
