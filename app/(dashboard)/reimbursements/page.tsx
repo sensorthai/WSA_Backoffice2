@@ -31,9 +31,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { useUser } from "@/hooks/useUser"
 
 export default function ReimbursementsPage() {
   const queryClient = useQueryClient()
+  const { profile, isLoading: isUserLoading } = useUser()
   const [isNewClaimOpen, setIsNewClaimOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")
   
@@ -138,9 +140,25 @@ export default function ReimbursementsPage() {
     }
   }
 
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'ceo'
+
+  if (isUserLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>
+  }
+
+  if (profile && profile.role !== 'outsource' && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 animate-in fade-in duration-700">
+        <div className="text-6xl">🔒</div>
+        <h2 className="text-2xl font-bold text-slate-800">ไม่มีสิทธิ์เข้าถึงหน้านี้</h2>
+        <p className="text-slate-500">หน้านี้สงวนไว้สำหรับพนักงาน Outsource, Admin หรือ CEO เท่านั้น</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 max-w-5xl mx-auto pb-12">
-      {isNewClaimOpen ? (
+      {!isAdmin && isNewClaimOpen ? (
         /* ===== IN-PAGE FORM (แทนที่ Dialog modal) ===== */
         <div className="animate-in fade-in slide-in-from-top-4 duration-500">
           <Button 
@@ -251,24 +269,26 @@ export default function ReimbursementsPage() {
               </div>
               <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">ระบบเบิกค่าใช้จ่าย</h1>
-                <p className="text-slate-400 font-medium mt-0.5">เบิกค่าเดินทาง, ค่าอาหาร, หรือค่าใช้จ่ายสำรองจ่าย (Petty Cash)</p>
+                <p className="text-slate-400 font-medium mt-0.5">{isAdmin ? 'ดูรายการเบิกค่าใช้จ่ายของพนักงานทั้งหมด' : 'เบิกค่าเดินทาง, ค่าอาหาร, หรือค่าใช้จ่ายสำรองจ่าย (Petty Cash)'}</p>
               </div>
             </div>
 
-            <Button 
-              size="lg" 
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-8 h-14 font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
-              onClick={() => setIsNewClaimOpen(true)}
-            >
-              <Plus className="mr-2 w-5 h-5" /> สร้างคำขอเบิกเงิน
-            </Button>
+            {!isAdmin && (
+              <Button 
+                size="lg" 
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-8 h-14 font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                onClick={() => setIsNewClaimOpen(true)}
+              >
+                <Plus className="mr-2 w-5 h-5" /> สร้างคำขอเบิกเงิน
+              </Button>
+            )}
           </div>
 
           {/* Filters & Content */}
           <div className="space-y-6">
             <div className="flex items-center justify-between px-4">
               <div className="flex items-center gap-3 font-black text-slate-900 uppercase tracking-widest text-sm">
-                <Wallet size={18} className="text-slate-400" /> ประวัติการเบิกเงินของคุณ
+                <Wallet size={18} className="text-slate-400" /> {isAdmin ? 'รายการเบิกเงินทั้งหมด' : 'ประวัติการเบิกเงินของคุณ'}
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px] rounded-xl border-slate-200 bg-white">
@@ -300,9 +320,9 @@ export default function ReimbursementsPage() {
                 <Button 
                    variant="outline" 
                    className="rounded-xl border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
-                   onClick={() => setIsNewClaimOpen(true)}
+                   onClick={() => !isAdmin && setIsNewClaimOpen(true)}
                 >
-                   เริ่มสร้างคำขอเบิกเงิน
+                   {isAdmin ? 'ยังไม่มีรายการเบิกเงินในระบบ' : 'เริ่มสร้างคำขอเบิกเงิน'}
                 </Button>
               </div>
             ) : (
@@ -325,6 +345,9 @@ export default function ReimbursementsPage() {
                               </h3>
                               {getStatusBadge(reimb.status)}
                             </div>
+                            {isAdmin && reimb.user && (
+                              <p className="text-slate-800 font-bold text-sm">ผู้ขอ: {reimb.user.full_name}</p>
+                            )}
                             <p className="text-slate-600 font-medium text-sm">"{reimb.description}"</p>
                             <div className="flex items-center gap-4 text-slate-400 font-medium text-xs mt-2">
                               <div className="flex items-center gap-1.5">
@@ -339,7 +362,7 @@ export default function ReimbursementsPage() {
                           </div>
 
                           <div className="flex items-center gap-3">
-                            {reimb.status === 'pending' && (
+                            {!isAdmin && reimb.status === 'pending' && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 

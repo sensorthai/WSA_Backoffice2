@@ -55,11 +55,23 @@ export async function GET(_req: Request) {
 
   const { data: cars } = await carQuery
 
-  // 4. Combine and Format
+  // 4. Fetch Reimbursements
+  let reimbQuery = supabase
+    .from('reimbursements')
+    .select('id, user_id, amount, description, expense_date, status, receipt_url, created_at, user:users!user_id!inner(full_name, avatar_url)')
+
+  if (userRole === 'supervisor' || userRole === 'ceo' || userRole === 'admin') {
+    reimbQuery = reimbQuery.eq('status', 'pending')
+  }
+
+  const { data: reimbursements } = await reimbQuery
+
+  // 5. Combine and Format
   const unified = [
     ...(leaves || []).map(l => ({ ...l, type: 'leave', label: 'ใบลา', color: 'bg-emerald-50 text-emerald-600' })),
     ...(purchases || []).map(p => ({ ...p, type: 'purchase', label: 'ใบเบิกเงิน', color: 'bg-blue-50 text-blue-600' })),
-    ...(cars || []).map(c => ({ ...c, type: 'car_booking', label: 'จองรถ', color: 'bg-indigo-50 text-indigo-600' }))
+    ...(cars || []).map(c => ({ ...c, type: 'car_booking', label: 'จองรถ', color: 'bg-indigo-50 text-indigo-600' })),
+    ...(reimbursements || []).map(r => ({ ...r, type: 'reimbursement', label: 'เบิกค่าใช้จ่าย', color: 'bg-amber-50 text-amber-600' }))
   ]
 
   // Sort by created_at (oldest first)

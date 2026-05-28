@@ -8,13 +8,19 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
+  const userRole = (session.user as any).role
+  const isAdmin = userRole === 'admin' || userRole === 'ceo'
   
   const supabase = createSupabaseServerClient()
   let query = supabase
     .from('reimbursements')
-    .select('*')
-    .eq('user_id', session.user.id)
+    .select('*, user:users!user_id(full_name, avatar_url, email)')
     .order('created_at', { ascending: false })
+
+  // Admin/CEO see all, others see only their own
+  if (!isAdmin) {
+    query = query.eq('user_id', session.user.id)
+  }
 
   if (status && status !== 'all') query = query.eq('status', status)
 

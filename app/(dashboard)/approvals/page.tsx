@@ -76,7 +76,7 @@ export default function ApprovalsPage() {
   const approveMutation = useMutation({
     mutationFn: async ({ id, type, action, note }: any) => {
       const stage = (type === 'leave' || type === 'purchase') && userRole === 'ceo' ? 'ceo' : 'supervisor'
-      const endpoint = `/api/${type === 'leave' ? 'leaves' : type === 'purchase' ? 'purchases' : 'cars/bookings'}/${id}/approve`
+      const endpoint = `/api/${type === 'leave' ? 'leaves' : type === 'purchase' ? 'purchases' : type === 'reimbursement' ? 'reimbursements' : 'cars/bookings'}/${id}/approve`
       
       const res = await fetch(endpoint, {
         method: "POST",
@@ -100,6 +100,7 @@ export default function ApprovalsPage() {
       case 'leave': return <FileText className="text-emerald-500" />
       case 'purchase': return <Wallet className="text-blue-500" />
       case 'car_booking': return <Car className="text-indigo-500" />
+      case 'reimbursement': return <Wallet className="text-amber-500" />
       default: return <LayoutGrid />
     }
   }
@@ -243,6 +244,36 @@ export default function ApprovalsPage() {
                   </div>
                 )}
              </>
+           )}
+
+           {item.type === 'reimbursement' && (
+              <>
+                 <div>
+                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">รายละเอียดการเบิก</Label>
+                   <div className="text-2xl font-black text-slate-900">"{item.description}"</div>
+                 </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                   <div>
+                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">จำนวนเงิน</Label>
+                     <div className="text-3xl font-black text-blue-600 mt-1">฿{Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                   </div>
+                   <div>
+                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">วันที่เกิดค่าใช้จ่าย</Label>
+                     <div className="text-lg font-black text-slate-900">{item.expense_date ? format(new Date(item.expense_date), "d MMMM yyyy", { locale: th }) : "-"}</div>
+                   </div>
+                 </div>
+
+                 {item.receipt_url && (
+                   <div className="pt-2">
+                     <a href={item.receipt_url} target="_blank" rel="noopener noreferrer">
+                       <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
+                         <FileText size={16} /> ดูใบเสร็จ / สลิป
+                       </Button>
+                     </a>
+                   </div>
+                 )}
+              </>
            )}
 
            {item.type === 'car_booking' && (
@@ -421,7 +452,7 @@ export default function ApprovalsPage() {
                                 </div>
                              </TableCell>
                              <TableCell className="max-w-[200px] truncate font-medium text-slate-500">
-                                {item.type === 'leave' ? `ลา${item.leave_type} ${item.days_count} วัน` : item.type === 'purchase' ? item.title : item.destination}
+                                 {item.type === 'leave' ? `ลา${item.leave_type} ${item.days_count} วัน` : item.type === 'purchase' ? item.title : item.type === 'reimbursement' ? `฿${Number(item.amount).toLocaleString()} - ${item.description}` : item.destination}
                              </TableCell>
                              <TableCell className="text-slate-400 font-medium">
                                 {format(new Date(item.created_at), "d MMM HH:mm", { locale: th })}
@@ -474,7 +505,7 @@ export default function ApprovalsPage() {
                                 </div>
                              </TableCell>
                              <TableCell className="font-bold text-slate-900">{item.user?.full_name}</TableCell>
-                             <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.destination}</TableCell>
+                              <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.type === 'reimbursement' ? `${Number(item.amount).toLocaleString()} ฿` : item.destination}</TableCell>
                              <TableCell>{getStatusBadge(item.status)}</TableCell>
                              <TableCell className="pr-10 text-right text-slate-400 font-medium">
                                 {format(new Date(item.updated_at || item.created_at), "d MMM yy", { locale: th })}

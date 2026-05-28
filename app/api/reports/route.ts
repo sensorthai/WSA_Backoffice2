@@ -103,7 +103,45 @@ export async function GET(req: Request) {
       .lte('created_at', endDateStr + 'T23:59:59.999Z')
       .order('created_at', { ascending: true })
 
-    data = purchases || []
+    // Also fetch reimbursements for the same period
+    const { data: reimbursements } = await supabase.from('reimbursements')
+      .select('*, user:users!user_id(full_name, role, email)')
+      .gte('created_at', startDateStr)
+      .lte('created_at', endDateStr + 'T23:59:59.999Z')
+      .order('created_at', { ascending: true })
+
+    // Map reimbursements to match purchase data format
+    const mappedReimbursements = (reimbursements || []).map((r: any) => ({
+      ...r,
+      title: r.description,
+      total_amount: r.amount,
+      amount_before_vat: r.amount,
+      vat_amount: 0,
+      document_type: 'เบิกค่าใช้จ่าย (Petty Cash)',
+      document_number: null,
+      document_date: r.expense_date,
+      payment_method: 'petty_cash',
+      category: 'เบิกค่าใช้จ่าย',
+      vendor: null,
+      vendor_address: null,
+      vendor_tax_id: null,
+      customer_name: null,
+      customer_tax_id: null,
+      project_name: null,
+      items: [],
+      purpose: r.description,
+      supervisor_note: null,
+      ceo_note: null,
+      source: 'reimbursement'
+    }))
+
+    // Merge and sort by created_at
+    const allPurchases = [
+      ...(purchases || []).map((p: any) => ({ ...p, source: 'purchase' })),
+      ...mappedReimbursements
+    ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    data = allPurchases
     csvHeaders = [
       'ลำดับ','วันที่เอกสาร','เลขที่เอกสาร','ประเภทเอกสาร','รายการ','หมวดหมู่',
       'ชื่อคู่ค้า','ที่อยู่คู่ค้า','Tax ID คู่ค้า',

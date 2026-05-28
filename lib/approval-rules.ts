@@ -1,4 +1,4 @@
-export type ApprovalEntity = 'leave' | 'purchase' | 'car_booking'
+export type ApprovalEntity = 'leave' | 'purchase' | 'car_booking' | 'reimbursement'
 export type ApprovalAction = 'approve' | 'reject'
 export type ApprovalStage = 'supervisor' | 'ceo'
 
@@ -55,6 +55,22 @@ export const APPROVAL_RULES: Record<ApprovalEntity, ApprovalRule> = {
   car_booking: {
     entityType: 'car_booking',
     requiresCeo: false, // Cars only need supervisor
+    supervisorStatus: {
+      approve: 'approved',
+      reject: 'rejected'
+    },
+    ceoStatus: {
+      approve: 'approved',
+      reject: 'rejected'
+    },
+    roles: {
+      supervisor: ['supervisor', 'admin', 'ceo'],
+      ceo: ['ceo', 'admin']
+    }
+  },
+  reimbursement: {
+    entityType: 'reimbursement',
+    requiresCeo: false, // Petty cash: supervisor/admin approval only, no CEO needed
     supervisorStatus: {
       approve: 'approved',
       reject: 'rejected'

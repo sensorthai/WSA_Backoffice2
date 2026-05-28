@@ -438,7 +438,10 @@ function ReportsContent() {
                               </TableCell>
                               <TableCell className="py-3 text-slate-500 text-xs font-mono whitespace-nowrap">{row.document_date || (row.created_at ? format(new Date(row.created_at), "dd/MM/yy") : "-")}</TableCell>
                               <TableCell className="text-xs font-mono font-bold text-blue-600 whitespace-nowrap">{row.document_number || "-"}</TableCell>
-                              <TableCell className="font-bold text-slate-900 text-sm max-w-[180px] truncate">{row.title}</TableCell>
+                              <TableCell className="font-bold text-slate-900 text-sm max-w-[180px] truncate">
+                                {row.source === 'reimbursement' && <Badge className="bg-amber-100 text-amber-700 border-0 text-[9px] mr-1.5 align-middle">Petty Cash</Badge>}
+                                {row.title}
+                              </TableCell>
                               <TableCell className="text-sm text-slate-600 max-w-[140px] truncate">{row.vendor || "-"}</TableCell>
                               <TableCell className="text-sm text-slate-600 whitespace-nowrap">{row.user?.full_name}</TableCell>
                               <TableCell className="text-xs whitespace-nowrap"><Badge className="bg-slate-100 text-slate-600 border-0 text-[10px]">{paymentLabels[row.payment_method] || '-'}</Badge></TableCell>

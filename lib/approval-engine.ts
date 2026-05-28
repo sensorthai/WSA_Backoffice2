@@ -31,7 +31,8 @@ export async function processApproval({
   const supabase = createSupabaseServerClient()
   const rule = APPROVAL_RULES[entityType]
   const table = entityType === 'leave' ? 'leave_requests' : 
-                entityType === 'purchase' ? 'purchase_requests' : 'car_bookings'
+                entityType === 'purchase' ? 'purchase_requests' : 
+                entityType === 'reimbursement' ? 'reimbursements' : 'car_bookings'
 
   // 1. Fetch record with user info
   const { data: record, error: fetchError } = await supabase
@@ -96,6 +97,16 @@ export async function processApproval({
     delete updateData.supervisor_note
     updateData.approved_at = new Date().toISOString()
     updateData.approver_note = note
+  }
+
+  // Reimbursement uses 'approved_by' column instead of 'supervisor_id'
+  if (entityType === 'reimbursement') {
+    delete updateData.supervisor_id
+    delete updateData.supervisor_approved_at
+    delete updateData.supervisor_note
+    if (action === 'approve') {
+      updateData.approved_by = actorUserId
+    }
   }
 
   const { data: updated, error: updateError } = await supabase
