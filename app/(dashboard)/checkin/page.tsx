@@ -248,17 +248,18 @@ export default function CheckinPage() {
   const currentStatus = myStatus?.id ? statusOptions.find(o => o.id === myStatus.status) : null
 
   const renderUserCard = (u: any, badgeText: string, badgeBgClass: string, badgeTextClass: string) => (
-    <div key={u.id} className="p-4 bg-white hover:bg-slate-50 border border-slate-100/80 hover:border-slate-100 rounded-[1.8rem] flex items-center justify-between gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.015)] hover:shadow-md transition-all duration-200 group">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="relative">
-          <Avatar className="w-10 h-10 border-2 border-white shadow-sm shrink-0">
+    <div key={u.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-100/80 hover:border-slate-200 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.015)] hover:shadow-md transition-all duration-200 group">
+      <div className="flex items-center gap-2.5">
+        {/* Avatar - fixed size */}
+        <div className="relative shrink-0">
+          <Avatar className="w-9 h-9 border-2 border-white shadow-sm">
             <AvatarImage src={u.avatar_url} />
-            <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 font-bold text-xs">
+            <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 font-bold text-[10px]">
               {u.full_name?.substring(0, 2)}
             </AvatarFallback>
           </Avatar>
           <div className={cn(
-            "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm",
+            "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white shadow-sm",
             u.checkin?.status === 'office' ? "bg-emerald-500" :
             u.checkin?.status === 'home' ? "bg-blue-500" :
             u.checkin?.status === 'onsite' ? "bg-indigo-500" :
@@ -267,34 +268,37 @@ export default function CheckinPage() {
             "bg-rose-500 animate-pulse"
           )} />
         </div>
-        <div className="min-w-0">
-          <div className="font-extrabold text-slate-800 text-sm truncate group-hover:text-blue-600 transition-colors leading-tight">{u.full_name}</div>
-          <div className="text-[9px] font-bold text-slate-400 mt-1 truncate">{u.department}</div>
+
+        {/* Name + department - takes remaining space */}
+        <div className="flex-1 overflow-hidden">
+          <div className="font-extrabold text-slate-800 text-[13px] truncate group-hover:text-blue-600 transition-colors leading-tight">{u.full_name}</div>
+          <div className="text-[10px] font-semibold text-slate-400 truncate mt-0.5">{u.department}</div>
         </div>
-      </div>
-      
-      <div className="flex items-center gap-2 shrink-0">
-        <Badge className={cn("rounded-full px-2.5 py-0.5 font-bold text-[8px] tracking-wider border-0 shrink-0 uppercase", badgeBgClass, badgeTextClass)}>
-          {badgeText}
-        </Badge>
-        
-        {/* Note message button */}
-        <div className="relative group/note">
-          <div className={cn(
-            "p-1.5 rounded-xl transition-all cursor-pointer border border-transparent",
-            u.checkin?.note 
-              ? "bg-blue-50 text-blue-500 hover:bg-blue-100" 
-              : "bg-slate-100/50 text-slate-300 hover:bg-slate-100 hover:text-slate-400"
-          )}>
-            <MessageSquare size={12} />
-          </div>
-          {u.checkin?.note && (
-            <div className="absolute bottom-full right-0 mb-2 w-48 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/note:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-xl translate-y-1 group-hover/note:translate-y-0 leading-normal">
-              <div className="font-bold mb-0.5 opacity-50 uppercase tracking-widest text-[8px]">บันทึกเนื้องาน</div>
-              <p>"{u.checkin.note}"</p>
-              <div className="absolute top-full right-3 w-2 h-2 bg-slate-900 rotate-45 -translate-y-1" />
+
+        {/* Badge + Note icon - compact, won't grow */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <Badge className={cn("rounded-full px-2 py-0.5 font-bold text-[7px] tracking-wider border-0 uppercase whitespace-nowrap", badgeBgClass, badgeTextClass)}>
+            {badgeText}
+          </Badge>
+          
+          {/* Note message button */}
+          <div className="relative group/note">
+            <div className={cn(
+              "p-1 rounded-lg transition-all cursor-pointer",
+              u.checkin?.note 
+                ? "bg-blue-50 text-blue-500 hover:bg-blue-100" 
+                : "bg-slate-50 text-slate-300 hover:bg-slate-100 hover:text-slate-400"
+            )}>
+              <MessageSquare size={11} />
             </div>
-          )}
+            {u.checkin?.note && (
+              <div className="absolute bottom-full right-0 mb-2 w-48 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/note:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-xl translate-y-1 group-hover/note:translate-y-0 leading-normal">
+                <div className="font-bold mb-0.5 opacity-50 uppercase tracking-widest text-[8px]">บันทึกเนื้องาน</div>
+                <p>"{u.checkin.note}"</p>
+                <div className="absolute top-full right-3 w-2 h-2 bg-slate-900 rotate-45 -translate-y-1" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

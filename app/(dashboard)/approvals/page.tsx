@@ -512,15 +512,16 @@ export default function ApprovalsPage() {
                            <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">ประเภท</TableHead>
                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอ</TableHead>
                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายละเอียด</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้อนุมัติ</TableHead>
                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะสุดท้าย</TableHead>
                            <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่อัปเดต</TableHead>
                         </TableRow>
                      </TableHeader>
                      <TableBody>
                         {isHistoryLoading ? (
-                          <TableRow><TableCell colSpan={5} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200" /></TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200" /></TableCell></TableRow>
                         ) : !Array.isArray(historyItems) || historyItems.length === 0 ? (
-                          <TableRow><TableCell colSpan={5} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
                         ) : historyItems.map((item: any) => (
                           <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
                              <TableCell className="py-8 pl-10">
@@ -532,7 +533,8 @@ export default function ApprovalsPage() {
                                 </div>
                              </TableCell>
                              <TableCell className="font-bold text-slate-900">{item.user?.full_name}</TableCell>
-                              <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.type === 'reimbursement' ? `${Number(item.amount).toLocaleString()} ฿` : item.destination}</TableCell>
+                             <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.type === 'reimbursement' ? `${Number(item.amount).toLocaleString()} ฿` : item.destination}</TableCell>
+                             <TableCell className="font-bold text-slate-700 text-xs">{item.approver_name || "—"}</TableCell>
                              <TableCell>{getStatusBadge(item.status)}</TableCell>
                              <TableCell className="pr-10 text-right text-slate-400 font-medium">
                                 {format(new Date(item.updated_at || item.created_at), "d MMM yy", { locale: th })}

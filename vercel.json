@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/checkin-reminder",
+      "schedule": "30 3 * * 1-5"
+    },
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/car-expirations",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/work-done-request",
+      "schedule": "0 10 * * 1-5"
+    }
+  ]
+}
