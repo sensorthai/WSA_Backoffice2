@@ -249,7 +249,7 @@ export default function CheckinPage() {
 
   const renderUserCard = (u: any, badgeText: string, badgeBgClass: string, badgeTextClass: string) => (
     <div key={u.id} className="p-4 bg-white hover:bg-slate-50 border border-slate-100/80 hover:border-slate-100 rounded-[1.8rem] flex items-center justify-between gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.015)] hover:shadow-md transition-all duration-200 group">
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="relative">
           <Avatar className="w-10 h-10 border-2 border-white shadow-sm shrink-0">
             <AvatarImage src={u.avatar_url} />
