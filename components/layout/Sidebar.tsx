@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useTranslation } from "@/contexts/I18nContext"
-import { useTheme } from "next-themes"
 import {
   LayoutDashboard,
   UserCheck,
@@ -28,8 +27,6 @@ import {
   Grid3X3,
   ClipboardCheck,
   Coins,
-  Sun,
-  Moon,
   Globe,
   Wallet,
   MonitorSmartphone,
@@ -55,12 +52,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { profile } = useUser()
   const role = profile?.role || 'employee'
   const { t, locale, setLocale } = useTranslation()
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const [openSubmenus, setOpenSubmenus] = useState<string[]>([t("sidebar.admin")])
 
