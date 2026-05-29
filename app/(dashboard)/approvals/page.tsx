@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   CheckCircle2, 
   XCircle, 
@@ -86,13 +87,39 @@ export default function ApprovalsPage() {
       if (!res.ok) throw new Error((await res.json()).error || "Action failed")
       return res.json()
     },
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: ["pending-approvals"] })
+      await queryClient.cancelQueries({ queryKey: ["approval-history"] })
+
+      const previousPending = queryClient.getQueryData<any[]>(["pending-approvals"]) || []
+      const previousHistory = queryClient.getQueryData<any[]>(["approval-history"]) || []
+
+      // Optimistically remove the item from the pending list cache
+      queryClient.setQueryData<any[]>(["pending-approvals"], (old) => {
+        if (!old) return []
+        return old.filter(item => item.id !== id)
+      })
+
+      return { previousPending, previousHistory }
+    },
+    onError: (e: any, variables, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(["pending-approvals"], context.previousPending)
+      }
+      if (context?.previousHistory) {
+        queryClient.setQueryData(["approval-history"], context.previousHistory)
+      }
+      toast.error("ไม่สามารถดำเนินการได้: " + e.message)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
-      queryClient.invalidateQueries({ queryKey: ["approval-history"] })
       setSelectedItem(null)
       setRejectNote("")
+      toast.success("บันทึกการดำเนินการเรียบร้อยแล้ว!")
     },
-    onError: (e: any) => alert(e.message)
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
+      queryClient.invalidateQueries({ queryKey: ["approval-history"] })
+    }
   })
 
   const getIcon = (type: string) => {
@@ -433,7 +460,7 @@ export default function ApprovalsPage() {
                         ) : !Array.isArray(pendingItems) || pendingItems.length === 0 ? (
                           <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีรายการรอดำเนินการในขณะนี้</TableCell></TableRow>
                         ) : pendingItems.map((item: any) => (
-                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" onClick={() => setSelectedItem(item)}>
+                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
                              <TableCell className="py-8 pl-10">
                                 <div className="flex items-center gap-3">
                                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm", item.color)}>
@@ -495,7 +522,7 @@ export default function ApprovalsPage() {
                         ) : !Array.isArray(historyItems) || historyItems.length === 0 ? (
                           <TableRow><TableCell colSpan={5} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
                         ) : historyItems.map((item: any) => (
-                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors" onClick={() => setSelectedItem(item)}>
+                          <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
                              <TableCell className="py-8 pl-10">
                                 <div className="flex items-center gap-3">
                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 text-slate-400">

@@ -406,7 +406,17 @@ function ReportsContent() {
                   ) : (
                     filteredData.map((row: any, idx: number) => (
                       <Fragment key={idx}>
-                        <TableRow className={`border-slate-50 hover:bg-slate-50/30 ${reportType === 'purchase' ? 'cursor-pointer' : ''}`} onClick={() => reportType === 'purchase' && toggleRow(idx)}>
+                        <TableRow 
+                           className={`border-slate-50 hover:bg-slate-50/30 ${reportType === 'purchase' ? 'cursor-pointer' : ''}`}
+                           role={reportType === 'purchase' ? 'button' : undefined}
+                           tabIndex={reportType === 'purchase' ? 0 : undefined}
+                           onClick={() => reportType === 'purchase' && toggleRow(idx)}
+                           onKeyDown={(e) => {
+                             if (reportType === 'purchase' && (e.key === 'Enter' || e.key === ' ')) {
+                               toggleRow(idx)
+                             }
+                           }}
+                        >
                           {reportType === 'wfh' && (
                             <>
                               <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>

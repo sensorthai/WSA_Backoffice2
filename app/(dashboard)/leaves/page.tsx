@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format, parseISO, isWeekend, addDays } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   Plus, 
   CalendarRange, 
@@ -112,10 +113,10 @@ export default function LeavesPage() {
       queryClient.invalidateQueries({ queryKey: ["my-leaves"] })
       setIsNewLeaveOpen(false)
       resetForm()
-      alert("ยื่นคำขอลาเรียบร้อยแล้ว!")
+      toast.success("ยื่นคำขอลาเรียบร้อยแล้ว!")
     },
     onError: (err: any) => {
-      alert(err.message)
+      toast.error("ไม่สามารถส่งคำขอลาได้: " + err.message)
     }
   })
 
@@ -126,9 +127,31 @@ export default function LeavesPage() {
       if (!res.ok) throw new Error("ยกเลิกใบลาไม่สำเร็จ")
       return res.json()
     },
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["my-leaves", statusFilter] })
+      const previousLeavesResponse = queryClient.getQueryData<any>(["my-leaves", statusFilter])
+
+      // Optimistically filter out the cancelled request from leaves table/list
+      if (previousLeavesResponse?.data) {
+        queryClient.setQueryData(["my-leaves", statusFilter], {
+          ...previousLeavesResponse,
+          data: previousLeavesResponse.data.filter((leave: any) => leave.id !== id)
+        })
+      }
+
+      return { previousLeavesResponse }
+    },
+    onError: (err: any, id, context) => {
+      if (context?.previousLeavesResponse) {
+        queryClient.setQueryData(["my-leaves", statusFilter], context.previousLeavesResponse)
+      }
+      toast.error("ไม่สามารถยกเลิกใบลาได้: " + err.message)
+    },
     onSuccess: () => {
+      toast.success("ยกเลิกใบลาเรียบร้อยแล้ว")
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["my-leaves"] })
-      alert("ยกเลิกใบลาเรียบร้อยแล้ว")
     }
   })
 
@@ -276,7 +299,7 @@ export default function LeavesPage() {
                         if (attachment) {
                           url = await handleFileUpload(attachment)
                         } else if (isSickLeaveAttachmentRequired) {
-                          alert("กรุณาแนบใบรับรองแพทย์")
+                          toast.warning("กรุณาแนบใบรับรองแพทย์สำหรับลาป่วย")
                           return
                         }
                       }
@@ -288,7 +311,7 @@ export default function LeavesPage() {
                         attachment_url: url
                       })
                     } catch {
-                      alert("การอัปโหลดไฟล์ล้มเหลว")
+                      toast.error("การอัปโหลดไฟล์ล้มเหลว")
                     } finally {
                       setIsUploading(false)
                     }

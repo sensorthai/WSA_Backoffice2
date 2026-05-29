@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,7 +77,7 @@ export default function WeeklyReportsPage() {
       const logs = await res.json()
 
       if (logs.length === 0) {
-        alert("ไม่พบบันทึกเนื้องานรายวันในช่วงเวลาสัปดาห์นี้")
+        toast.warning("ไม่พบบันทึกเนื้องานรายวันในช่วงเวลาสัปดาห์นี้")
         return
       }
 
@@ -100,7 +101,7 @@ export default function WeeklyReportsPage() {
         })
       }
     } catch (err: any) {
-      alert(err.message)
+      toast.error("ดึงบันทึกงานไม่สำเร็จ: " + err.message)
     } finally {
       setIsImporting(false)
     }
@@ -140,6 +141,10 @@ export default function WeeklyReportsPage() {
       queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
       setShowCreate(false)
       setNewItems([emptyItem(), emptyItem(), emptyItem()])
+      toast.success("บันทึกร่างรายงานประจำสัปดาห์เรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      toast.error("ไม่สามารถบันทึกร่างรายงานได้: " + err.message)
     }
   })
 
@@ -157,6 +162,10 @@ export default function WeeklyReportsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
       setEditingReport(null)
+      toast.success("บันทึกการแก้ไขรายงานเรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      toast.error("ไม่สามารถบันทึกการแก้ไขได้: " + err.message)
     }
   })
 
@@ -168,9 +177,33 @@ export default function WeeklyReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: 'submit' })
       })
+      if (!res.ok) throw new Error("Failed to submit report")
       return res.json()
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["weekly-reports", activeTab] })
+      const previousReports = queryClient.getQueryData<any[]>(["weekly-reports", activeTab]) || []
+
+      // Optimistically update report status to 'submitted'
+      queryClient.setQueryData<any[]>(["weekly-reports", activeTab], (old) => {
+        if (!old) return []
+        return old.map(r => r.id === id ? { ...r, status: 'submitted', submitted_at: new Date().toISOString() } : r)
+      })
+
+      return { previousReports }
+    },
+    onError: (err: any, id, context) => {
+      if (context?.previousReports) {
+        queryClient.setQueryData(["weekly-reports", activeTab], context.previousReports)
+      }
+      toast.error("ไม่สามารถส่งรายงานได้: " + err.message)
+    },
+    onSuccess: () => {
+      toast.success("ส่งรายงานประจำสัปดาห์เรียบร้อยแล้ว!")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
+    }
   })
 
   // Review
@@ -187,6 +220,10 @@ export default function WeeklyReportsPage() {
       queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
       setReviewComment("")
       setReviewingReport(null)
+      toast.success("บันทึกความคิดเห็นรีวิวรายงานเรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      toast.error("ไม่สามารถบันทึกการรีวิวได้: " + err.message)
     }
   })
 
@@ -196,7 +233,13 @@ export default function WeeklyReportsPage() {
       const res = await fetch(`/api/weekly-reports/${id}`, { method: "DELETE" })
       return res.json()
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["weekly-reports"] })
+      toast.success("ลบรายงานประจำสัปดาห์เรียบร้อยแล้ว")
+    },
+    onError: (err: any) => {
+      toast.error("ไม่สามารถลบรายงานได้: " + err.message)
+    }
   })
 
   const toggleExpand = (id: string) => {
@@ -542,7 +585,14 @@ export default function WeeklyReportsPage() {
           {/* Report Header */}
           <div
             className="p-4 md:p-6 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
+            role="button"
+            tabIndex={0}
             onClick={() => toggleExpand(report.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                toggleExpand(report.id)
+              }
+            }}
           >
             <div className="flex items-center gap-4">
               {isExpanded ? <ChevronDown className="w-5 h-5 text-slate-400" /> : <ChevronRight className="w-5 h-5 text-slate-400" />}

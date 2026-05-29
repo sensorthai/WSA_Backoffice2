@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   Car, 
   Plus, 
@@ -132,9 +133,9 @@ export default function CarsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
       setIsBookingModalOpen(false)
-      alert("ส่งคำขอจองรถเรียบร้อยแล้ว")
+      toast.success("ส่งคำขอจองรถเรียบร้อยแล้ว!")
     },
-    onError: (e: any) => alert(e.message)
+    onError: (e: any) => toast.error("ไม่สามารถจองรถได้: " + e.message)
   })
 
   const cancelBookingMutation = useMutation({
@@ -143,7 +144,30 @@ export default function CarsPage() {
       if (!res.ok) throw new Error("Cancel failed")
       return res.json()
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["my-bookings"] })
+      const previousBookings = queryClient.getQueryData<any[]>(["my-bookings"]) || []
+
+      // Optimistically filter out the cancelled request
+      queryClient.setQueryData<any[]>(["my-bookings"], (old) => {
+        if (!old) return []
+        return old.filter(b => b.id !== id)
+      })
+
+      return { previousBookings }
+    },
+    onError: (err: any, id, context) => {
+      if (context?.previousBookings) {
+        queryClient.setQueryData(["my-bookings"], context.previousBookings)
+      }
+      toast.error("ไม่สามารถยกเลิกการจองได้: " + err.message)
+    },
+    onSuccess: () => {
+      toast.success("ยกเลิกการจองรถเรียบร้อยแล้ว")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
+    }
   })
 
   const approveBookingMutation = useMutation({
@@ -159,8 +183,9 @@ export default function CarsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-bookings"] })
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
+      toast.success("บันทึกผลการอนุมัติการจองรถเรียบร้อยแล้ว")
     },
-    onError: (e: any) => alert(e.message)
+    onError: (e: any) => toast.error("ไม่สามารถบันทึกผลการอนุมัติได้: " + e.message)
   })
 
   const returnCarMutation = useMutation({
@@ -177,8 +202,9 @@ export default function CarsPage() {
       queryClient.invalidateQueries({ queryKey: ["all-bookings"] })
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
       setIsReturnDialogOpen(false)
-      alert("บันทึกการคืนรถเรียบร้อยแล้ว")
-    }
+      toast.success("บันทึกการคืนรถเรียบร้อยแล้ว!")
+    },
+    onError: (e: any) => toast.error("ไม่สามารถบันทึกการคืนรถได้: " + e.message)
   })
 
   const getStatusBadge = (status: string) => {
@@ -554,7 +580,14 @@ export default function CarsPage() {
                                 ? "bg-indigo-600 border-indigo-600 text-white shadow-2xl shadow-indigo-600/30 ring-4 ring-indigo-50" 
                                 : "bg-white border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/20"
                            )}
+                           role="button"
+                           tabIndex={0}
                            onClick={() => !car.is_booked && setBookingForm({...bookingForm, car_id: car.id})}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' || e.key === ' ') {
+                               if (!car.is_booked) setBookingForm({...bookingForm, car_id: car.id})
+                             }
+                           }}
                         >
                            <div className="flex justify-between items-start mb-6">
                               <div className={cn(

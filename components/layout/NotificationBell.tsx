@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Bell, BellDot, Check, Car, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -28,28 +29,66 @@ export function NotificationBell() {
   // Mark as Read Mutation
   const markReadMutation = useMutation({
     mutationFn: async (id?: string) => {
-      await fetch("/api/notifications", {
+      const res = await fetch("/api/notifications", {
         method: "PATCH",
         body: JSON.stringify(id ? { id } : { all: true }),
         headers: { "Content-Type": "application/json" }
       })
+      if (!res.ok) throw new Error("Failed to mark read")
+      return res.json()
     },
-    onSuccess: () => {
+    onMutate: async (id?: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["notifications"] })
+
+      // Snapshot the previous state
+      const previousNotifications = queryClient.getQueryData<any[]>(["notifications"]) || []
+
+      // Optimistically update notifications to read: true
+      queryClient.setQueryData<any[]>(["notifications"], (old) => {
+        if (!old) return []
+        return old.map(n => {
+          if (!id || n.id === id) {
+            return { ...n, is_read: true }
+          }
+          return n
+        })
+      })
+
+      // Return context containing previous state
+      return { previousNotifications }
+    },
+    onSuccess: (_, id) => {
+      toast.success(id ? "อ่านการแจ้งเตือนแล้ว" : "อ่านการแจ้งเตือนทั้งหมดแล้ว")
+    },
+    onError: (err, id, context) => {
+      // Rollback to previous state on error
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(["notifications"], context.previousNotifications)
+      }
+      toast.error("ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้: " + err.message)
+    },
+    onSettled: () => {
+      // Sync cache with server
       queryClient.invalidateQueries({ queryKey: ["notifications"] })
     }
   })
 
   // Handle Click Outside to close
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: Event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside)
+      document.addEventListener("touchstart", handleClickOutside, { passive: true })
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("touchstart", handleClickOutside)
+    }
   }, [isOpen])
 
   const unreadCount = notifications.filter((n: any) => !n.is_read).length
@@ -148,8 +187,15 @@ export function NotificationBell() {
                       "p-5 hover:bg-slate-50 transition-colors cursor-pointer group relative",
                       !n.is_read && "bg-blue-50/20"
                     )}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (!n.is_read) markReadMutation.mutate(n.id)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        if (!n.is_read) markReadMutation.mutate(n.id)
+                      }
                     }}
                   >
                     <div className="flex gap-4">

@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
+import { toast } from "sonner"
 import { 
   Building2, 
   Home, 
@@ -63,12 +64,31 @@ export default function CheckinPage() {
       }
       return res.json()
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-checkin"] })
-      alert("บันทึกเนื้องานวันนี้เรียบร้อยแล้ว! ข้อมูลนี้จะนำไปสรุปในรายงานประจำสัปดาห์ของคุณ")
+    onMutate: async (work_done) => {
+      await queryClient.cancelQueries({ queryKey: ["my-checkin"] })
+      const previousMyCheckin = queryClient.getQueryData<any>(["my-checkin"])
+
+      // Optimistically update the work_done field in cache
+      if (previousMyCheckin) {
+        queryClient.setQueryData(["my-checkin"], {
+          ...previousMyCheckin,
+          work_done: work_done
+        })
+      }
+
+      return { previousMyCheckin }
     },
-    onError: (err: any) => {
-      alert(err.message)
+    onError: (err: any, work_done, context) => {
+      if (context?.previousMyCheckin) {
+        queryClient.setQueryData(["my-checkin"], context.previousMyCheckin)
+      }
+      toast.error("ไม่สามารถบันทึกเนื้องานได้: " + err.message)
+    },
+    onSuccess: () => {
+      toast.success("บันทึกเนื้องานวันนี้เรียบร้อยแล้ว! ข้อมูลนี้จะนำไปสรุปในรายงานประจำสัปดาห์ของคุณ")
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-checkin"] })
     }
   })
 
@@ -135,13 +155,32 @@ export default function CheckinPage() {
       }
       return res.json()
     },
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ["my-checkin"] })
+      const previousMyCheckin = queryClient.getQueryData(["my-checkin"])
+
+      // Optimistically set check-in status
+      queryClient.setQueryData(["my-checkin"], {
+        id: "optimistic-id",
+        status: payload.status,
+        note: payload.note,
+        created_at: new Date().toISOString()
+      })
+
+      return { previousMyCheckin }
+    },
+    onError: (err: any, payload, context) => {
+      if (context?.previousMyCheckin) {
+        queryClient.setQueryData(["my-checkin"], context.previousMyCheckin)
+      }
+      toast.error("ไม่สามารถบันทึกเช็คอินได้: " + err.message)
+    },
     onSuccess: () => {
+      toast.success("บันทึกการเช็คอินเรียบร้อยแล้ว!")
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["my-checkin"] })
       queryClient.invalidateQueries({ queryKey: ["team-checkins"] })
-      alert("บันทึกการเช็คอินเรียบร้อยแล้ว!")
-    },
-    onError: (err: any) => {
-      alert(err.message)
     }
   })
 
@@ -351,7 +390,7 @@ export default function CheckinPage() {
                     disabled={!selectedStatus || !isWithinCheckinTime || checkinMutation.isPending || isLocating || (selectedStatus === 'onsite' && !note.trim())}
                     onClick={() => {
                       if (selectedStatus === 'onsite' && !note.trim()) {
-                        alert("กรุณาระบุสถานที่สำหรับการเช็คอิน Onsite")
+                        toast.warning("กรุณาระบุสถานที่สำหรับการเช็คอิน Onsite")
                         return
                       }
 
@@ -388,7 +427,7 @@ export default function CheckinPage() {
                             if (err.code === 1) errorMsg = "กรุณาอนุญาตให้เข้าถึงตำแหน่งที่ตั้ง (Location Permission) ในเบราว์เซอร์ของคุณ"
                             if (err.code === 3) errorMsg = "การค้นหาตำแหน่งใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง"
                             
-                            alert(errorMsg)
+                            toast.error(errorMsg)
                             if (confirm(`${errorMsg}. ต้องการบันทึกเช็คอินโดยไม่ระบุตำแหน่งหรือไม่?`)) {
                               checkinMutation.mutate({ status: selectedStatus!, note })
                             }

@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   CheckCircle2, 
   XCircle, 
@@ -62,14 +63,31 @@ export default function ApprovePage() {
       if (!res.ok) throw new Error("การดำเนินการล้มเหลว")
       return res.json()
     },
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: ["pending-leaves"] })
+      const previousPendingLeaves = queryClient.getQueryData<any[]>(["pending-leaves"]) || []
+
+      // Optimistically remove from list
+      queryClient.setQueryData<any[]>(["pending-leaves"], (old) => {
+        if (!old) return []
+        return old.filter(item => item.id !== id)
+      })
+
+      return { previousPendingLeaves }
+    },
+    onError: (err: any, variables, context) => {
+      if (context?.previousPendingLeaves) {
+        queryClient.setQueryData(["pending-leaves"], context.previousPendingLeaves)
+      }
+      toast.error("ไม่สามารถบันทึกผลการอนุมัติได้: " + err.message)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending-leaves"] })
       setSelectedLeave(null)
       setApprovalNote("")
-      alert("ดำเนินการเรียบร้อยแล้ว")
+      toast.success("ดำเนินการบันทึกผลการอนุมัติเรียบร้อยแล้ว!")
     },
-    onError: (err: any) => {
-      alert(err.message)
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending-leaves"] })
     }
   })
 
@@ -148,7 +166,14 @@ export default function ApprovePage() {
                 <Card 
                   key={leave.id} 
                   className="group rounded-[2.5rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 overflow-hidden cursor-pointer hover:-translate-y-1"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedLeave(leave)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setSelectedLeave(leave)
+                    }
+                  }}
                 >
                   <CardContent className="p-0">
                      <div className="flex flex-col md:flex-row items-center p-8 gap-8">
