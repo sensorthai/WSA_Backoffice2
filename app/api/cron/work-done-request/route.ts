@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 import nodemailer from 'nodemailer'
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { formatInTimeZone } from 'date-fns-tz'
 
 const TIMEZONE = 'Asia/Bangkok'
 

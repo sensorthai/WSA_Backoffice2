@@ -107,7 +107,7 @@ export async function GET() {
       totalCost: parseFloat(totalCost.toFixed(6)),
       isMock: false,
     })
-  } catch (e: any) {
+  } catch {
     // Catch-all: return mock data so the UI never breaks
     return NextResponse.json(generateMockData())
   }

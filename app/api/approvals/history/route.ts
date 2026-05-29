@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth"
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { NextResponse } from "next/server"
 
-export async function GET(_req: Request) {
+export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

@@ -1,12 +1,11 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "./useUser"
 
 export function usePurchaseRequests() {
   const { profile } = useUser()
-  const queryClient = useQueryClient()
 
   const { data: myPurchases, isLoading } = useQuery({
     queryKey: ['my-purchase-requests', profile?.id],
