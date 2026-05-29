@@ -210,7 +210,95 @@ export default function CheckinPage() {
     }
   }, [teamData])
 
+  // Filters and status groupings for the custom dashboard layout
+  const officeUsers = useMemo(() => {
+    return filteredTeam.filter((u: any) => u.checkin?.status === 'office')
+  }, [filteredTeam])
+
+  const homeUsers = useMemo(() => {
+    return filteredTeam.filter((u: any) => u.checkin?.status === 'home')
+  }, [filteredTeam])
+
+  const onsiteUsers = useMemo(() => {
+    return filteredTeam.filter((u: any) => u.checkin?.status === 'onsite')
+  }, [filteredTeam])
+
+  const leaveUsers = useMemo(() => {
+    return filteredTeam.filter((u: any) => u.checkin?.status === 'leave' || u.checkin?.status === 'holiday')
+  }, [filteredTeam])
+
+  const notCheckedUsers = useMemo(() => {
+    return filteredTeam.filter((u: any) => u.checkin?.status === 'not_checked' || !u.checkin?.status)
+  }, [filteredTeam])
+
+  // Dynamic department grouping
+  const departmentsGrouped = useMemo(() => {
+    const groups: { [key: string]: any[] } = {}
+    filteredTeam.forEach((u: any) => {
+      if (u.department) {
+        if (!groups[u.department]) {
+          groups[u.department] = []
+        }
+        groups[u.department].push(u)
+      }
+    })
+    return groups
+  }, [filteredTeam])
+
   const currentStatus = myStatus?.id ? statusOptions.find(o => o.id === myStatus.status) : null
+
+  const renderUserCard = (u: any, badgeText: string, badgeBgClass: string, badgeTextClass: string) => (
+    <div key={u.id} className="p-4 bg-white hover:bg-slate-50 border border-slate-100/80 hover:border-slate-100 rounded-[1.8rem] flex items-center justify-between gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.015)] hover:shadow-md transition-all duration-200 group">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="relative">
+          <Avatar className="w-10 h-10 border-2 border-white shadow-sm shrink-0">
+            <AvatarImage src={u.avatar_url} />
+            <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 font-bold text-xs">
+              {u.full_name?.substring(0, 2)}
+            </AvatarFallback>
+          </Avatar>
+          <div className={cn(
+            "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm",
+            u.checkin?.status === 'office' ? "bg-emerald-500" :
+            u.checkin?.status === 'home' ? "bg-blue-500" :
+            u.checkin?.status === 'onsite' ? "bg-indigo-500" :
+            u.checkin?.status === 'leave' ? "bg-amber-500" :
+            u.checkin?.status === 'holiday' ? "bg-slate-400" :
+            "bg-rose-500 animate-pulse"
+          )} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-extrabold text-slate-800 text-sm truncate group-hover:text-blue-600 transition-colors leading-tight">{u.full_name}</div>
+          <div className="text-[9px] font-bold text-slate-400 mt-1 truncate">{u.department}</div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 shrink-0">
+        <Badge className={cn("rounded-full px-2.5 py-0.5 font-bold text-[8px] tracking-wider border-0 shrink-0 uppercase", badgeBgClass, badgeTextClass)}>
+          {badgeText}
+        </Badge>
+        
+        {/* Note message button */}
+        <div className="relative group/note">
+          <div className={cn(
+            "p-1.5 rounded-xl transition-all cursor-pointer border border-transparent",
+            u.checkin?.note 
+              ? "bg-blue-50 text-blue-500 hover:bg-blue-100" 
+              : "bg-slate-100/50 text-slate-300 hover:bg-slate-100 hover:text-slate-400"
+          )}>
+            <MessageSquare size={12} />
+          </div>
+          {u.checkin?.note && (
+            <div className="absolute bottom-full right-0 mb-2 w-48 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/note:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-xl translate-y-1 group-hover/note:translate-y-0 leading-normal">
+              <div className="font-bold mb-0.5 opacity-50 uppercase tracking-widest text-[8px]">บันทึกเนื้องาน</div>
+              <p>"{u.checkin.note}"</p>
+              <div className="absolute top-full right-3 w-2 h-2 bg-slate-900 rotate-45 -translate-y-1" />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12 px-4 animate-in fade-in duration-700">
@@ -453,44 +541,42 @@ export default function CheckinPage() {
         <div className="lg:col-span-7 xl:col-span-8">
           {(session?.user as any)?.role !== 'outsource' ? (
             <div className="space-y-8 animate-in slide-in-from-right duration-700">
+              
               {/* Summary Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {[
-                  { label: 'Office', count: summary.office, color: 'emerald', icon: Building2 },
+                  { label: 'OFFICE', count: summary.office, color: 'emerald', icon: Building2 },
                   { label: 'WFH', count: summary.home, color: 'blue', icon: Home },
-                  { label: 'Onsite', count: summary.onsite, color: 'indigo', icon: MapPin },
+                  { label: 'ONSITE', count: summary.onsite, color: 'indigo', icon: MapPin },
                   { label: 'ลาหยุด', count: summary.leave, color: 'amber', icon: Palmtree },
                   { label: 'ยังไม่เช็ค', count: summary.notChecked, color: 'rose', icon: AlertCircle },
                 ].map((item) => (
-                  <div key={item.label} className={cn(
-                    "p-6 rounded-[2rem] border-0 shadow-sm flex flex-col items-center justify-center text-center gap-1 group transition-all hover:scale-105",
-                    item.color === 'emerald' ? 'bg-emerald-50' : 
-                    item.color === 'blue' ? 'bg-blue-50' : 
-                    item.color === 'indigo' ? 'bg-indigo-50' : 
-                    item.color === 'amber' ? 'bg-amber-50' : 'bg-rose-50'
-                  )}>
-                    <item.icon size={20} className={cn(
-                      item.color === 'emerald' ? 'text-emerald-600' : 
-                      item.color === 'blue' ? 'text-blue-600' : 
-                      item.color === 'indigo' ? 'text-indigo-600' : 
-                      item.color === 'amber' ? 'text-amber-600' : 'text-rose-600'
-                    )} />
-                    <div className="font-bold text-slate-500 text-[10px] uppercase tracking-wider mt-1">{item.label}</div>
+                  <div key={item.label} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)] flex flex-col items-center justify-center text-center gap-1 group transition-all duration-300 hover:scale-105 hover:shadow-md">
                     <div className={cn(
-                      "text-3xl font-black",
-                      item.color === 'emerald' ? 'text-emerald-700' : 
-                      item.color === 'blue' ? 'text-blue-700' : 
-                      item.color === 'indigo' ? 'text-indigo-700' : 
-                      item.color === 'amber' ? 'text-amber-700' : 'text-rose-700'
+                      "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-300",
+                      item.color === 'emerald' ? 'bg-emerald-50 text-emerald-500' : 
+                      item.color === 'blue' ? 'bg-blue-50 text-blue-500' : 
+                      item.color === 'indigo' ? 'bg-indigo-50 text-indigo-500' : 
+                      item.color === 'amber' ? 'bg-amber-50 text-amber-500' : 'bg-rose-50 text-rose-500'
+                    )}>
+                      <item.icon size={22} />
+                    </div>
+                    <div className="font-extrabold text-slate-400 text-[10px] uppercase tracking-widest mt-2">{item.label}</div>
+                    <div className={cn(
+                      "text-4xl font-black mt-1",
+                      item.color === 'emerald' ? 'text-emerald-500' : 
+                      item.color === 'blue' ? 'text-blue-500' : 
+                      item.color === 'indigo' ? 'text-indigo-500' : 
+                      item.color === 'amber' ? 'text-amber-500' : 'text-rose-500'
                     )}>{item.count}</div>
                   </div>
                 ))}
               </div>
 
-              {/* Filters Header */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/60 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              {/* Filters & Title Header */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)]">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-600 text-white rounded-2xl">
+                  <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20">
                     <Users size={24} />
                   </div>
                   <div>
@@ -499,7 +585,7 @@ export default function CheckinPage() {
                   </div>
                 </div>
                 <Select value={deptFilter} onValueChange={setDeptFilter}>
-                  <SelectTrigger className="w-[220px] h-12 rounded-2xl border-slate-100 bg-slate-50/50 focus:ring-4 focus:ring-blue-100 font-bold text-slate-600">
+                  <SelectTrigger className="w-[200px] h-12 rounded-2xl border-slate-100 bg-slate-50/50 focus:ring-4 focus:ring-blue-100 font-bold text-slate-600">
                     <SelectValue placeholder="ทุกกลุ่มงาน" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
@@ -511,91 +597,187 @@ export default function CheckinPage() {
                 </Select>
               </div>
 
-              {/* Team Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
-                {teamLoading ? (
-                  <div className="col-span-full py-20 text-center">
-                    <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-200" />
-                    <p className="text-slate-400 font-bold text-lg">กำลังรวบรวมข้อมูลสถานะทีม...</p>
+              {/* Loading Indicator */}
+              {teamLoading ? (
+                <div className="py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)]">
+                  <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
+                  <p className="text-slate-400 font-bold text-lg">กำลังรวบรวมข้อมูลสถานะทีม...</p>
+                </div>
+              ) : filteredTeam.length === 0 ? (
+                <div className="py-32 text-center bg-white rounded-[3rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)] flex flex-col items-center justify-center gap-4">
+                  <div className="p-6 bg-slate-50 rounded-full text-slate-300">
+                    <Users size={64} />
                   </div>
-                ) : filteredTeam.length === 0 ? (
-                  <div className="col-span-full py-32 text-center bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-4">
-                    <div className="p-6 bg-white rounded-full shadow-sm text-slate-200">
-                      <Users size={64} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-900 font-black text-xl">ไม่พบรายชื่อในกลุ่มงานนี้</p>
-                      <p className="text-slate-400 text-sm">ลองเปลี่ยนตัวกรองกลุ่มงานอื่น</p>
-                    </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-900 font-black text-xl">ไม่พบรายชื่อในกลุ่มงานนี้</p>
+                    <p className="text-slate-400 text-sm">ลองเปลี่ยนตัวกรองกลุ่มงานอื่น</p>
                   </div>
-                ) : filteredTeam.map((u: any) => (
-                  <div key={u.id} className="group bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-900/5 transition-all duration-300 flex items-center gap-5 hover:-translate-y-1">
-                    <div className="relative">
-                      <Avatar className="w-16 h-16 border-4 border-white shadow-md ring-1 ring-slate-100 transition-all group-hover:ring-blue-200">
-                        <AvatarImage src={u.avatar_url} />
-                        <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500 font-black text-xl">
-                          {u.full_name?.substring(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={cn(
-                        "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-white shadow-sm",
-                        u.checkin.status === 'office' ? "bg-emerald-500" :
-                        u.checkin.status === 'home' ? "bg-blue-500" :
-                        u.checkin.status === 'onsite' ? "bg-indigo-500" :
-                        u.checkin.status === 'leave' ? "bg-amber-500" :
-                        u.checkin.status === 'holiday' ? "bg-slate-400" :
-                        "bg-rose-500 animate-pulse"
-                      )} />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="font-black text-slate-900 truncate text-lg group-hover:text-blue-700 transition-colors">{u.full_name}</div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">{u.department}</div>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  
+                  {/* Status Grouped Columns (OFFICE, WFH, ONSITE) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {/* OFFICE Column */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)] relative overflow-hidden flex flex-col">
+                      <div className="absolute right-6 top-6 text-slate-100">
+                        <Building2 size={64} className="opacity-40" />
+                      </div>
+                      <div className="flex items-center gap-3 pb-4 border-b border-slate-50 relative z-10">
+                        <div className="text-5xl font-black text-emerald-500/25 leading-none">{officeUsers.length}</div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-800 text-base leading-tight">ในออฟฟิศ</h3>
+                          <span className="text-[9px] font-bold text-slate-400 tracking-wider">(OFFICE)</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3 mt-4 flex-1">
+                        {officeUsers.map(u => renderUserCard(u, "OFFICE", "bg-emerald-100", "text-emerald-600"))}
+                        {officeUsers.length === 0 && (
+                          <div className="py-8 text-center text-slate-300 text-xs font-bold border border-dashed border-slate-100 rounded-3xl">
+                            ไม่มีพนักงานในสถานะนี้
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "rounded-full px-3 py-1 font-black text-[10px] uppercase tracking-tighter border-0",
-                          u.checkin.status === 'office' ? "bg-emerald-100/50 text-emerald-600" :
-                          u.checkin.status === 'home' ? "bg-blue-100/50 text-blue-600" :
-                          u.checkin.status === 'onsite' ? "bg-indigo-100/50 text-indigo-600" :
-                          u.checkin.status === 'leave' ? "bg-amber-100/50 text-amber-600" :
-                          u.checkin.status === 'holiday' ? "bg-slate-100/50 text-slate-500" :
-                          "bg-rose-100/50 text-rose-500"
-                        )}
-                      >
-                        {u.checkin.status === 'not_checked' ? 'ยังไม่เช็ค' : u.checkin.status}
-                      </Badge>
-                      {u.checkin.note && (
-                        <div className="relative group/note">
-                          <div className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors cursor-help">
-                            <MessageSquare size={14} />
-                          </div>
-                          <div className="absolute bottom-full right-0 mb-3 w-56 p-4 bg-slate-900 text-white text-xs rounded-2xl opacity-0 group-hover/note:opacity-100 transition-all duration-300 z-50 pointer-events-none shadow-2xl translate-y-2 group-hover/note:translate-y-0">
-                            <div className="font-bold mb-1 opacity-50 text-[10px] uppercase">บันทึกเพิ่มเติม</div>
-                            <p className="leading-relaxed">"{u.checkin.note}"</p>
-                            <div className="absolute top-full right-4 w-3 h-3 bg-slate-900 rotate-45 -translate-y-1.5" />
-                          </div>
+                    {/* WFH Column */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)] relative overflow-hidden flex flex-col">
+                      <div className="absolute right-6 top-6 text-slate-100">
+                        <Home size={64} className="opacity-40" />
+                      </div>
+                      <div className="flex items-center gap-3 pb-4 border-b border-slate-50 relative z-10">
+                        <div className="text-5xl font-black text-blue-500/25 leading-none">{homeUsers.length}</div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-800 text-base leading-tight">ทำงานที่บ้าน</h3>
+                          <span className="text-[9px] font-bold text-slate-400 tracking-wider">(WFH)</span>
                         </div>
-                      )}
-                      
-                      {u.checkin.location_lat && u.checkin.location_lng && (
-                        <a 
-                          href={`https://www.google.com/maps?q=${u.checkin.location_lat},${u.checkin.location_lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
-                          title="ดูตำแหน่งบนแผนที่"
-                        >
-                          <MapPin size={14} />
-                        </a>
-                      )}
+                      </div>
+                      <div className="space-y-3 mt-4 flex-1">
+                        {homeUsers.map(u => renderUserCard(u, "HOME", "bg-blue-100", "text-blue-600"))}
+                        {homeUsers.length === 0 && (
+                          <div className="py-8 text-center text-slate-300 text-xs font-bold border border-dashed border-slate-100 rounded-3xl">
+                            ไม่มีพนักงานในสถานะนี้
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ONSITE Column */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)] relative overflow-hidden flex flex-col">
+                      <div className="absolute right-6 top-6 text-slate-100">
+                        <MapPin size={64} className="opacity-40" />
+                      </div>
+                      <div className="flex items-center gap-3 pb-4 border-b border-slate-50 relative z-10">
+                        <div className="text-5xl font-black text-indigo-500/25 leading-none">{onsiteUsers.length}</div>
+                        <div>
+                          <h3 className="font-extrabold text-slate-800 text-base leading-tight">นอกสถานที่</h3>
+                          <span className="text-[9px] font-bold text-slate-400 tracking-wider">(ONSITE)</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3 mt-4 flex-1">
+                        {onsiteUsers.map(u => renderUserCard(u, "ONSITE", "bg-indigo-100", "text-indigo-600"))}
+                        {onsiteUsers.length === 0 && (
+                          <div className="py-8 text-center text-slate-300 text-xs font-bold border border-dashed border-slate-100 rounded-3xl">
+                            ไม่มีพนักงานในสถานะนี้
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Department Groups Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {Object.entries(departmentsGrouped).map(([deptName, users]) => (
+                      <div key={deptName} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)]">
+                        <div className="pb-4 border-b border-slate-50">
+                          <h3 className="font-black text-slate-800 text-sm leading-tight tracking-tight">
+                            {deptName} <span className="text-blue-500 ml-1">({users.length})</span>
+                          </h3>
+                        </div>
+                        <div className="space-y-3 mt-4">
+                          {users.map(u => {
+                            let badgeText = "NO-CHECK"
+                            let badgeBg = "bg-rose-100"
+                            let badgeTextCol = "text-rose-600"
+                            if (u.checkin?.status === 'office') {
+                              badgeText = "OFFICE"
+                              badgeBg = "bg-emerald-100"
+                              badgeTextCol = "text-emerald-600"
+                            } else if (u.checkin?.status === 'home') {
+                              badgeText = "HOME"
+                              badgeBg = "bg-blue-100"
+                              badgeTextCol = "text-blue-600"
+                            } else if (u.checkin?.status === 'onsite') {
+                              badgeText = "ONSITE"
+                              badgeBg = "bg-indigo-100"
+                              badgeTextCol = "text-indigo-600"
+                            } else if (u.checkin?.status === 'leave') {
+                              badgeText = "LEAVE"
+                              badgeBg = "bg-amber-100"
+                              badgeTextCol = "text-amber-600"
+                            } else if (u.checkin?.status === 'holiday') {
+                              badgeText = "HOLIDAY"
+                              badgeBg = "bg-slate-100"
+                              badgeTextCol = "text-slate-500"
+                            }
+                            return renderUserCard(u, badgeText, badgeBg, badgeTextCol)
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Footer Row: Other Statuses & Unchecked */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Other Statuses */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)]">
+                      <div className="flex items-center justify-between border-b border-slate-50 pb-4">
+                        <h3 className="font-black text-slate-800 text-base leading-tight">สถานะอื่นๆ (Other Statuses)</h3>
+                        <Badge className="bg-amber-100 hover:bg-amber-100 text-amber-600 border-0 rounded-full font-black text-xs px-3.5 py-1 uppercase">
+                          ลาหยุด {leaveUsers.length}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                        {leaveUsers.map(u => {
+                          const isHoliday = u.checkin?.status === 'holiday'
+                          return renderUserCard(
+                            u, 
+                            isHoliday ? "HOLIDAY" : "LEAVE", 
+                            isHoliday ? "bg-slate-100" : "bg-amber-100", 
+                            isHoliday ? "text-slate-500" : "text-amber-600"
+                          )
+                        })}
+                        {leaveUsers.length === 0 && (
+                          <div className="col-span-full py-12 text-center text-slate-300 text-xs font-bold border border-dashed border-slate-100 rounded-3xl">
+                            ไม่มีพนักงานในสถานะลางาน/วันหยุด
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Unchecked */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_10px_35px_rgba(0,0,0,0.015)]">
+                      <div className="flex items-center justify-between border-b border-slate-50 pb-4">
+                        <h3 className="font-black text-slate-800 text-base leading-tight">ยังไม่เช็ค</h3>
+                        <Badge className="bg-rose-100 hover:bg-rose-100 text-rose-600 border-0 rounded-full font-black text-xs px-3.5 py-1">
+                          {notCheckedUsers.length} คน
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3 mt-6">
+                        {notCheckedUsers.map(u => renderUserCard(u, "No-Check", "bg-rose-100", "text-rose-600"))}
+                        {notCheckedUsers.length === 0 && (
+                          <div className="py-12 text-center text-emerald-500 text-xs font-bold border border-dashed border-emerald-100 bg-emerald-50/20 rounded-3xl">
+                            พนักงานทุกคนเช็คอินเรียบร้อยแล้ว! 🎉
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/30 rounded-[3rem] border-2 border-dashed border-blue-100 p-16 text-center h-full flex flex-col items-center justify-center animate-in fade-in duration-1000">
