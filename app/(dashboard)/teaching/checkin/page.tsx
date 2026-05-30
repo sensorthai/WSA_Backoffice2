@@ -93,7 +93,7 @@ function TeachingCheckinContent() {
         assignment_id: assignment.id, teacher_id: profile?.id, school_id: assignment.school_id,
         teach_date: today, check_in_time: new Date().toISOString(),
         check_in_lat: coords?.lat || null, check_in_lng: coords?.lng || null,
-        status: "pending",
+        status: "draft",
       }
       const res = await fetch("/api/teaching-logs", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
