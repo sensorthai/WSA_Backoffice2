@@ -81,7 +81,7 @@ export function ReportsSchool() {
           <strong>${fmtDate(log.teach_date)}</strong>
           <span style="color:#555;margin-left:10px">วิชา: ${log.assignment?.subject?.name||'-'}</span>
           ${log.class_level?`<span style="color:#555;margin-left:10px">ห้อง: ${log.class_level}</span>`:''}
-          <span style="float:right;color:#555;font-size:12px">ครู: <b>${log.teacher?.full_name||'-'}</b>${log.check_in_time?` | เข้า ${new Date(log.check_in_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}`:''}${log.check_out_time?` - ออก ${new Date(log.check_out_time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}`:''}
+          <span style="float:right;color:#555;font-size:12px">ครู: <b>${log.teacher?.full_name||'-'}</b>
           </span>
         </div>
         <div style="padding:10px 14px;font-size:13px">
