@@ -31,6 +31,36 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const validatedData = logUpdateSchema.parse(body)
     const supabase = createSupabaseServerClient()
 
+    // Auto-sync student count with actual students in the classroom
+    let classLevel = validatedData.class_level
+    let schoolId: string | null = null
+
+    const { data: existingLog } = await supabase
+      .from('teaching_logs')
+      .select('school_id, class_level')
+      .eq('id', params.id)
+      .single()
+    
+    if (existingLog) {
+      schoolId = existingLog.school_id
+      if (!classLevel) {
+        classLevel = existingLog.class_level
+      }
+    }
+
+    if (schoolId && classLevel) {
+      const { count } = await supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolId)
+        .eq('class_level', classLevel)
+        .eq('is_active', true)
+      
+      if (count !== null) {
+        validatedData.student_count = count
+      }
+    }
+
     const { data, error } = await supabase
       .from('teaching_logs')
       .update(validatedData)

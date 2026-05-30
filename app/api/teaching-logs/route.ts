@@ -118,6 +118,20 @@ export async function POST(req: NextRequest) {
     const validatedData = teachingLogSchema.parse(body)
     const supabase = createSupabaseServerClient()
 
+    // Auto-sync student count with actual students in the classroom
+    if (validatedData.school_id && validatedData.class_level) {
+      const { count } = await supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', validatedData.school_id)
+        .eq('class_level', validatedData.class_level)
+        .eq('is_active', true)
+      
+      if (count !== null) {
+        validatedData.student_count = count
+      }
+    }
+
     const { data, error } = await supabase
       .from('teaching_logs')
       .insert(validatedData)
