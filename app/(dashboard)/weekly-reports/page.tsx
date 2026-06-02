@@ -58,6 +58,7 @@ export default function WeeklyReportsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [expandedReports, setExpandedReports] = useState<string[]>([])
   const [editingReport, setEditingReport] = useState<string | null>(null)
+  const [confirmSubmitReportId, setConfirmSubmitReportId] = useState<string | null>(null)
   const [editItems, setEditItems] = useState<ReportItem[]>([])
   const [reviewComment, setReviewComment] = useState("")
   const [reviewingReport, setReviewingReport] = useState<string | null>(null)
@@ -624,17 +625,45 @@ export default function WeeklyReportsPage() {
 
             <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
               {report.status === 'draft' && (
-                <>
-                  <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold" onClick={() => startEditing(report)}>
-                    แก้ไข
-                  </Button>
-                  <Button size="sm" className="rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold"
-                    onClick={() => { if (confirm('ส่งรายงานนี้ให้หัวหน้างาน?')) submitMutation.mutate(report.id) }}
-                  ><Send className="w-3 h-3 mr-1" /> ส่งรายงาน</Button>
-                  <Button variant="ghost" size="icon" className="rounded-xl text-rose-400 hover:bg-rose-50 h-8 w-8"
-                    onClick={() => { if (confirm('ลบรายงานนี้?')) deleteMutation.mutate(report.id) }}
-                  ><Trash2 className="w-4 h-4" /></Button>
-                </>
+                confirmSubmitReportId === report.id ? (
+                  <div className="flex items-center gap-2 bg-blue-50/80 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 px-3 py-1.5 rounded-2xl animate-in fade-in slide-in-from-right-2 duration-300">
+                    <span className="text-xs font-bold text-blue-700 dark:text-blue-400">ส่งรายงานนี้ให้หัวหน้างาน?</span>
+                    <Button 
+                      size="sm" 
+                      className="rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold h-7 px-3 text-white"
+                      onClick={() => {
+                        submitMutation.mutate(report.id)
+                        setConfirmSubmitReportId(null)
+                      }}
+                    >
+                      ยืนยัน
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 text-xs font-bold h-7 px-2.5"
+                      onClick={() => setConfirmSubmitReportId(null)}
+                    >
+                      ยกเลิก
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold" onClick={() => startEditing(report)}>
+                      แก้ไข
+                    </Button>
+                    <Button size="sm" className="rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-bold"
+                      onClick={() => setConfirmSubmitReportId(report.id)}
+                    >
+                      <Send className="w-3 h-3 mr-1" /> ส่งรายงาน
+                    </Button>
+                    <Button variant="ghost" size="icon" className="rounded-xl text-rose-400 hover:bg-rose-50 h-8 w-8"
+                      onClick={() => { if (confirm('ลบรายงานนี้?')) deleteMutation.mutate(report.id) }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </>
+                )
               )}
               {report.status === 'submitted' && activeTab === 'team' && (
                 <Button 
