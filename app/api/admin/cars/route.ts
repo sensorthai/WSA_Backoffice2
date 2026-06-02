@@ -18,6 +18,7 @@ const carSchema = z.object({
   oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
+  registration_book_file_url: z.string().optional().nullable(),
 })
 
 export async function GET() {
@@ -51,7 +52,8 @@ export async function POST(req: NextRequest) {
       'ctp_expiry_date',
       'oil_change_date',
       'insurance_file_url',
-      'ctp_file_url'
+      'ctp_file_url',
+      'registration_book_file_url'
     ]
     nullableFields.forEach(field => {
       if (normalizedBody[field] === "") {

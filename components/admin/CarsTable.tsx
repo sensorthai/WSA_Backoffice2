@@ -29,6 +29,7 @@ const carSchema = z.object({
   oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
+  registration_book_file_url: z.string().optional().nullable(),
 })
 
 export function CarsTable() {
@@ -37,6 +38,7 @@ export function CarsTable() {
   const [editingCar, setEditingCar] = useState<any>(null)
   const [isUploadingInsurance, setIsUploadingInsurance] = useState(false)
   const [isUploadingCtp, setIsUploadingCtp] = useState(false)
+  const [isUploadingRegBook, setIsUploadingRegBook] = useState(false)
 
   const { data: cars, isLoading } = useQuery({
     queryKey: ["admin-cars"],
@@ -76,7 +78,8 @@ export function CarsTable() {
       ctp_expiry_date: "",
       oil_change_date: "",
       insurance_file_url: "",
-      ctp_file_url: ""
+      ctp_file_url: "",
+      registration_book_file_url: ""
     }
   })
 
@@ -165,6 +168,7 @@ export function CarsTable() {
       oil_change_date: values.oil_change_date || null,
       insurance_file_url: values.insurance_file_url || null,
       ctp_file_url: values.ctp_file_url || null,
+      registration_book_file_url: values.registration_book_file_url || null,
     }
     mutation.mutate(data)
   }
@@ -189,7 +193,8 @@ export function CarsTable() {
                 ctp_expiry_date: "",
                 oil_change_date: "",
                 insurance_file_url: "",
-                ctp_file_url: ""
+                ctp_file_url: "",
+                registration_book_file_url: ""
               }); 
             }}>
               <Plus className="mr-2 h-4 w-4" /> เพิ่มรถใหม่
@@ -330,7 +335,7 @@ export function CarsTable() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormItem>
                     <FormLabel>ไฟล์ประกัน (PDF/รูปภาพ)</FormLabel>
                     <div className="flex items-center gap-2">
@@ -393,6 +398,37 @@ export function CarsTable() {
                       )}
                     </div>
                   </FormItem>
+                  <FormItem>
+                    <FormLabel>เล่มทะเบียนรถ (PDF/รูปภาพ)</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        type="file" 
+                        accept=".pdf,image/*" 
+                        disabled={isUploadingRegBook}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setIsUploadingRegBook(true)
+                            try {
+                              const url = await uploadFile(file)
+                              form.setValue("registration_book_file_url", url)
+                            } catch (err: any) {
+                              console.error(err)
+                              alert(`เกิดข้อผิดพลาดในการอัปโหลดเล่มทะเบียนรถ: ${err.message}`)
+                            } finally {
+                              setIsUploadingRegBook(false)
+                            }
+                          }
+                        }} 
+                      />
+                      {isUploadingRegBook && (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      )}
+                      {form.watch("registration_book_file_url") && !isUploadingRegBook && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">อัปโหลดแล้ว</Badge>
+                      )}
+                    </div>
+                  </FormItem>
                 </div>
 
                 <FormField
@@ -409,9 +445,9 @@ export function CarsTable() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={mutation.isPending || isUploadingInsurance || isUploadingCtp}>
-                  {(mutation.isPending || isUploadingInsurance || isUploadingCtp) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isUploadingInsurance || isUploadingCtp ? 'กำลังอัปโหลดไฟล์...' : (editingCar ? 'บันทึกการแก้ไข' : 'เพิ่มรถเข้าระบบ')}
+                <Button type="submit" className="w-full" disabled={mutation.isPending || isUploadingInsurance || isUploadingCtp || isUploadingRegBook}>
+                  {(mutation.isPending || isUploadingInsurance || isUploadingCtp || isUploadingRegBook) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isUploadingInsurance || isUploadingCtp || isUploadingRegBook ? 'กำลังอัปโหลดไฟล์...' : (editingCar ? 'บันทึกการแก้ไข' : 'เพิ่มรถเข้าระบบ')}
                 </Button>
               </form>
             </Form>
@@ -447,7 +483,14 @@ export function CarsTable() {
                   <p>พรบหมดอายุ: <span className="font-medium text-slate-900">{car.ctp_expiry_date || '-'}</span></p>
                   <p>เปลี่ยนน้ำมันเครื่อง: <span className="font-medium text-slate-900 text-indigo-600">{car.oil_change_date || '-'}</span></p>
                 </div>
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {car.registration_book_file_url && (
+                    <a href={car.registration_book_file_url} target="_blank" rel="noopener noreferrer">
+                      <Badge variant="outline" className="cursor-pointer hover:bg-slate-50 bg-blue-50/50 border-blue-200 text-blue-700">
+                        <FileIcon className="h-3 w-3 mr-1" /> เล่มทะเบียน
+                      </Badge>
+                    </a>
+                  )}
                   {car.insurance_file_url && (
                     <a href={car.insurance_file_url} target="_blank" rel="noopener noreferrer">
                       <Badge variant="outline" className="cursor-pointer hover:bg-slate-50">

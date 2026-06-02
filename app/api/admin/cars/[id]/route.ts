@@ -18,6 +18,7 @@ const carUpdateSchema = z.object({
   oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
+  registration_book_file_url: z.string().optional().nullable(),
 })
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -38,7 +39,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       'ctp_expiry_date',
       'oil_change_date',
       'insurance_file_url',
-      'ctp_file_url'
+      'ctp_file_url',
+      'registration_book_file_url'
     ]
     nullableFields.forEach(field => {
       if (normalizedBody[field] === "") {
