@@ -1,12 +1,14 @@
 "use client"
 
-import { Menu, LogOut } from "lucide-react"
+import { Menu, LogOut, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { NotificationBell } from "./NotificationBell"
 import { useUser } from "@/hooks/useUser"
 import { signOut } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 interface HeaderProps {
   title: string
@@ -17,6 +19,8 @@ interface HeaderProps {
 export function Header({ title, onMenuClick, className }: HeaderProps) {
   const { profile } = useUser()
   const role = profile?.role || 'employee'
+
+  const pathname = usePathname()
 
   return (
     <header className={cn("h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between", className)}>
@@ -30,6 +34,19 @@ export function Header({ title, onMenuClick, className }: HeaderProps) {
           <Menu className="h-6 w-6" />
         </Button>
         <h1 className="text-xl font-bold text-slate-800">{title}</h1>
+        
+        {/* Top Menu Links */}
+        <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200">
+          <Link href="/dashboard" className={cn(
+            "px-3.5 py-1.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2",
+            pathname === "/dashboard"
+              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/80"
+          )}>
+            <LayoutDashboard size={16} />
+            <span>Dashboard</span>
+          </Link>
+        </div>
       </div>
       
       <div className="flex items-center gap-4">

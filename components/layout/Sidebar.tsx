@@ -97,7 +97,6 @@ export function Sidebar({ onClose }: SidebarProps) {
       icon: Layers,
       roles: ["admin", "employee", "supervisor", "ceo"],
       subItems: [
-        { label: t("sidebar.dashboard"), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor"] },
         { label: t("sidebar.purchases"), href: "/purchases", icon: ShoppingBag },
         { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
         { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles: ["ceo", "admin"] },
