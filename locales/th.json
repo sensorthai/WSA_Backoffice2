@@ -1,5 +1,11 @@
 {
   "sidebar": {
+    "group_personal": "บริการพนักงาน",
+    "group_ops": "จัดการและการเงิน",
+    "group_directory": "บริการและทำเนียบ",
+    "group_academic": "ระบบงานสอน",
+    "group_executive": "ผู้บริหารและรายงาน",
+    "group_admin": "จัดการระบบ",
     "dashboard": "หน้าหลัก (Dashboard)",
     "purchases": "ระบบเบิกจ่ายค่าใช้จ่าย",
     "leaves": "ระบบลาพักผ่อน",

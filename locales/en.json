@@ -1,5 +1,11 @@
 {
   "sidebar": {
+    "group_personal": "Employee Services",
+    "group_ops": "Operations & Finance",
+    "group_directory": "Directory & Support",
+    "group_academic": "Academic & Teaching",
+    "group_executive": "Executive & Reports",
+    "group_admin": "System Admin",
     "dashboard": "Dashboard",
     "purchases": "Purchases",
     "leaves": "Leave Requests",
