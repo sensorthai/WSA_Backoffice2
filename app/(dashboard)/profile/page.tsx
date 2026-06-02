@@ -769,6 +769,40 @@ export default function ProfilePage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* File Download Badges */}
+                        {(vehicle.tax_file_url || vehicle.insurance_file_url || vehicle.ctp_file_url || vehicle.other_file_url) && (
+                          <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100">
+                            {vehicle.tax_file_url && (
+                              <a href={vehicle.tax_file_url} target="_blank" rel="noopener noreferrer">
+                                <Badge variant="outline" className="cursor-pointer hover:bg-slate-50 bg-blue-50/50 border-blue-200 text-blue-700">
+                                  <FileText className="h-3 w-3 mr-1" /> ภาษี
+                                </Badge>
+                              </a>
+                            )}
+                            {vehicle.insurance_file_url && (
+                              <a href={vehicle.insurance_file_url} target="_blank" rel="noopener noreferrer">
+                                <Badge variant="outline" className="cursor-pointer hover:bg-slate-50 bg-indigo-50/50 border-indigo-200 text-indigo-700">
+                                  <FileText className="h-3 w-3 mr-1" /> ประกัน
+                                </Badge>
+                              </a>
+                            )}
+                            {vehicle.ctp_file_url && (
+                              <a href={vehicle.ctp_file_url} target="_blank" rel="noopener noreferrer">
+                                <Badge variant="outline" className="cursor-pointer hover:bg-slate-50 bg-green-50/50 border-green-200 text-green-700">
+                                  <FileText className="h-3 w-3 mr-1" /> พ.ร.บ.
+                                </Badge>
+                              </a>
+                            )}
+                            {vehicle.other_file_url && (
+                              <a href={vehicle.other_file_url} target="_blank" rel="noopener noreferrer">
+                                <Badge variant="outline" className="cursor-pointer hover:bg-slate-50 bg-slate-50 border-slate-200 text-slate-700">
+                                  <FileText className="h-3 w-3 mr-1" /> เอกสารอื่นๆ
+                                </Badge>
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
