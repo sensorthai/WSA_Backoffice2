@@ -19,13 +19,14 @@ export async function GET(req: Request) {
 
   const supabase = createSupabaseServerClient()
 
-  // Fetch all active users with their department
+  // Fetch all active users with their department and role
   const { data: users, error: usersError } = await supabase
     .from('users')
     .select(`
       id,
       full_name,
       avatar_url,
+      role,
       departments (
         name
       )
@@ -49,7 +50,10 @@ export async function GET(req: Request) {
   // Map check-ins to users
   const checkinMap = new Map(checkins.map(c => [c.user_id, c]))
 
-  const teamStatus = users.map(user => {
+  // Filter out outsource users
+  const nonOutsourceUsers = users.filter((u: any) => u.role !== 'outsource')
+
+  const teamStatus = nonOutsourceUsers.map(user => {
     const checkin = checkinMap.get(user.id)
     
     return {
