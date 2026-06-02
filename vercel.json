@@ -13,6 +13,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/doctor-appointments",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/work-done-request",
       "schedule": "0 10 * * 1-5"
     }

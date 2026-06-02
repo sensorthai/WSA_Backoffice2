@@ -20,11 +20,13 @@ const carSchema = z.object({
   license_plate: z.string().min(1, "กรุณากรอกทะเบียนรถ"),
   model: z.string().min(1, "กรุณากรอกรุ่นรถ"),
   color: z.string().min(1, "กรุณากรอกสีรถ"),
+  type: z.enum(['car', 'motorcycle']).default('car'),
   is_available: z.boolean().optional(),
   caretaker_id: z.string().optional().nullable(),
   tax_renewal_date: z.string().optional().nullable(),
   insurance_expiry_date: z.string().optional().nullable(),
   ctp_expiry_date: z.string().optional().nullable(),
+  oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
 })
@@ -66,11 +68,13 @@ export function CarsTable() {
       license_plate: "", 
       model: "", 
       color: "", 
+      type: "car",
       is_available: true,
       caretaker_id: "",
       tax_renewal_date: "",
       insurance_expiry_date: "",
       ctp_expiry_date: "",
+      oil_change_date: "",
       insurance_file_url: "",
       ctp_file_url: ""
     }
@@ -158,6 +162,7 @@ export function CarsTable() {
       tax_renewal_date: values.tax_renewal_date || null,
       insurance_expiry_date: values.insurance_expiry_date || null,
       ctp_expiry_date: values.ctp_expiry_date || null,
+      oil_change_date: values.oil_change_date || null,
       insurance_file_url: values.insurance_file_url || null,
       ctp_file_url: values.ctp_file_url || null,
     }
@@ -176,11 +181,13 @@ export function CarsTable() {
                 license_plate: "", 
                 model: "", 
                 color: "", 
+                type: "car",
                 is_available: true,
                 caretaker_id: "",
                 tax_renewal_date: "",
                 insurance_expiry_date: "",
                 ctp_expiry_date: "",
+                oil_change_date: "",
                 insurance_file_url: "",
                 ctp_file_url: ""
               }); 
@@ -205,7 +212,7 @@ export function CarsTable() {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="model"
@@ -222,8 +229,29 @@ export function CarsTable() {
                     name="color"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>สีรถ</     FormLabel>
+                        <FormLabel>สีรถ</FormLabel>
                         <FormControl><Input placeholder="สีขาว" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ประเภทรถ</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || "car"}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="ประเภท" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="car">รถยนต์</SelectItem>
+                            <SelectItem value="motorcycle">รถจักรยานยนต์</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -255,7 +283,7 @@ export function CarsTable() {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
                     name="tax_renewal_date"
@@ -284,6 +312,17 @@ export function CarsTable() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>พรบหมดอายุ</FormLabel>
+                        <FormControl><Input type="date" {...field} value={field.value || ""} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="oil_change_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>เปลี่ยนน้ำมันเครื่อง</FormLabel>
                         <FormControl><Input type="date" {...field} value={field.value || ""} /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -395,7 +434,7 @@ export function CarsTable() {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900">{car.license_plate}</h3>
-              <p className="text-slate-500">{car.model} • {car.color}</p>
+              <p className="text-slate-500">{car.model} • {car.color} • {car.type === 'motorcycle' ? 'รถจักรยานยนต์' : 'รถยนต์'}</p>
               
               <div className="mt-4 space-y-2 text-sm text-slate-600">
                 <div className="flex items-center gap-2">
@@ -406,6 +445,7 @@ export function CarsTable() {
                   <p>วันต่อภาษี: <span className="font-medium text-slate-900">{car.tax_renewal_date || '-'}</span></p>
                   <p>ประกันหมดอายุ: <span className="font-medium text-slate-900">{car.insurance_expiry_date || '-'}</span></p>
                   <p>พรบหมดอายุ: <span className="font-medium text-slate-900">{car.ctp_expiry_date || '-'}</span></p>
+                  <p>เปลี่ยนน้ำมันเครื่อง: <span className="font-medium text-slate-900 text-indigo-600">{car.oil_change_date || '-'}</span></p>
                 </div>
                 <div className="flex gap-2 pt-1">
                   {car.insurance_file_url && (

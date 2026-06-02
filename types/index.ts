@@ -12,6 +12,13 @@ export interface UserProfile {
   supervisor_id: string | null
   is_teacher: boolean
   is_active: boolean
+  blood_type: string | null
+  chronic_disease: string | null
+  severe_allergies: string | null
+  social_security_hospital: string | null
+  attending_physician: string | null
+  emergency_hospital: string | null
+  health_exam_history: string | null
   created_at: string
   updated_at: string
 }

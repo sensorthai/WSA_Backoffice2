@@ -3,55 +3,58 @@ import { auth } from "@/lib/auth"
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { z } from "zod"
 
-const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-
-const carSchema = z.object({
+const privateVehicleSchema = z.object({
   license_plate: z.string().min(1, "กรุณากรอกทะเบียนรถ"),
   model: z.string().min(1, "กรุณากรอกรุ่นรถ"),
   color: z.string().min(1, "กรุณากรอกสีรถ"),
   type: z.enum(['car', 'motorcycle']).default('car'),
-  is_available: z.boolean().default(true),
-  caretaker_id: z.string().regex(UUID_REGEX).optional().nullable(),
   tax_renewal_date: z.string().optional().nullable(),
   insurance_expiry_date: z.string().optional().nullable(),
   ctp_expiry_date: z.string().optional().nullable(),
   oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
+  tax_file_url: z.string().optional().nullable(),
+  other_file_url: z.string().optional().nullable(),
 })
 
 export async function GET() {
   const session = await auth()
-  if (!session || (session.user as any).role !== 'admin') {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const supabase = createSupabaseServerClient()
-  const { data, error } = await supabase.from('company_cars').select('*').order('created_at')
-  
+  const { data, error } = await supabase
+    .from('private_vehicles')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .order('created_at')
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session || (session.user as any).role !== 'admin') {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const body = await req.json()
     
-    // Normalize empty strings to null for optional/nullable fields
+    // Normalize empty strings to null
     const normalizedBody = { ...body }
     const nullableFields = [
-      'caretaker_id',
       'tax_renewal_date',
       'insurance_expiry_date',
       'ctp_expiry_date',
       'oil_change_date',
       'insurance_file_url',
-      'ctp_file_url'
+      'ctp_file_url',
+      'tax_file_url',
+      'other_file_url'
     ]
     nullableFields.forEach(field => {
       if (normalizedBody[field] === "") {
@@ -59,12 +62,15 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    const validatedData = carSchema.parse(normalizedBody)
+    const validatedData = privateVehicleSchema.parse(normalizedBody)
     const supabase = createSupabaseServerClient()
 
     const { data, error } = await supabase
-      .from('company_cars')
-      .insert(validatedData)
+      .from('private_vehicles')
+      .insert({
+        ...validatedData,
+        user_id: session.user.id
+      })
       .select()
       .single()
 

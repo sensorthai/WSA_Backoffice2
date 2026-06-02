@@ -33,7 +33,8 @@ import {
   Megaphone,
   Contact,
   Headset,
-  BookText
+  BookText,
+  User
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -75,6 +76,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const pendingCount = Array.isArray(pendingApprovals) ? pendingApprovals.length : 0
 
   const navItems = [
+    { label: "ข้อมูลส่วนตัว (Profile)", href: "/profile", icon: User, roles: ["admin", "employee", "supervisor", "ceo"] },
     { label: t("sidebar.noticeboard"), href: "/noticeboard", icon: Megaphone, roles: ["admin", "employee", "supervisor", "ceo"] },   
     { label: t("sidebar.ceo"), href: "/ceo", icon: Crown, roles: ["ceo", "admin"] },
     { label: t("sidebar.dashboard"), href: "/dashboard", icon: LayoutDashboard, roles: ["admin", "employee", "supervisor"] },

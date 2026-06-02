@@ -3,42 +3,41 @@ import { auth } from "@/lib/auth"
 import { createSupabaseServerClient } from "@/lib/supabase"
 import { z } from "zod"
 
-const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-
-const carUpdateSchema = z.object({
+const privateVehicleUpdateSchema = z.object({
   license_plate: z.string().optional(),
   model: z.string().optional(),
   color: z.string().optional(),
   type: z.enum(['car', 'motorcycle']).optional(),
-  is_available: z.boolean().optional(),
-  caretaker_id: z.string().regex(UUID_REGEX).optional().nullable(),
   tax_renewal_date: z.string().optional().nullable(),
   insurance_expiry_date: z.string().optional().nullable(),
   ctp_expiry_date: z.string().optional().nullable(),
   oil_change_date: z.string().optional().nullable(),
   insurance_file_url: z.string().optional().nullable(),
   ctp_file_url: z.string().optional().nullable(),
+  tax_file_url: z.string().optional().nullable(),
+  other_file_url: z.string().optional().nullable(),
 })
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
-  if (!session || (session.user as any).role !== 'admin') {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const body = await req.json()
     
-    // Normalize empty strings to null for optional/nullable fields
+    // Normalize empty strings to null
     const normalizedBody = { ...body }
     const nullableFields = [
-      'caretaker_id',
       'tax_renewal_date',
       'insurance_expiry_date',
       'ctp_expiry_date',
       'oil_change_date',
       'insurance_file_url',
-      'ctp_file_url'
+      'ctp_file_url',
+      'tax_file_url',
+      'other_file_url'
     ]
     nullableFields.forEach(field => {
       if (normalizedBody[field] === "") {
@@ -46,11 +45,27 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       }
     })
 
-    const validatedData = carUpdateSchema.parse(normalizedBody)
+    const validatedData = privateVehicleUpdateSchema.parse(normalizedBody)
     const supabase = createSupabaseServerClient()
 
+    // Ensure user owns the vehicle or is admin/ceo
+    const { data: vehicle, error: fetchError } = await supabase
+      .from('private_vehicles')
+      .select('user_id')
+      .eq('id', params.id)
+      .single()
+
+    if (fetchError || !vehicle) {
+      return NextResponse.json({ error: "Vehicle not found" }, { status: 404 })
+    }
+
+    const isAdmin = ['admin', 'ceo'].includes((session.user as any).role)
+    if (vehicle.user_id !== session.user.id && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const { data, error } = await supabase
-      .from('company_cars')
+      .from('private_vehicles')
       .update(validatedData)
       .eq('id', params.id)
       .select()
@@ -69,13 +84,33 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
-  if (!session || (session.user as any).role !== 'admin') {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const supabase = createSupabaseServerClient()
-  const { error } = await supabase.from('company_cars').delete().eq('id', params.id)
-  
+
+  // Ensure user owns the vehicle or is admin/ceo
+  const { data: vehicle, error: fetchError } = await supabase
+    .from('private_vehicles')
+    .select('user_id')
+    .eq('id', params.id)
+    .single()
+
+  if (fetchError || !vehicle) {
+    return NextResponse.json({ error: "Vehicle not found" }, { status: 404 })
+  }
+
+  const isAdmin = ['admin', 'ceo'].includes((session.user as any).role)
+  if (vehicle.user_id !== session.user.id && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { error } = await supabase
+    .from('private_vehicles')
+    .delete()
+    .eq('id', params.id)
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ message: "ลบข้อมูลรถเรียบร้อยแล้ว" })
+  return NextResponse.json({ message: "ลบข้อมูลรถส่วนตัวเรียบร้อยแล้ว" })
 }
