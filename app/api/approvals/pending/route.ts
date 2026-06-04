@@ -55,13 +55,37 @@ export async function GET(_req: Request) {
 
   const { data: cars } = await carQuery
 
+  // Fetch current user's department and position to filter reimbursements
+  const { data: currentUser } = await supabase
+    .from('users')
+    .select('role, department:departments(name), position:positions(name)')
+    .eq('id', session.user.id)
+    .maybeSingle()
+
+  const currentDept = (currentUser?.department as any)?.name || ""
+  const currentPos = (currentUser?.position as any)?.name || ""
+
   // 4. Fetch Reimbursements
   let reimbQuery = supabase
     .from('reimbursements')
     .select('id, user_id, amount, description, expense_date, status, receipt_url, created_at, user:users!user_id!inner(full_name, avatar_url)')
 
-  if (userRole === 'supervisor' || userRole === 'ceo' || userRole === 'admin') {
+  const isTrainingManager = currentDept === 'ฝ่ายอบรม' && currentPos === 'ผู้จัดการ'
+  const isFinanceManager = currentDept === 'ฝ่ายบัญชีและการเงิน' && currentPos === 'ผู้จัดการ'
+  const isCEOOrAdmin = userRole === 'ceo' || userRole === 'admin'
+
+  if (isCEOOrAdmin) {
+    // CEOs and Admins can see pending (awaiting Training Manager) and approved (awaiting Finance Manager payment)
+    reimbQuery = reimbQuery.or('status.eq.pending,status.eq.approved')
+  } else if (isTrainingManager) {
+    // Training Manager only sees pending (awaiting supervisor stage)
     reimbQuery = reimbQuery.eq('status', 'pending')
+  } else if (isFinanceManager) {
+    // Finance Manager only sees approved (awaiting payment stage)
+    reimbQuery = reimbQuery.eq('status', 'approved')
+  } else {
+    // Others shouldn't see any pending approvals for reimbursements
+    reimbQuery = reimbQuery.eq('id', '00000000-0000-0000-0000-000000000000') // empty result
   }
 
   const { data: reimbursements } = await reimbQuery

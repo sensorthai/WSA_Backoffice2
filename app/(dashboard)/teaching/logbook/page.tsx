@@ -53,8 +53,12 @@ function LogbookContent() {
     enabled: !!profile?.id,
   })
 
-  // Filter by week for weekly view
-  const weekLogs = (allLogs || []).filter((l: any) => l.teach_date >= weekStart && l.teach_date <= weekEnd)
+  // Filter by week for weekly view (exclude check-in only drafts)
+  const weekLogs = (allLogs || []).filter((l: any) => 
+    l.teach_date >= weekStart && 
+    l.teach_date <= weekEnd &&
+    !(l.status === 'draft' && l.topics_covered === null)
+  )
 
   // Apply status filter
   const filteredLogs = statusFilter === "all" ? weekLogs : weekLogs.filter((l: any) => l.status === statusFilter)

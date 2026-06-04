@@ -6,6 +6,7 @@ import { SchoolsTable } from "@/components/admin/SchoolsTable"
 import { SubjectsTable } from "@/components/admin/SubjectsTable"
 import { AssignmentsTable } from "@/components/admin/AssignmentsTable"
 import { StudentsTable } from "@/components/admin/StudentsTable"
+import { DailySummary } from "@/components/admin/DailySummary"
 
 import { TeachingLogsReview } from "@/components/admin/TeachingLogsReview"
 import { ReportsOverview } from "@/components/admin/ReportsOverview"
@@ -26,6 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const tabs = [
+  { id: "daily-summary", label: "สรุปงานรายวัน", icon: ClipboardList },
   { id: "schools", label: "โรงเรียน", icon: School },
   { id: "students", label: "นักเรียน", icon: GraduationCap },
   { id: "subjects", label: "วิชา & สื่อการสอน", icon: BookOpen },
@@ -39,6 +41,7 @@ const tabs = [
 ] as const
 
 const tabDescriptions: Record<string, string> = {
+  "daily-summary": "สรุปงานสอนประจำวัน ตารางเรียนรายวัน และสถานะการเช็คอิน/เช็คเอาท์ของครูวิทยากร",
   "schools": "จัดการข้อมูลโรงเรียนลูกค้าที่ส่งครูไปสอน",
   "subjects": "จัดการรายวิชาและสื่อการสอนในแต่ละวิชา",
   "assignments": "มอบหมายครู Outsource ไปสอนที่โรงเรียนลูกค้า",
@@ -60,10 +63,11 @@ export default function TeachingMgmtPage() {
 }
 
 function TeachingMgmtContent() {
-  const [activeTab, setActiveTab] = useState("schools")
+  const [activeTab, setActiveTab] = useState("daily-summary")
 
   const renderContent = () => {
     switch (activeTab) {
+      case "daily-summary": return <DailySummary />
       case "schools": return <SchoolsTable />
       case "subjects": return <SubjectsTable />
       case "assignments": return <AssignmentsTable />
@@ -74,7 +78,7 @@ function TeachingMgmtContent() {
       case "reports-teacher": return <ReportsTeacher />
       case "reports-income": return <ReportsIncome />
       case "reports-monthly": return <ReportsMonthly />
-      default: return <SchoolsTable />
+      default: return <DailySummary />
     }
   }
 

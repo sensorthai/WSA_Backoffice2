@@ -132,9 +132,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    // Check if a record already exists for the same assignment, date, and teacher
+    const { data: existingLog } = await supabase
       .from('teaching_logs')
-      .insert(validatedData)
+      .select('id')
+      .eq('assignment_id', validatedData.assignment_id)
+      .eq('teach_date', validatedData.teach_date)
+      .eq('teacher_id', validatedData.teacher_id)
+      .maybeSingle()
+
+    let query
+    if (existingLog) {
+      query = supabase
+        .from('teaching_logs')
+        .update(validatedData)
+        .eq('id', existingLog.id)
+    } else {
+      query = supabase
+        .from('teaching_logs')
+        .insert(validatedData)
+    }
+
+    const { data, error } = await query
       .select(`
         *,
         assignment:assignment_id (id, subject:subject_id (id, name)),
@@ -143,11 +162,11 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Supabase Insert Error (Teaching Log):", error)
+      console.error("Supabase Save Error (Teaching Log):", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data, { status: 201 })
+    return NextResponse.json(data, { status: existingLog ? 200 : 201 })
   } catch (error: any) {
     if (error instanceof z.ZodError || error.name === 'ZodError') {
       const msg = error.issues?.[0]?.message || error.errors?.[0]?.message || "ข้อมูลไม่ถูกต้อง"

@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
     teach_days: number
     total_periods: number
     income: number
+    teach_dates_str: string
   }
 
   const rows: IncomeRow[] = []
@@ -95,7 +96,16 @@ export async function GET(req: NextRequest) {
   }
 
   for (const a of (assignments || [])) {
-    const teachDays = daysByAssignment[a.id]?.size || 0
+    const datesSet = daysByAssignment[a.id] || new Set<string>()
+    const teachDays = datesSet.size
+    if (teachDays === 0) continue
+
+    const sortedDates = Array.from(datesSet).sort()
+    const teach_dates_str = sortedDates.map(d => {
+      const [yy, mm, dd] = d.split("-")
+      return `${dd}/${mm}`
+    }).join(", ")
+
     const fee = a.teaching_fee || 0
     const ppd = a.periods_per_day || 1
     const totalPeriods = ppd * teachDays
@@ -112,6 +122,7 @@ export async function GET(req: NextRequest) {
       teach_days: teachDays,
       total_periods: totalPeriods,
       income,
+      teach_dates_str,
     })
   }
 

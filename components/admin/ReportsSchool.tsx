@@ -6,21 +6,81 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { format } from "date-fns"
 import {
   School, BookOpen, Users, Loader2, CalendarDays, FileText,
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Download
 } from "lucide-react"
+
+const getWeeksOfMonth = (monthStr: string) => {
+  const [year, month] = monthStr.split('-').map(Number)
+  const date = new Date(year, month - 1, 1)
+  const weeks: { start: string; end: string; label: string }[] = []
+  
+  // Find Monday of the first week of the month
+  let currentMon = new Date(date)
+  const dayOfWeek = currentMon.getDay() // 0 is Sun, 1 is Mon
+  if (dayOfWeek !== 1) {
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    currentMon.setDate(currentMon.getDate() + diff)
+  }
+  
+  for (let w = 1; w <= 5; w++) {
+    const mon = new Date(currentMon)
+    const fri = new Date(mon)
+    fri.setDate(mon.getDate() + 4)
+    
+    // Check if it overlaps with the selected month
+    const startMonth = mon.getMonth() + 1
+    const startYear = mon.getFullYear()
+    const endMonth = fri.getMonth() + 1
+    const endYear = fri.getFullYear()
+    
+    if ((startMonth === month && startYear === year) || (endMonth === month && endYear === year)) {
+      const startStr = mon.toISOString().split("T")[0]
+      const endStr = fri.toISOString().split("T")[0]
+      
+      const monLabel = mon.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+      const friLabel = fri.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+      
+      weeks.push({
+        start: startStr,
+        end: endStr,
+        label: `สัปดาห์ที่ ${w} (${monLabel} - ${friLabel})`
+      })
+    }
+    
+    currentMon.setDate(currentMon.getDate() + 7)
+  }
+  return weeks
+}
 
 export function ReportsSchool() {
   const [selectedSchool, setSelectedSchool] = useState("")
   const [viewMode, setViewMode] = useState<"week" | "month">("week")
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null)
   const [generating] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"))
+  const [selectedWeek, setSelectedWeek] = useState(0)
+
+  const weeks = useMemo(() => {
+    return getWeeksOfMonth(selectedMonth)
+  }, [selectedMonth])
 
   // Compute date range
   const { startDate, endDate, label } = useMemo(() => {
-    const now = new Date()
+    const [year, month] = selectedMonth.split('-').map(Number)
     if (viewMode === "week") {
+      const activeWeek = weeks[selectedWeek] || weeks[0]
+      if (activeWeek) {
+        return {
+          startDate: activeWeek.start,
+          endDate: activeWeek.end,
+          label: activeWeek.label,
+        }
+      }
+      const now = new Date()
       const mon = new Date(now)
       mon.setDate(now.getDate() - now.getDay() + 1)
       const fri = new Date(mon)
@@ -28,18 +88,18 @@ export function ReportsSchool() {
       return {
         startDate: mon.toISOString().split("T")[0],
         endDate: fri.toISOString().split("T")[0],
-        label: `สัปดาห์นี้ (${fmtD(mon)} - ${fmtD(fri)})`,
+        label: `สัปดาห์นี้ (${mon.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} - ${fri.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })})`,
       }
     } else {
-      const first = new Date(now.getFullYear(), now.getMonth(), 1)
-      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      const first = new Date(year, month - 1, 1)
+      const last = new Date(year, month, 0)
       return {
         startDate: first.toISOString().split("T")[0],
         endDate: last.toISOString().split("T")[0],
-        label: now.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }),
+        label: first.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }),
       }
     }
-  }, [viewMode])
+  }, [viewMode, selectedMonth, selectedWeek, weeks])
 
   // Fetch schools for dropdown
   const { data: schools } = useQuery({
@@ -124,15 +184,41 @@ export function ReportsSchool() {
           </h2>
           <p className="text-sm text-slate-500 mt-1">สรุปการสอน เนื้อหา และการเข้าเรียนของนักเรียน</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex border rounded-lg overflow-hidden">
-            <Button variant={viewMode === "week" ? "default" : "ghost"} size="sm" className="rounded-none text-xs h-8 px-3"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex border rounded-lg overflow-hidden shrink-0">
+            <Button variant={viewMode === "week" ? "default" : "ghost"} size="sm" className="rounded-none text-xs h-9 px-3"
               onClick={() => setViewMode("week")}>สัปดาห์</Button>
-            <Button variant={viewMode === "month" ? "default" : "ghost"} size="sm" className="rounded-none text-xs h-8 px-3"
+            <Button variant={viewMode === "month" ? "default" : "ghost"} size="sm" className="rounded-none text-xs h-9 px-3"
               onClick={() => setViewMode("month")}>เดือน</Button>
           </div>
+
+          <Input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => {
+              setSelectedMonth(e.target.value)
+              setSelectedWeek(0)
+            }}
+            className="w-[150px] h-9 text-sm"
+          />
+
+          {viewMode === "week" && (
+            <Select value={String(selectedWeek)} onValueChange={(val) => setSelectedWeek(Number(val))}>
+              <SelectTrigger className="w-[220px] h-9 text-sm">
+                <SelectValue placeholder="เลือกสัปดาห์..." />
+              </SelectTrigger>
+              <SelectContent>
+                {weeks.map((w, idx) => (
+                  <SelectItem key={idx} value={String(idx)} className="text-xs">
+                    {w.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-            <SelectTrigger className="w-[250px]">
+            <SelectTrigger className="w-[250px] h-9 text-sm">
               <SelectValue placeholder="เลือกโรงเรียน..." />
             </SelectTrigger>
             <SelectContent>

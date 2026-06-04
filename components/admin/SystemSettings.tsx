@@ -63,7 +63,11 @@ export function SystemSettings() {
     try {
       await updateMutation.mutateAsync({
         key: "checkin_window",
-        value: checkinWindow
+        value: {
+          start: parseInt(checkinWindow.start as any) ?? 6,
+          end: parseInt(checkinWindow.end as any) ?? 11,
+          edit_end: parseInt(checkinWindow.edit_end as any) ?? 12
+        }
       })
     } finally {
       setIsSaving(false)
@@ -108,7 +112,7 @@ export function SystemSettings() {
                   min={0}
                   max={23}
                   value={checkinWindow?.start ?? 6}
-                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, start: parseInt(e.target.value) }))}
+                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, start: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))}
                   className="h-20 text-4xl font-black text-center rounded-[2rem] border-slate-100 bg-slate-50 focus:bg-white focus:ring-8 focus:ring-blue-100 transition-all border-0 shadow-inner"
                 />
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xl">:00</div>
@@ -128,7 +132,7 @@ export function SystemSettings() {
                   min={0}
                   max={23}
                   value={checkinWindow?.end ?? 11}
-                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, end: parseInt(e.target.value) }))}
+                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, end: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))}
                   className="h-20 text-4xl font-black text-center rounded-[2rem] border-slate-100 bg-slate-50 focus:bg-white focus:ring-8 focus:ring-blue-100 transition-all border-0 shadow-inner"
                 />
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xl">:00</div>
@@ -148,7 +152,7 @@ export function SystemSettings() {
                   min={0}
                   max={23}
                   value={checkinWindow?.edit_end ?? 12}
-                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, edit_end: parseInt(e.target.value) }))}
+                  onChange={(e) => setCheckinWindow(prev => ({ ...prev!, edit_end: e.target.value === '' ? '' as any : parseInt(e.target.value) || 0 }))}
                   className="h-20 text-4xl font-black text-center rounded-[2rem] border-slate-100 bg-slate-50 focus:bg-white focus:ring-8 focus:ring-blue-100 transition-all border-0 shadow-inner"
                 />
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xl">:00</div>

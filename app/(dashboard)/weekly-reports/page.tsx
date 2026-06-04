@@ -2,14 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns"
 import { th } from "date-fns/locale"
 import {
   Plus, Trash2, Send, CheckCircle2, FileText,
   ChevronDown, ChevronRight, Paperclip, AlertCircle,
-  Users, RefreshCw, MessageSquare, Save, ArrowLeft
+  Users, RefreshCw, MessageSquare, Save, ArrowLeft, CalendarOff
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,7 @@ const PROGRESS_OPTIONS = [
 ]
 
 type ReportItem = {
+  id?: string
   plan: string
   progress: string
   problems: string
@@ -40,11 +41,14 @@ type ReportItem = {
   file_url: string
   file_name: string
   is_completed: boolean
+  manager_comment?: string
+  deadline?: string
 }
 
 const emptyItem = (): ReportItem => ({
   plan: '', progress: 'not_started', problems: '', suggestions: '',
-  file_url: '', file_name: '', is_completed: false
+  file_url: '', file_name: '', is_completed: false,
+  manager_comment: '', deadline: ''
 })
 
 export default function WeeklyReportsPage() {
@@ -120,6 +124,64 @@ export default function WeeklyReportsPage() {
       return res.json()
     }
   })
+
+  // Find and format incomplete tasks from the previous weekly report
+  const loadPreviousIncompleteTasks = useCallback(() => {
+    if (!Array.isArray(reports)) return []
+    
+    // Find the most recent weekly report before the currently selected week
+    const currentWeekStartStr = format(weekStart, 'yyyy-MM-dd')
+    const pastReports = reports.filter((r: any) => r.week_start < currentWeekStartStr)
+    
+    if (pastReports.length === 0) return []
+    
+    // The first one is the most recent because reports are sorted by week_start DESC
+    const latestPastReport = pastReports[0]
+    
+    // Find incomplete items (progress !== 'completed' or is_completed === false)
+    return (latestPastReport.items || [])
+      .filter((item: any) => !item.is_completed && item.progress !== 'completed')
+      .map((item: any) => ({
+        plan: `[งานค้างจากสัปดาห์ก่อน]: ${item.plan.replace(/^\[งานค้างจากสัปดาห์ก่อน\]:\s*/, "")}`,
+        progress: item.progress === 'not_started' ? 'not_started' : 'in_progress',
+        problems: item.problems || '',
+        suggestions: item.suggestions || '',
+        file_url: item.file_url || '',
+        file_name: item.file_name || '',
+        is_completed: false
+      }))
+  }, [reports, weekStart])
+
+  const handleImportPreviousIncomplete = () => {
+    const incomplete = loadPreviousIncompleteTasks()
+    if (!incomplete || incomplete.length === 0) {
+      toast.info("ไม่พบรายการงานค้างสะสมจากสัปดาห์ที่แล้ว")
+      return
+    }
+
+    if (confirm(`พบงานค้าง ${incomplete.length} รายการ คุณต้องการเขียนทับรายการในตารางด้านล่างหรือไม่? (กด Cancel เพื่อต่อท้ายข้อมูลเดิม)`)) {
+      setNewItems(incomplete)
+    } else {
+      setNewItems(prev => {
+        const filteredPrev = prev.filter(i => i.plan.trim() !== "")
+        return [...filteredPrev, ...incomplete]
+      })
+    }
+    toast.success(`ดึงงานค้างสำเร็จ ${incomplete.length} รายการ!`)
+  }
+
+  // Auto-import incomplete tasks when opening the create form or changing the week
+  useEffect(() => {
+    if (showCreate) {
+      const incomplete = loadPreviousIncompleteTasks()
+      if (incomplete && incomplete.length > 0) {
+        setNewItems(incomplete)
+        toast.info(`ระบบดึงงานค้างสะสมจากสัปดาห์ก่อนมาให้คุณ ${incomplete.length} รายการอัตโนมัติ`)
+      } else {
+        setNewItems([emptyItem(), emptyItem(), emptyItem()])
+      }
+    }
+  }, [showCreate, newWeekOffset, reports, loadPreviousIncompleteTasks])
 
   // Create
   const createMutation = useMutation({
@@ -209,11 +271,11 @@ export default function WeeklyReportsPage() {
 
   // Review
   const reviewMutation = useMutation({
-    mutationFn: async ({ id, comment }: { id: string; comment: string }) => {
+    mutationFn: async ({ id, comment, items }: { id: string; comment: string; items?: ReportItem[] }) => {
       const res = await fetch(`/api/weekly-reports/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: 'review', reviewer_comment: comment })
+        body: JSON.stringify({ action: 'review', reviewer_comment: comment, items })
       })
       return res.json()
     },
@@ -442,17 +504,30 @@ export default function WeeklyReportsPage() {
                   <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setNewWeekOffset(p => p + 1)}>สัปดาห์หน้า →</Button>
                 </div>
 
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-2xl border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-100/70 font-bold h-10 px-6 gap-2 flex items-center justify-center transition-all duration-300"
-                  onClick={handleImportDailyLogs}
-                  disabled={isImporting}
-                >
-                  {isImporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-blue-500" />}
-                  ดึงข้อมูลจากบันทึกเนื้องานรายวันของสัปดาห์นี้
-                </Button>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-2xl border-blue-200 bg-blue-50/50 text-blue-600 hover:bg-blue-100/70 font-bold h-10 px-6 gap-2 flex items-center justify-center transition-all duration-300"
+                    onClick={handleImportDailyLogs}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4 text-blue-500" />}
+                    ดึงข้อมูลจากบันทึกเนื้องานรายวันของสัปดาห์นี้
+                  </Button>
+
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm" 
+                    className="rounded-2xl border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100/70 font-bold h-10 px-6 gap-2 flex items-center justify-center transition-all duration-300"
+                    onClick={handleImportPreviousIncomplete}
+                  >
+                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                    ดึงงานค้างจากสัปดาห์ก่อน
+                  </Button>
+                </div>
               </div>
 
               {/* Column Headers */}
@@ -535,13 +610,48 @@ export default function WeeklyReportsPage() {
           )}
           {activeTab === "team" && (
             <div className="mt-6 space-y-4">
-              {renderReportList(reports)}
+              {renderTeamReportGroups(reports)}
             </div>
           )}
         </>
       )}
     </div>
   )
+
+  function renderTeamReportGroups(reportList: any) {
+    if (!Array.isArray(reportList) || reportList.length === 0) return renderReportList(reportList)
+    
+    // Group by week_label
+    const groups: { [key: string]: any[] } = {}
+    reportList.forEach(report => {
+      const key = `${report.week_start}|${report.week_label}`
+      if (!groups[key]) groups[key] = []
+      groups[key].push(report)
+    })
+
+    const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a))
+
+    return sortedKeys.map(key => {
+      const label = key.split('|')[1]
+      const weekReports = groups[key]
+      return (
+        <div key={key} className="space-y-4 mb-12">
+          <div className="flex items-center gap-3 border-b border-slate-200 pb-2 mt-8 mb-6">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+              <CalendarOff className="w-5 h-5" />
+            </div>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">สัปดาห์ {label}</h2>
+            <Badge variant="outline" className="ml-auto rounded-full font-bold text-xs bg-slate-50 text-slate-500 border-slate-200">
+              ส่งแล้ว {weekReports.length} คน
+            </Badge>
+          </div>
+          <div className="space-y-4">
+            {renderReportList(weekReports)}
+          </div>
+        </div>
+      )
+    })
+  }
 
   function renderReportList(reportList: any) {
     if (reportList && reportList.error) {
@@ -673,6 +783,12 @@ export default function WeeklyReportsPage() {
                     setReviewingReport(report.id)
                     // Auto-expand
                     setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
+                    setEditItems((report.items || []).map((i: any) => ({
+                      plan: i.plan, progress: i.progress, problems: i.problems || '',
+                      suggestions: i.suggestions || '', file_url: i.file_url || '',
+                      file_name: i.file_name || '', is_completed: i.is_completed,
+                      manager_comment: i.manager_comment || '', deadline: i.deadline || ''
+                    })))
                   }}
                 >
                   <CheckCircle2 className="w-3 h-3 mr-1" /> ตรวจรายงาน
@@ -769,6 +885,52 @@ export default function WeeklyReportsPage() {
                               <span className="font-extrabold">💡 ข้อเสนอแนะ:</span> {item.suggestions}
                             </span>
                           )}
+
+                          {/* Manager Comment Tag */}
+                          {!isReviewing && item.manager_comment && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold w-full mt-2">
+                              <span className="font-extrabold">💬 ความเห็นหัวหน้า:</span> {item.manager_comment}
+                            </span>
+                          )}
+
+                          {/* Deadline Tag */}
+                          {!isReviewing && item.deadline && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 text-amber-700 dark:text-amber-400 font-bold w-full mt-2">
+                              <span className="font-extrabold">⏰ กำหนดส่ง:</span> {format(new Date(item.deadline), 'd MMM yyyy', { locale: th })}
+                            </span>
+                          )}
+
+                          {/* Reviewer Inputs */}
+                          {isReviewing && (
+                            <div className="w-full mt-3 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-3">
+                              <div>
+                                <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1 block">ความเห็น / สั่งแก้ (เฉพาะข้อนี้)</label>
+                                <Input 
+                                  placeholder="เพิ่มข้อเสนอแนะ..." 
+                                  value={editItems[idx]?.manager_comment || ''}
+                                  onChange={e => {
+                                    const newItems = [...editItems]
+                                    newItems[idx] = { ...newItems[idx], manager_comment: e.target.value }
+                                    setEditItems(newItems)
+                                  }}
+                                  className="h-8 text-xs bg-white border-emerald-200 focus-visible:ring-emerald-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1 block">กำหนดส่ง (Deadline)</label>
+                                <Input 
+                                  type="date"
+                                  value={editItems[idx]?.deadline || ''}
+                                  onChange={e => {
+                                    const newItems = [...editItems]
+                                    newItems[idx] = { ...newItems[idx], deadline: e.target.value }
+                                    setEditItems(newItems)
+                                  }}
+                                  className="h-8 text-xs w-48 bg-white border-emerald-200 focus-visible:ring-emerald-500"
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -801,10 +963,10 @@ export default function WeeklyReportsPage() {
                         className="rounded-xl min-h-[100px] border-emerald-200 focus:ring-emerald-500/20" 
                       />
                       <div className="flex justify-end gap-3">
-                        <Button variant="outline" className="rounded-xl" onClick={() => { setReviewingReport(null); setReviewComment(""); }}>ยกเลิก</Button>
+                        <Button variant="outline" className="rounded-xl" onClick={() => { setReviewingReport(null); setReviewComment(""); setEditItems([]); }}>ยกเลิก</Button>
                         <Button 
                           className="rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold"
-                          onClick={() => reviewMutation.mutate({ id: report.id, comment: reviewComment })}
+                          onClick={() => reviewMutation.mutate({ id: report.id, comment: reviewComment, items: editItems })}
                           disabled={reviewMutation.isPending}
                         >
                           {reviewMutation.isPending && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}

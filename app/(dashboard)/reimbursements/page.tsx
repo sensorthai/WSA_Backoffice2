@@ -130,9 +130,11 @@ export default function ReimbursementsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-200">รออนุมัติ</Badge>
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200">รอผู้จัดการฝ่ายอบรม</Badge>
       case 'approved':
-        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">อนุมัติแล้ว (เตรียมโอน)</Badge>
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">รอฝ่ายบัญชีโอนเงิน</Badge>
+      case 'paid':
+        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold">โอนเงินแล้ว</Badge>
       case 'rejected':
         return <Badge className="bg-rose-100 text-rose-700 border-rose-200">ปฏิเสธ</Badge>
       default:
@@ -296,8 +298,9 @@ export default function ReimbursementsPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="all">ทุกสถานะ</SelectItem>
-                  <SelectItem value="pending">รออนุมัติ</SelectItem>
-                  <SelectItem value="approved">อนุมัติแล้ว</SelectItem>
+                  <SelectItem value="pending">รอผู้จัดการฝ่ายอบรม</SelectItem>
+                  <SelectItem value="approved">รอโอนเงิน</SelectItem>
+                  <SelectItem value="paid">โอนเงินแล้ว</SelectItem>
                   <SelectItem value="rejected">ปฏิเสธ</SelectItem>
                 </SelectContent>
               </Select>
@@ -334,7 +337,8 @@ export default function ReimbursementsPage() {
                         <div className={cn(
                           "w-full md:w-2",
                           reimb.status === 'pending' ? "bg-amber-400" :
-                          reimb.status === 'approved' ? "bg-emerald-500" : "bg-rose-500"
+                          reimb.status === 'approved' ? "bg-blue-500" :
+                          reimb.status === 'paid' ? "bg-emerald-500" : "bg-rose-500"
                         )} />
                         
                         <div className="flex-1 p-6 flex flex-col md:flex-row items-center gap-6">

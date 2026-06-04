@@ -31,8 +31,8 @@ export async function GET() {
       .or(`supervisor_id.eq.${session.user.id},status.neq.pending`),
     supabase
       .from('reimbursements')
-      .select('*, user:users!user_id!inner(full_name), approved_by_user:users!approved_by(full_name)')
-      .or('status.eq.approved,status.eq.rejected')
+      .select('*, user:users!user_id!inner(full_name), approved_by_user:users!approved_by(full_name), paid_by_user:users!paid_by(full_name)')
+      .or('status.eq.approved,status.eq.rejected,status.eq.paid')
   ])
 
   const unified = [
@@ -72,12 +72,18 @@ export async function GET() {
       label: 'จองรถ',
       approver_name: c.supervisor?.full_name || "—"
     })),
-    ...(reimbursements.data || []).filter(r => r.status !== 'pending').map(r => ({
-      ...r,
-      type: 'reimbursement',
-      label: 'เบิกค่าใช้จ่าย',
-      approver_name: r.approved_by_user?.full_name || "—"
-    }))
+    ...(reimbursements.data || []).filter(r => r.status !== 'pending').map(r => {
+      let approverName = r.approved_by_user?.full_name || "—"
+      if (r.status === 'paid' && r.paid_by_user?.full_name) {
+        approverName = `${r.approved_by_user?.full_name || "หัวหน้าฝ่ายอบรม"} และ ${r.paid_by_user.full_name}`
+      }
+      return {
+        ...r,
+        type: 'reimbursement',
+        label: 'เบิกค่าใช้จ่าย',
+        approver_name: approverName
+      }
+    })
   ]
 
   unified.sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())

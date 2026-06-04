@@ -43,18 +43,49 @@ export async function processApproval({
 
   if (fetchError || !record) throw new Error("ไม่พบรายการที่ต้องการอนุมัติ")
 
-  // 2. Validate actor permission
-  const allowedRoles = rule.roles[stage]
-  if (!allowedRoles.includes(actorRole)) {
-    throw new Error("คุณไม่มีสิทธิ์ดำเนินการในขั้นตอนนี้")
+  // Fetch actor's user details to verify department/position for reimbursement approvals
+  const { data: actorUser } = await supabase
+    .from('users')
+    .select('role, department:departments(name), position:positions(name)')
+    .eq('id', actorUserId)
+    .single()
+
+  const actorDept = (actorUser?.department as any)?.name || ""
+  const actorPos = (actorUser?.position as any)?.name || ""
+
+  if (entityType === 'reimbursement') {
+    if (stage === 'supervisor') {
+      // Training Manager: department 'ฝ่ายอบรม' and position 'ผู้จัดการ'
+      const isTrainingManager = actorDept === 'ฝ่ายอบรม' && actorPos === 'ผู้จัดการ'
+      const isCEOOrAdmin = actorRole === 'ceo' || actorRole === 'admin'
+      if (!isTrainingManager && !isCEOOrAdmin) {
+        throw new Error("คุณไม่มีสิทธิ์อนุมัติรายการนี้ (ต้องเป็นผู้จัดการฝ่ายอบรม หรือ CEO)")
+      }
+    } else if (stage === 'ceo') {
+      // Finance Manager: department 'ฝ่ายบัญชีและการเงิน' and position 'ผู้จัดการ'
+      const isFinanceManager = actorDept === 'ฝ่ายบัญชีและการเงิน' && actorPos === 'ผู้จัดการ'
+      const isCEOOrAdmin = actorRole === 'ceo' || actorRole === 'admin'
+      if (!isFinanceManager && !isCEOOrAdmin) {
+        throw new Error("คุณไม่มีสิทธิ์อนุมัติรายการนี้ (ต้องเป็นผู้จัดการฝ่ายบัญชีและการเงิน หรือ CEO)")
+      }
+    }
+  } else {
+    // 2. Validate actor permission
+    const allowedRoles = rule.roles[stage]
+    if (!allowedRoles.includes(actorRole)) {
+      throw new Error("คุณไม่มีสิทธิ์ดำเนินการในขั้นตอนนี้")
+    }
   }
 
   // 3. Validate state
   if (stage === 'supervisor' && record.status !== 'pending') {
     throw new Error("รายการนี้ไม่ได้อยู่ในสถานะรอหัวหน้าอนุมัติ")
   }
-  if (stage === 'ceo' && record.status !== 'supervisor_approved') {
-    throw new Error("รายการนี้ต้องผ่านการอนุมัติจากหัวหน้าก่อน")
+  if (stage === 'ceo') {
+    const expectedStatus = entityType === 'reimbursement' ? 'approved' : 'supervisor_approved'
+    if (record.status !== expectedStatus) {
+      throw new Error("รายการนี้ต้องผ่านการอนุมัติจากหัวหน้าก่อน")
+    }
   }
 
   // 4. Determine next status
@@ -99,13 +130,26 @@ export async function processApproval({
     updateData.approver_note = note
   }
 
-  // Reimbursement uses 'approved_by' column instead of 'supervisor_id'
+  // Reimbursement uses custom columns and workflow
   if (entityType === 'reimbursement') {
     delete updateData.supervisor_id
     delete updateData.supervisor_approved_at
     delete updateData.supervisor_note
-    if (action === 'approve') {
-      updateData.approved_by = actorUserId
+    delete updateData.ceo_approved_at
+    delete updateData.ceo_note
+
+    if (stage === 'supervisor') {
+      if (action === 'approve') {
+        updateData.approved_by = actorUserId
+        updateData.approved_at = new Date().toISOString()
+      }
+      updateData.training_note = note
+    } else {
+      if (action === 'approve') {
+        updateData.paid_by = actorUserId
+        updateData.paid_at = new Date().toISOString()
+      }
+      updateData.finance_note = note
     }
   }
 
@@ -133,31 +177,61 @@ export async function processApproval({
     reference_type: table
   })
 
-  // 7. If escalation needed -> Notify CEO
+  // 7. If escalation needed -> Notify CEO or next stage
   if (escalationNeeded) {
-    const { data: ceo } = await supabase
-      .from('users')
-      .select('id, email, full_name')
-      .eq('role', 'ceo')
-      .single()
-
-    if (ceo) {
-      await supabase.from('notifications').insert({
-        user_id: ceo.id,
-        type: `${entityType}_escalation`,
-        title: 'คำขอรอรับการอนุมัติจาก CEO',
-        message: `รายการจาก ${requesterName} ยอดเงินเกินกำหนดของหัวหน้างาน`,
-        reference_id: entityId,
-        reference_type: table
-      })
+    if (entityType === 'reimbursement') {
+      // Find Finance Manager
+      const { data: financeDepts } = await supabase.from('departments').select('id').eq('name', 'ฝ่ายบัญชีและการเงิน')
+      const financeDeptId = financeDepts?.[0]?.id
+      const { data: managerPositions } = await supabase.from('positions').select('id').eq('name', 'ผู้จัดการ')
+      const managerPosId = managerPositions?.[0]?.id
       
-      if (ceo.email && entityType === 'purchase') {
-        sendPurchaseSubmitted(ceo.email, {
-          name: ceo.full_name,
-          title: record.title,
-          totalAmount: record.total_amount,
-          requesterName
+      let financeManager = null
+      if (financeDeptId && managerPosId) {
+        const { data: fm } = await supabase
+          .from('users')
+          .select('id, email, full_name')
+          .eq('department_id', financeDeptId)
+          .eq('position_id', managerPosId)
+          .maybeSingle()
+        financeManager = fm
+      }
+      
+      if (financeManager) {
+        await supabase.from('notifications').insert({
+          user_id: financeManager.id,
+          type: `${entityType}_escalation`,
+          title: 'คำขอเบิกเงินรอการโอนจ่าย',
+          message: `รายการจาก ${requesterName} ยอดเงิน ${Number(record.amount).toLocaleString()} บาท ได้ผ่านการอนุมัติแล้ว`,
+          reference_id: entityId,
+          reference_type: table
         })
+      }
+    } else {
+      const { data: ceo } = await supabase
+        .from('users')
+        .select('id, email, full_name')
+        .eq('role', 'ceo')
+        .single()
+
+      if (ceo) {
+        await supabase.from('notifications').insert({
+          user_id: ceo.id,
+          type: `${entityType}_escalation`,
+          title: 'คำขอรอรับการอนุมัติจาก CEO',
+          message: `รายการจาก ${requesterName} ยอดเงินเกินกำหนดของหัวหน้างาน`,
+          reference_id: entityId,
+          reference_type: table
+        })
+        
+        if (ceo.email && entityType === 'purchase') {
+          sendPurchaseSubmitted(ceo.email, {
+            name: ceo.full_name,
+            title: record.title,
+            totalAmount: record.total_amount,
+            requesterName
+          })
+        }
       }
     }
   }

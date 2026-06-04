@@ -53,19 +53,19 @@ export function ReportsIncome() {
 
     // Sheet 1: Detailed breakdown
     const detailRows = [["รายงานรายได้ครู", monthLabel], []]
-    detailRows.push(["ครู", "โรงเรียน", "วิชา", "ระดับชั้น", "ค่าสอน/คาบ", "คาบ/วัน", "วันสอน", "คาบรวม", "รายได้ (฿)"])
+    detailRows.push(["ครู", "โรงเรียน", "วิชา", "ระดับชั้น", "วันที่สอน", "ค่าสอน/คาบ", "คาบ/วัน", "วันสอน", "คาบรวม", "รายได้ (฿)"])
     for (const r of rows) {
       detailRows.push([
-        r.teacher_name, r.school_name, r.subject_name, r.class_level,
+        r.teacher_name, r.school_name, r.subject_name, r.class_level, r.teach_dates_str || "",
         r.teaching_fee, r.periods_per_day, r.teach_days, r.total_periods, r.income
       ])
     }
     detailRows.push([])
-    detailRows.push(["รวมทั้งหมด", "", "", "", "", "", "", grand?.total_periods || 0, grand?.total_income || 0])
+    detailRows.push(["รวมทั้งหมด", "", "", "", "", "", "", "", grand?.total_periods || 0, grand?.total_income || 0])
     const ws1 = XLSX.utils.aoa_to_sheet(detailRows)
     // Set column widths
     ws1["!cols"] = [
-      { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 10 },
+      { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 10 }, { wch: 22 },
       { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 14 },
     ]
     XLSX.utils.book_append_sheet(wb, ws1, "รายละเอียด")
@@ -195,9 +195,16 @@ export function ReportsIncome() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <BookOpen className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                              <span>{r.subject_name}</span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                                <BookOpen className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                <span>{r.subject_name}</span>
+                              </div>
+                              {r.teach_dates_str && (
+                                <span className="text-[11px] text-slate-400 mt-0.5 ml-5">
+                                  วันที่สอน: {r.teach_dates_str}
+                                </span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-center font-mono text-sm">

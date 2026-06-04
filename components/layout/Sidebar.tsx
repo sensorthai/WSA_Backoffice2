@@ -86,7 +86,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: t("sidebar.noticeboard"), href: "/noticeboard", icon: Megaphone },
         { label: t("sidebar.checkin"), href: "/checkin", icon: UserCheck },
         { label: t("sidebar.leaves"), href: "/leaves", icon: CalendarRange },
-        { label: t("sidebar.reimbursements"), href: "/reimbursements", icon: Wallet },
+        { label: t("sidebar.purchases"), href: "/purchases", icon: ShoppingBag },
         { label: t("sidebar.weekly_reports"), href: "/weekly-reports", icon: ClipboardCheck },
         { label: t("sidebar.cars"), href: "/cars", icon: Car },
       ]
@@ -97,10 +97,10 @@ export function Sidebar({ onClose }: SidebarProps) {
       icon: Layers,
       roles: ["admin", "employee", "supervisor", "ceo"],
       subItems: [
-        { label: t("sidebar.purchases"), href: "/purchases", icon: ShoppingBag },
         { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
         { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles: ["ceo", "admin"] },
         { label: t("sidebar.assets"), href: "/assets", icon: MonitorSmartphone, roles: ["ceo", "admin"] },
+        { label: t("sidebar.purchases"), href: "/reports?tab=purchase", icon: ShoppingBag, roles: ["admin", "ceo"] },
       ]
     },
     {
@@ -126,6 +126,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: t("sidebar.teaching_sub.logbook"), href: "/teaching/logbook", icon: BookOpenCheck },
         { label: t("sidebar.teaching_sub.materials"), href: "/teaching/materials", icon: FileSpreadsheet },
         { label: t("sidebar.teaching_sub.timetable_grid"), href: "/teaching/timetable", icon: Grid3X3 },
+        { label: t("sidebar.reimbursements"), href: "/reimbursements", icon: Wallet },
         { label: t("sidebar.teaching_mgmt"), href: "/teaching-mgmt", icon: BookOpenCheck, roles: ["admin"] },
       ]
     },
@@ -138,7 +139,6 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: t("sidebar.ceo"), href: "/ceo", icon: Crown },
         { label: t("sidebar.wfh"), href: "/reports?tab=wfh", icon: Users },
         { label: t("sidebar.leaves"), href: "/reports?tab=leave", icon: Palmtree },
-        { label: t("sidebar.purchases"), href: "/reports?tab=purchase", icon: ShoppingBag },
         { label: t("sidebar.cars"), href: "/reports?tab=car", icon: Car },
       ]
     },

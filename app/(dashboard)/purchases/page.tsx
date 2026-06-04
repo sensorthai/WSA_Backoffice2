@@ -60,6 +60,24 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
+const CATEGORIES = [
+  "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน",
+  "ค่าเติมน้ำมันรถบริษัท",
+  "ค่าเดินทางไปไซด์งาน-ช่าง",
+  "ค่าเดินทางไปสอน-อาจารย์",
+  "ค่าอุปกรณ์การสอน",
+  "ค่าส่งไปรษณีย์",
+  "ค่าโทรศัพท์",
+  "ค่าอาหารพนักงาน",
+  "ค่าเลี้ยงรับรอง",
+  "ค่าทำความสะอาด",
+  "ค่าเครื่องใช้สำนักงาน",
+  "ค่าวัสดุสิ้นเปลือง",
+  "ค่าเครื่องมือช่าง",
+  "ค่าภาษีอื่นๆ",
+  "อื่นๆ"
+]
+
 export default function PurchasesPage() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -78,14 +96,29 @@ export default function PurchasesPage() {
     setMounted(true)
   }, [])
 
+  const getReceiptUrls = (receiptUrl: string | null | undefined): string[] => {
+    if (!receiptUrl) return []
+    const trimmed = receiptUrl.trim()
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        return JSON.parse(trimmed)
+      } catch {
+        return [receiptUrl]
+      }
+    }
+    return [receiptUrl]
+  }
+
   // --- Form State ---
   const [purchaseForm, setPurchaseForm] = useState({
     title: "",
-    category: "ค่าเดินทาง",
+    category: "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน",
     purpose: "",
     items: [{ name: "", quantity: 1, unit_price: 0 }],
     file: null as File | null,
     receipt_url: "",
+    files: [] as File[],
+    receipt_urls: [] as string[],
     payment_method: "petty_cash",
     document_type: "" as string | null,
     manifest_text: "",
@@ -102,6 +135,8 @@ export default function PurchasesPage() {
 
   const [isScanning, setIsScanning] = useState(false)
   const [scanStatus, setScanStatus] = useState("")
+  const [customCategory, setCustomCategory] = useState("")
+  const [showCustomCategory, setShowCustomCategory] = useState(false)
 
   // --- Queries ---
   const { data: myPurchases, isLoading: isMyLoading } = useQuery({
@@ -132,14 +167,18 @@ export default function PurchasesPage() {
           title: payload.title,
           category: payload.category,
           purpose: payload.purpose,
-          items: payload.items,
+          items: payload.items.map((item: any) => ({
+            ...item,
+            quantity: parseInt(item.quantity) || 0,
+            unit_price: parseFloat(item.unit_price) || 0
+          })),
           payment_method: payload.payment_method,
           document_type: payload.document_type,
           manifest_text: payload.manifest_text,
           document_number: payload.document_number,
           document_date: payload.document_date,
-          subtotal: payload.subtotal,
-          vat_amount: payload.vat_amount,
+          subtotal: parseFloat(payload.subtotal) || 0,
+          vat_amount: parseFloat(payload.vat_amount) || 0,
           vendor_address: payload.vendor_address,
           vendor_tax_id: payload.vendor_tax_id,
           customer_name: payload.customer_name,
@@ -152,7 +191,17 @@ export default function PurchasesPage() {
       const purchase = await res.json()
 
       // 2. Upload Receipt if exists
-      if (payload.file) {
+      if (payload.files && payload.files.length > 0) {
+        const formData = new FormData()
+        payload.files.forEach((file: File) => {
+          formData.append("file", file)
+        })
+        const uploadRes = await fetch(`/api/purchases/${purchase.id}/upload-receipt`, {
+          method: "POST",
+          body: formData
+        })
+        if (!uploadRes.ok) throw new Error("Failed to upload receipts")
+      } else if (payload.file) {
         const formData = new FormData()
         formData.append("file", payload.file)
         const uploadRes = await fetch(`/api/purchases/${purchase.id}/upload-receipt`, {
@@ -193,11 +242,13 @@ export default function PurchasesPage() {
   const resetForm = () => {
     setPurchaseForm({
       title: "",
-      category: "ค่าเดินทาง",
+      category: "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน",
       purpose: "",
       items: [{ name: "", quantity: 1, unit_price: 0 }],
       file: null,
       receipt_url: "",
+      files: [],
+      receipt_urls: [],
       payment_method: "petty_cash",
       document_type: "",
       manifest_text: "",
@@ -214,6 +265,8 @@ export default function PurchasesPage() {
     setCurrentStep(1)
     setIsScanning(false)
     setScanStatus("")
+    setCustomCategory("")
+    setShowCustomCategory(false)
   }
 
   const itemsTotal = useMemo(() => {
@@ -305,10 +358,13 @@ ${form.purpose || "-"}
       if (!res.ok) throw new Error("AI analysis failed")
       const data = await res.json()
 
+      const finalCategory = data.category || "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน"
+      const isPredefined = CATEGORIES.includes(finalCategory)
+
       const updatedForm = {
         ...purchaseForm,
         title: data.title || "ซื้อของ",
-        category: data.category || "อื่นๆ",
+        category: finalCategory,
         payment_method: data.paymentMethod || "petty_cash",
         purpose: data.purpose || "",
         items: data.items && data.items.length > 0 ? data.items : [{ name: "", quantity: 1, unit_price: 0 }],
@@ -323,7 +379,17 @@ ${form.purpose || "-"}
         customer_tax_id: data.customerTaxId || "",
         project_name: data.projectName || "",
         file,
-        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
+        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : "",
+        files: [file],
+        receipt_urls: file.type.startsWith('image/') ? [URL.createObjectURL(file)] : []
+      }
+
+      if (!isPredefined && data.category) {
+        setShowCustomCategory(true)
+        setCustomCategory(data.category)
+      } else {
+        setShowCustomCategory(false)
+        setCustomCategory("")
       }
 
       // Calculate total for manifest
@@ -340,7 +406,9 @@ ${form.purpose || "-"}
       setPurchaseForm({
         ...purchaseForm,
         file,
-        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ""
+        receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : "",
+        files: [file],
+        receipt_urls: file.type.startsWith('image/') ? [URL.createObjectURL(file)] : []
       })
       alert("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
       setCurrentStep(2)
@@ -603,6 +671,7 @@ ${form.purpose || "-"}
                                      onChange={(e) => setPurchaseForm({ ...purchaseForm, customer_tax_id: e.target.value } as any)}
                                   />
                                </div>
+
                                <div className="md:col-span-2 space-y-2">
                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ชื่องาน / โครงการ</Label>
                                   <Input 
@@ -633,10 +702,18 @@ ${form.purpose || "-"}
                             <div className="space-y-2">
                                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการเบิก</Label>
                                <Select 
-                                 value={purchaseForm.category} 
+                                 value={CATEGORIES.includes(purchaseForm.category) ? purchaseForm.category : "อื่นๆ"} 
                                  onValueChange={(val) => {
-                                    const newForm = { ...purchaseForm, category: val }
-                                    const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                    const newForm = { ...purchaseForm }
+                                    if (val === "อื่นๆ") {
+                                       setShowCustomCategory(true)
+                                       newForm.category = customCategory || "อื่นๆ"
+                                    } else {
+                                       setShowCustomCategory(false)
+                                       setCustomCategory("")
+                                       newForm.category = val
+                                    }
+                                    const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
                                     newForm.manifest_text = generateManifestText(newForm, total)
                                     setPurchaseForm(newForm)
                                  }}
@@ -644,23 +721,39 @@ ${form.purpose || "-"}
                                   <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
                                      <SelectValue placeholder="เลือกประเภทการเบิก" />
                                   </SelectTrigger>
-                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
-                                     <SelectItem value="ค่าเดินทาง" className="font-bold py-3">ค่าเดินทาง (Travel)</SelectItem>
-                                     <SelectItem value="ค่าอาหาร/รับรองลูกค้า" className="font-bold py-3">ค่าอาหาร/รับรองลูกค้า (Meals & ENT)</SelectItem>
-                                     <SelectItem value="อุปกรณ์สำนักงาน" className="font-bold py-3">อุปกรณ์สำนักงาน (Office Supplies)</SelectItem>
-                                     <SelectItem value="ค่าซ่อมบำรุง" className="font-bold py-3">ค่าซ่อมบำรุง (Maintenance)</SelectItem>
-                                     <SelectItem value="ค่าอินเทอร์เน็ต/โทรศัพท์" className="font-bold py-3">ค่าอินเทอร์เน็ต/โทรศัพท์ (Utilities)</SelectItem>
-                                     <SelectItem value="อื่นๆ" className="font-bold py-3">อื่นๆ (Other)</SelectItem>
+                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl max-h-[300px]">
+                                     {CATEGORIES.map((cat) => (
+                                        <SelectItem key={cat} value={cat} className="font-bold py-3">
+                                           {cat}
+                                        </SelectItem>
+                                     ))}
                                   </SelectContent>
                                </Select>
                             </div>
+                            {showCustomCategory && (
+                               <div className="space-y-2 md:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                  <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ระบุประเภทการเบิกอื่น ๆ</Label>
+                                  <Input 
+                                     placeholder="พิมพ์ประเภทการเบิก..."
+                                     className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                     value={customCategory}
+                                     onChange={(e) => {
+                                        setCustomCategory(e.target.value)
+                                        const newForm = { ...purchaseForm, category: e.target.value || "อื่นๆ" }
+                                        const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                                        newForm.manifest_text = generateManifestText(newForm, total)
+                                        setPurchaseForm(newForm)
+                                     }}
+                                  />
+                               </div>
+                            )}
                             <div className="space-y-2">
                                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน</Label>
                                <Select 
                                  value={purchaseForm.payment_method} 
                                  onValueChange={(val) => {
                                     const newForm = { ...purchaseForm, payment_method: val }
-                                    const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                    const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
                                     newForm.manifest_text = generateManifestText(newForm, total)
                                     setPurchaseForm(newForm)
                                  }}
@@ -683,7 +776,7 @@ ${form.purpose || "-"}
                                   value={purchaseForm.purpose}
                                   onChange={(e) => {
                                      const newForm = { ...purchaseForm, purpose: e.target.value }
-                                     const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                     const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
                                      newForm.manifest_text = generateManifestText(newForm, total)
                                      setPurchaseForm(newForm)
                                   }}
@@ -717,7 +810,7 @@ ${form.purpose || "-"}
                                            placeholder="จำนวน" 
                                            className="h-11 rounded-xl border-slate-100 bg-white"
                                            value={item.quantity}
-                                           onChange={(e) => updateItem(idx, 'quantity', parseInt(e.target.value) || 0)}
+                                           onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
                                         />
                                      </div>
                                      <div className="md:col-span-3 space-y-2">
@@ -727,7 +820,7 @@ ${form.purpose || "-"}
                                            placeholder="ราคา/หน่วย" 
                                            className="h-11 rounded-xl border-slate-100 bg-white text-right"
                                            value={item.unit_price}
-                                           onChange={(e) => updateItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                           onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                                         />
                                      </div>
                                      <div className="md:col-span-1 flex items-end justify-between gap-2">
@@ -753,8 +846,8 @@ ${form.purpose || "-"}
                                   <Input 
                                      type="number" 
                                      className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
-                                     value={(purchaseForm as any).subtotal || ""}
-                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, subtotal: parseFloat(e.target.value) || 0 } as any)}
+                                     value={(purchaseForm as any).subtotal === 0 ? "" : (purchaseForm as any).subtotal}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, subtotal: e.target.value } as any)}
                                      placeholder="0.00"
                                   />
                                </div>
@@ -763,8 +856,8 @@ ${form.purpose || "-"}
                                   <Input 
                                      type="number" 
                                      className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
-                                     value={(purchaseForm as any).vat_amount || ""}
-                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_amount: parseFloat(e.target.value) || 0 } as any)}
+                                     value={(purchaseForm as any).vat_amount === 0 ? "" : (purchaseForm as any).vat_amount}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_amount: e.target.value } as any)}
                                      placeholder="0.00"
                                   />
                                </div>
@@ -773,6 +866,87 @@ ${form.purpose || "-"}
                                   <span className="text-2xl font-black">{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
                                </div>
                             </div>
+
+                          {/* Attachments Section */}
+                          <div className="p-5 md:p-6 bg-slate-50/70 rounded-3xl border border-slate-100 space-y-4">
+                             <div className="flex items-center justify-between">
+                                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">เอกสารแนบ (Attachments)</Label>
+                                <Button 
+                                   type="button"
+                                   variant="ghost" 
+                                   size="sm" 
+                                   onClick={() => document.getElementById('attachments-upload')?.click()} 
+                                   className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl"
+                                >
+                                   <Plus className="w-4 h-4 mr-1" /> เพิ่มไฟล์แนบ
+                                </Button>
+                             </div>
+                             <input 
+                               id="attachments-upload" 
+                               type="file" 
+                               multiple 
+                               accept="image/*,application/pdf"
+                               className="hidden" 
+                               onChange={(e) => {
+                                 const newFiles = Array.from(e.target.files || []);
+                                 if (newFiles.length > 0) {
+                                   const updatedFiles = [...(purchaseForm.files || []), ...newFiles];
+                                   const updatedUrls = [
+                                     ...(purchaseForm.receipt_urls || []),
+                                     ...newFiles.map(file => file.type.startsWith('image/') ? URL.createObjectURL(file) : "")
+                                   ];
+                                   setPurchaseForm({
+                                     ...purchaseForm,
+                                     files: updatedFiles,
+                                     receipt_urls: updatedUrls
+                                   } as any);
+                                 }
+                               }} 
+                             />
+                             
+                             {(purchaseForm.files && purchaseForm.files.length > 0) ? (
+                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                  {purchaseForm.files.map((file: File, idx: number) => {
+                                     const previewUrl = purchaseForm.receipt_urls?.[idx];
+                                     return (
+                                        <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm relative group">
+                                           <div className="flex items-center gap-3 min-w-0 flex-1">
+                                              {previewUrl ? (
+                                                <img src={previewUrl} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="Thumbnail" />
+                                              ) : (
+                                                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-500">
+                                                   <Receipt size={20} />
+                                                 </div>
+                                              )}
+                                              <span className="text-xs font-bold text-slate-600 truncate flex-1">{file.name}</span>
+                                           </div>
+                                           <Button 
+                                              type="button"
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl"
+                                              onClick={() => {
+                                                 const updatedFiles = (purchaseForm.files || []).filter((_, i) => i !== idx);
+                                                 const updatedUrls = (purchaseForm.receipt_urls || []).filter((_, i) => i !== idx);
+                                                 setPurchaseForm({
+                                                   ...purchaseForm,
+                                                   files: updatedFiles,
+                                                   receipt_urls: updatedUrls
+                                                 } as any);
+                                              }}
+                                           >
+                                              <Trash2 size={14} />
+                                           </Button>
+                                        </div>
+                                     );
+                                  })}
+                               </div>
+                             ) : (
+                               <div className="text-center py-6 text-slate-400 font-medium text-sm border-2 border-dashed border-slate-200/60 rounded-2xl bg-white/50">
+                                  ยังไม่มีการอัปโหลดเอกสารแนบ (สามารถอัปโหลดได้หลายไฟล์)
+                               </div>
+                             )}
+                          </div>
                          </div>
                       </div>
                     )}
@@ -842,14 +1016,39 @@ ${form.purpose || "-"}
                                  </div>
                                )}
                             </div>
-                             {purchaseForm.file && (
-                                <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 overflow-hidden">
-                                   {purchaseForm.receipt_url ? (
-                                     <img src={purchaseForm.receipt_url} className="w-12 h-12 rounded-lg object-cover" alt="Receipt Thumbnail" />
-                                   ) : (
-                                     <Receipt className="text-blue-500" />
-                                   )}
-                                   <span className="text-sm font-bold text-slate-600 truncate">{purchaseForm.file.name}</span>
+                             {((purchaseForm.files && purchaseForm.files.length > 0) || purchaseForm.file) && (
+                                <div className="space-y-2">
+                                   <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">เอกสารแนบ (Attachments)</Label>
+                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      {purchaseForm.files && purchaseForm.files.length > 0 ? (
+                                        purchaseForm.files.map((file: File, idx: number) => {
+                                           const previewUrl = purchaseForm.receipt_urls?.[idx];
+                                           return (
+                                              <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                                                 {previewUrl ? (
+                                                   <img src={previewUrl} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="Receipt Thumbnail" />
+                                                 ) : (
+                                                   <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
+                                                      <Receipt size={20} />
+                                                   </div>
+                                                 )}
+                                                 <span className="text-xs font-bold text-slate-600 truncate flex-1">{file.name}</span>
+                                              </div>
+                                           );
+                                        })
+                                      ) : (
+                                        purchaseForm.file && (
+                                           <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                                              {purchaseForm.receipt_url ? (
+                                                <img src={purchaseForm.receipt_url} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="Receipt Thumbnail" />
+                                              ) : (
+                                                <Receipt className="text-blue-500" />
+                                              )}
+                                              <span className="text-xs font-bold text-slate-600 truncate flex-1">{purchaseForm.file.name}</span>
+                                           </div>
+                                        )
+                                      )}
+                                   </div>
                                 </div>
                              )}
                          </div>
@@ -1054,7 +1253,25 @@ ${form.purpose || "-"}
                                     </div>
                                  </div>
 
-                                 {p.receipt_url && (
+                                  {p.receipt_url && (() => {
+                                    const urls = getReceiptUrls(p.receipt_url);
+                                    if (urls.length === 0) return null;
+                                    return (
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+                                        {urls.map((url, i) => (
+                                          <Button 
+                                            key={i} 
+                                            variant="outline" 
+                                            className="w-full h-14 rounded-2xl border-slate-200 font-bold text-slate-600 gap-2" 
+                                            onClick={() => window.open(url, '_blank')}
+                                          >
+                                             <Receipt size={18} /> ดูไฟล์ใบเสร็จ {urls.length > 1 ? `#${i + 1}` : ''}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+                                  {false && (
                                    <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-200 font-bold text-slate-600 gap-2" onClick={() => window.open(p.receipt_url, '_blank')}>
                                       <Receipt size={18} /> ดูไฟล์ใบเสร็จ
                                    </Button>
@@ -1287,7 +1504,45 @@ ${form.purpose || "-"}
 
                         <div className="space-y-6">
                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">หลักฐานใบเสร็จ</h4>
-                           {selectedPurchase.receipt_url ? (
+                           {selectedPurchase.receipt_url ? (() => {
+                              const urls = getReceiptUrls(selectedPurchase.receipt_url);
+                              if (urls.length === 0) {
+                                return (
+                                  <div className="aspect-square rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-slate-300">
+                                     <Receipt size={64} />
+                                     <p className="font-bold mt-4">ไม่มีไฟล์ใบเสร็จ</p>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="space-y-4">
+                                  {urls.map((url, i) => (
+                                    <div key={i} className="relative group overflow-hidden rounded-3xl border border-slate-100 shadow-sm aspect-square bg-slate-50">
+                                       <img 
+                                         src={url} 
+                                         alt={`Receipt #${i+1}`} 
+                                         className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
+                                         onError={(e) => {
+                                           (e.target as any).style.display = 'none';
+                                         }}
+                                       />
+                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                          <div className="text-white text-xs font-bold mb-2">เอกสารแนบ #{i+1}</div>
+                                          <Button className="bg-white text-slate-900 rounded-2xl font-bold" onClick={() => window.open(url, '_blank')}>
+                                             <Eye className="mr-2" size={16} /> ดูไฟล์ขนาดใหญ่
+                                          </Button>
+                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })() : (
+                              <div className="aspect-square rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-slate-300">
+                                 <Receipt size={64} />
+                                 <p className="font-bold mt-4">ไม่มีไฟล์ใบเสร็จ</p>
+                              </div>
+                            )}
+                            {false ? (
                              <div className="relative group overflow-hidden rounded-3xl border border-slate-100 shadow-sm aspect-square bg-slate-50">
                                 <img 
                                   src={selectedPurchase.receipt_url} 

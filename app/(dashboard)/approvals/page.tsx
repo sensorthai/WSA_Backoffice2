@@ -40,6 +40,19 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
+const getReceiptUrls = (receiptUrl: string | null | undefined): string[] => {
+  if (!receiptUrl) return []
+  const trimmed = receiptUrl.trim()
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return [receiptUrl]
+    }
+  }
+  return [receiptUrl]
+}
+
 export default function ApprovalsPage() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -75,8 +88,11 @@ export default function ApprovalsPage() {
 
   // --- Mutations ---
   const approveMutation = useMutation({
-    mutationFn: async ({ id, type, action, note }: any) => {
-      const stage = (type === 'leave' || type === 'purchase') && userRole === 'ceo' ? 'ceo' : 'supervisor'
+    mutationFn: async ({ id, type, action, note, itemStatus }: any) => {
+      const stage = 
+        type === 'reimbursement'
+          ? (itemStatus === 'approved' ? 'ceo' : 'supervisor')
+          : ((type === 'leave' || type === 'purchase') && userRole === 'ceo' ? 'ceo' : 'supervisor')
       const endpoint = `/api/${type === 'leave' ? 'leaves' : type === 'purchase' ? 'purchases' : type === 'reimbursement' ? 'reimbursements' : 'cars/bookings'}/${id}/approve`
       
       const res = await fetch(endpoint, {
@@ -132,7 +148,16 @@ export default function ApprovalsPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, type?: string) => {
+    if (type === 'reimbursement') {
+      switch (status) {
+        case 'pending': return <Badge className="bg-amber-100 text-amber-600 border-amber-200">รอผู้จัดการฝ่ายอบรม</Badge>
+        case 'approved': return <Badge className="bg-blue-100 text-blue-600 border-blue-200">รอฝ่ายบัญชีโอนเงิน</Badge>
+        case 'paid': return <Badge className="bg-emerald-100 text-emerald-600 border-emerald-200 font-bold">โอนเงินแล้ว</Badge>
+        case 'rejected': return <Badge className="bg-rose-100 text-rose-600 border-rose-200">ปฏิเสธ</Badge>
+        default: return <Badge>{status}</Badge>
+      }
+    }
     switch (status) {
       case 'pending': return <Badge className="bg-amber-100 text-amber-600 border-amber-200">รอหัวหน้า</Badge>
       case 'supervisor_approved': return <Badge className="bg-blue-100 text-blue-600 border-blue-200">รอ CEO</Badge>
@@ -252,7 +277,19 @@ export default function ApprovalsPage() {
                    <span className="text-3xl font-black text-blue-600">{Number(item.total_amount).toLocaleString()} ฿</span>
                 </div>
 
-                {item.receipt_url && (
+                {item.receipt_url && (() => {
+                  const urls = getReceiptUrls(item.receipt_url);
+                  return urls.map((url, i) => (
+                    <div key={i} className="pt-2">
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
+                          <FileText size={16} /> ดูไฟล์หลักฐานใบเสร็จรับเงิน {urls.length > 1 ? `#${i + 1}` : ''}
+                        </Button>
+                      </a>
+                    </div>
+                  ));
+                })()}
+                {false && (
                   <div className="pt-2">
                     <a href={item.receipt_url} target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
@@ -291,7 +328,19 @@ export default function ApprovalsPage() {
                    </div>
                  </div>
 
-                 {item.receipt_url && (
+                  {item.receipt_url && (() => {
+                    const urls = getReceiptUrls(item.receipt_url);
+                    return urls.map((url, i) => (
+                      <div key={i} className="pt-2">
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
+                            <FileText size={16} /> ดูใบเสร็จ / สลิป {urls.length > 1 ? `#${i + 1}` : ''}
+                          </Button>
+                        </a>
+                      </div>
+                    ));
+                  })()}
+                  {false && (
                    <div className="pt-2">
                      <a href={item.receipt_url} target="_blank" rel="noopener noreferrer">
                        <Button variant="outline" className="w-full h-12 rounded-2xl font-bold text-blue-600 border-blue-100 hover:bg-blue-50/50 flex items-center justify-center gap-2">
@@ -321,7 +370,7 @@ export default function ApprovalsPage() {
            )}
         </div>
 
-        {item.status === 'pending' || item.status === 'supervisor_approved' ? (
+        {item.status === 'pending' || item.status === 'supervisor_approved' || (item.type === 'reimbursement' && item.status === 'approved') ? (
           <div className="space-y-6">
              <div className="space-y-2">
                 <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุการพิจารณา</Label>
@@ -336,14 +385,14 @@ export default function ApprovalsPage() {
                 <Button 
                    variant="ghost" 
                    className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50"
-                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'reject', note: rejectNote })}
+                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'reject', note: rejectNote, itemStatus: item.status })}
                    disabled={approveMutation.isPending}
                 >
                    <XCircle className="mr-2" /> ปฏิเสธ
                 </Button>
                 <Button 
                    className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
-                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote })}
+                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
                    disabled={approveMutation.isPending}
                 >
                    <CheckCircle2 className="mr-2" /> อนุมัติคำขอ
@@ -354,7 +403,7 @@ export default function ApprovalsPage() {
           <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">สถานะปัจจุบัน</Label>
              <div className="flex items-center justify-between">
-                {getStatusBadge(item.status)}
+                {getStatusBadge(item.status, item.type)}
                 <div className="text-xs text-slate-400 font-bold">{format(new Date(item.updated_at || item.created_at), "d MMM yyyy HH:mm", { locale: th })}</div>
              </div>
           </div>
@@ -485,7 +534,7 @@ export default function ApprovalsPage() {
                                 {format(new Date(item.created_at), "d MMM HH:mm", { locale: th })}
                              </TableCell>
                              <TableCell>
-                                {getStatusBadge(item.status)}
+                                {getStatusBadge(item.status, item.type)}
                              </TableCell>
                              <TableCell className="pr-10 text-right">
                                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
@@ -535,7 +584,7 @@ export default function ApprovalsPage() {
                              <TableCell className="font-bold text-slate-900">{item.user?.full_name}</TableCell>
                              <TableCell className="font-medium text-slate-500">{item.type === 'purchase' ? `${Number(item.total_amount).toLocaleString()} ฿` : item.type === 'leave' ? `${item.days_count} วัน` : item.type === 'reimbursement' ? `${Number(item.amount).toLocaleString()} ฿` : item.destination}</TableCell>
                              <TableCell className="font-bold text-slate-700 text-xs">{item.approver_name || "—"}</TableCell>
-                             <TableCell>{getStatusBadge(item.status)}</TableCell>
+                             <TableCell>{getStatusBadge(item.status, item.type)}</TableCell>
                              <TableCell className="pr-10 text-right text-slate-400 font-medium">
                                 {format(new Date(item.updated_at || item.created_at), "d MMM yy", { locale: th })}
                              </TableCell>

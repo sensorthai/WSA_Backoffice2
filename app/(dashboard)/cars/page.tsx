@@ -78,8 +78,8 @@ export default function CarsPage() {
   })
 
   const [returnForm, setReturnForm] = useState({
-    odometer_start: 0,
-    odometer_end: 0
+    odometer_start: "" as string,
+    odometer_end: "" as string
   })
 
   // --- Range Calculation ---
@@ -670,7 +670,7 @@ export default function CarsPage() {
                         type="number" 
                         className="h-16 pl-14 rounded-2xl border-slate-100 bg-slate-50 font-black text-xl"
                         value={returnForm.odometer_start}
-                        onChange={e => setReturnForm({...returnForm, odometer_start: parseInt(e.target.value) || 0})}
+                        onChange={e => setReturnForm({...returnForm, odometer_start: e.target.value})}
                      />
                   </div>
                </div>
@@ -682,14 +682,14 @@ export default function CarsPage() {
                         type="number" 
                         className="h-16 pl-14 rounded-2xl border-slate-100 bg-slate-50 font-black text-xl text-indigo-600"
                         value={returnForm.odometer_end}
-                        onChange={e => setReturnForm({...returnForm, odometer_end: parseInt(e.target.value) || 0})}
+                        onChange={e => setReturnForm({...returnForm, odometer_end: e.target.value})}
                      />
                   </div>
                </div>
 
                <div className="p-6 bg-indigo-50 rounded-[2rem] border border-indigo-100 text-center">
                   <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">ระยะทางที่ใช้</div>
-                  <div className="text-3xl font-black text-indigo-600">{Math.max(0, returnForm.odometer_end - returnForm.odometer_start).toLocaleString()} กม.</div>
+                  <div className="text-3xl font-black text-indigo-600">{Math.max(0, (Number(returnForm.odometer_end) || 0) - (Number(returnForm.odometer_start) || 0)).toLocaleString()} กม.</div>
                </div>
             </div>
             <DialogFooter className="mt-10 flex flex-col gap-4">
@@ -697,10 +697,15 @@ export default function CarsPage() {
                   className="w-full h-16 rounded-2xl bg-slate-900 text-white font-black text-lg"
                   onClick={() => returnCarMutation.mutate({ 
                      id: selectedBooking.id, 
-                     odometer_start: returnForm.odometer_start, 
-                     odometer_end: returnForm.odometer_end 
+                     odometer_start: parseInt(returnForm.odometer_start) || 0, 
+                     odometer_end: parseInt(returnForm.odometer_end) || 0 
                   })}
-                  disabled={returnCarMutation.isPending || returnForm.odometer_end < returnForm.odometer_start}
+                  disabled={
+                     returnCarMutation.isPending || 
+                     !returnForm.odometer_start || 
+                     !returnForm.odometer_end || 
+                     parseInt(returnForm.odometer_end) < parseInt(returnForm.odometer_start)
+                  }
                >
                   {returnCarMutation.isPending ? <Loader2 className="animate-spin" /> : "บันทึกและปิดงาน"}
                </Button>

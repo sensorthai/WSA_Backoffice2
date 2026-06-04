@@ -70,13 +70,13 @@ export const APPROVAL_RULES: Record<ApprovalEntity, ApprovalRule> = {
   },
   reimbursement: {
     entityType: 'reimbursement',
-    requiresCeo: false, // Petty cash: supervisor/admin approval only, no CEO needed
+    requiresCeo: true, // Requires two stages: Training Manager then Finance Manager
     supervisorStatus: {
       approve: 'approved',
       reject: 'rejected'
     },
     ceoStatus: {
-      approve: 'approved',
+      approve: 'paid',
       reject: 'rejected'
     },
     roles: {

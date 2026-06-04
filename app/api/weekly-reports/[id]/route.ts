@@ -92,8 +92,6 @@ export async function PATCH(
         reference_id: id,
         reference_type: 'weekly_reports'
       })
-
-      return NextResponse.json({ success: true })
     }
 
     // Action: update items
@@ -110,6 +108,8 @@ export async function PATCH(
         file_url: item.file_url || null,
         file_name: item.file_name || null,
         is_completed: item.is_completed || false,
+        manager_comment: item.manager_comment || null,
+        deadline: item.deadline || null,
         sort_order: idx
       }))
 

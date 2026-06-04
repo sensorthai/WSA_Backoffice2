@@ -158,7 +158,7 @@ export async function GET(req: Request) {
           `${i + 1}. ${item.name} x${item.quantity} @${item.unit_price}`
         ).join(' | ')
         const paymentLabels: Record<string, string> = { petty_cash: 'เงินสดย่อย', credit_card: 'บัตรเครดิต', k_biz: 'K-Biz' }
-        const statusLabels: Record<string, string> = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ถูกปฏิเสธ' }
+        const statusLabels: Record<string, string> = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', paid: 'โอนเงินแล้ว', rejected: 'ถูกปฏิเสธ' }
         return {
           'ลำดับ': idx + 1,
           'วันที่เอกสาร': p.document_date || (p.created_at ? format(new Date(p.created_at), 'yyyy-MM-dd') : '-'),
