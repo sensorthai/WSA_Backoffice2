@@ -21,7 +21,96 @@ export async function POST(req: Request) {
     const base64Data = buffer.toString("base64")
     const mimeType = file.type || "image/jpeg"
 
+    const aiProvider = process.env.AI_PROVIDER || "gemini"
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+    const openrouterKey = process.env.OPENROUTER_API_KEY
+
+    // If OpenRouter is chosen and key is available
+    if (aiProvider === "openrouter" && openrouterKey) {
+      try {
+        const prompt = `You are a professional financial document analyzer. Analyze the attached receipt, invoice, or voucher. 
+Identify its document type in Thai (e.g., 'ใบกำกับภาษีเต็มรูป', 'ใบเสร็จรับเงิน', 'บิลเงินสด', 'ใบแจ้งหนี้', 'สลิปโอนเงิน'). 
+Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), customer tax ID, project/job name, document number, document date, items, quantities, unit prices, subtotal (before VAT), VAT amount, total after VAT, purpose, and suggested category. 
+The category must be strictly one of: 'ค่าเดินทาง', 'ค่าอาหาร/รับรองลูกค้า', 'อุปกรณ์สำนักงาน', 'ค่าซ่อมบำรุง', 'ค่าอินเทอร์เน็ต/โทรศัพท์', 'อื่นๆ'.
+The payment method must be strictly one of: 'petty_cash', 'credit_card', 'k_biz'.
+The documentDate should be in YYYY-MM-DD format.
+
+Your output must be a single JSON object matching this schema:
+{
+  "documentType": "STRING",
+  "documentNumber": "STRING",
+  "documentDate": "STRING (YYYY-MM-DD)",
+  "title": "STRING",
+  "category": "STRING ('ค่าเดินทาง' | 'ค่าอาหาร/รับรองลูกค้า' | 'อุปกรณ์สำนักงาน' | 'ค่าซ่อมบำรุง' | 'ค่าอินเทอร์เน็ต/โทรศัพท์' | 'อื่นๆ')",
+  "vendor": "STRING",
+  "vendorAddress": "STRING",
+  "vendorTaxId": "STRING",
+  "customerName": "STRING",
+  "customerTaxId": "STRING",
+  "projectName": "STRING",
+  "paymentMethod": "STRING ('petty_cash' | 'credit_card' | 'k_biz')",
+  "purpose": "STRING",
+  "items": [
+    {
+      "name": "STRING",
+      "quantity": "INTEGER",
+      "unit_price": "NUMBER"
+    }
+  ],
+  "subtotal": "NUMBER",
+  "vatAmount": "NUMBER",
+  "totalAmount": "NUMBER"
+}`
+
+        const imageUrl = `data:${mimeType};base64,${base64Data}`
+        const requestBody = {
+          model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: imageUrl
+                  }
+                }
+              ]
+            }
+          ]
+        }
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openrouterKey}`
+        }
+        headers["HTTP-Referer"] = process.env.OPENROUTER_REFERER || "http://localhost:3001"
+        headers["X-Title"] = process.env.OPENROUTER_TITLE || "WSA Backoffice"
+
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(requestBody)
+        })
+
+        if (!res.ok) {
+          const errText = await res.text()
+          console.error("OpenRouter API Error:", errText)
+          throw new Error("Failed to call OpenRouter API")
+        }
+
+        const data = await res.json()
+        const text = data.choices?.[0]?.message?.content
+        if (text) {
+          const parsed = JSON.parse(text)
+          return NextResponse.json(parsed)
+        }
+      } catch (err) {
+        console.error("Failed to analyze receipt with OpenRouter API, falling back to Gemini/mock:", err)
+      }
+    }
 
     // If Gemini key exists, make the actual API call
     if (geminiKey) {
