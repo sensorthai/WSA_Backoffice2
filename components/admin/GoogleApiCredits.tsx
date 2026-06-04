@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { Button } from "@/components/ui/button"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Coins,
@@ -189,6 +190,24 @@ export function GoogleApiCredits() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Top Action Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/70 backdrop-blur-xl border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <div>
+          <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+            <Coins className="h-5 w-5 text-amber-500" /> ตั้งค่า & แดชบอร์ด Google API
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">จัดการงบประมาณและตรวจสอบข้อมูลการใช้งาน AI ในระบบ</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-2xl text-xs gap-2 border-amber-200 hover:bg-amber-50 text-amber-700 font-bold shrink-0 shadow-sm"
+          onClick={() => window.open('https://aistudio.google.com/usage?project=gen-lang-client-0737290747&timeRange=last-28-days', '_blank')}
+        >
+          <Sparkles className="h-4 w-4 text-amber-500" /> AI Studio Usage Dashboard
+        </Button>
+      </div>
+
       {/* Mock data notice */}
       {data?.isMock && (
         <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-amber-50 border border-amber-200/50 text-amber-800">
