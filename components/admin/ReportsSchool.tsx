@@ -19,7 +19,7 @@ const getWeeksOfMonth = (monthStr: string) => {
   const weeks: { start: string; end: string; label: string }[] = []
   
   // Find Monday of the first week of the month
-  let currentMon = new Date(date)
+  const currentMon = new Date(date)
   const dayOfWeek = currentMon.getDay() // 0 is Sun, 1 is Mon
   if (dayOfWeek !== 1) {
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek

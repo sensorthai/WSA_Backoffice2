@@ -306,7 +306,7 @@ function ReportsContent() {
 
   const approvedPurchases = useMemo(() => {
     if (!data || !Array.isArray(data)) return []
-    let result = data.filter((row: any) => row.status === 'approved' || row.status === 'paid')
+    const result = data.filter((row: any) => row.status === 'approved' || row.status === 'paid')
     if (!search.trim()) return result
     const query = search.toLowerCase()
     return result.filter((row: any) => {
