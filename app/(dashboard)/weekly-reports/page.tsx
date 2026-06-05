@@ -146,7 +146,8 @@ export default function WeeklyReportsPage() {
     if (!Array.isArray(reports)) return []
     
     // Find the most recent weekly report before the currently selected week
-    const currentWeekStartStr = format(weekStart, 'yyyy-MM-dd')
+    const currentWeekStart = startOfWeek(addWeeks(new Date(), newWeekOffset), { weekStartsOn: 1 })
+    const currentWeekStartStr = format(currentWeekStart, 'yyyy-MM-dd')
     const pastReports = reports.filter((r: any) => r.week_start < currentWeekStartStr)
     
     if (pastReports.length === 0) return []
@@ -166,7 +167,7 @@ export default function WeeklyReportsPage() {
         file_name: item.file_name || '',
         is_completed: false
       }))
-  }, [reports, weekStart])
+  }, [reports, newWeekOffset])
 
   const handleImportPreviousIncomplete = () => {
     const incomplete = loadPreviousIncompleteTasks()
@@ -377,12 +378,12 @@ export default function WeeklyReportsPage() {
       {items.map((item, idx) => (
         <div 
           key={idx} 
-          className="p-5 md:p-6 rounded-[2rem] bg-white/40 border border-white/30 dark:bg-slate-900/10 dark:border-slate-800/20 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.02)] space-y-4 hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:bg-white/60 dark:hover:bg-slate-900/20 transition-all duration-300 relative group"
+          className="p-5 md:p-6 rounded-[2rem] bg-white/40 dark:bg-slate-900/30 border border-white/20 dark:border-slate-800/30 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.015)] space-y-4 hover:shadow-[0_8px_30px_rgba(99,102,241,0.03)] hover:bg-white/60 dark:hover:bg-slate-900/40 transition-all duration-300 relative group"
         >
           {/* Header row of the card */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-200/40">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-200/30 dark:border-slate-800/30">
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2.5 cursor-pointer">
                 <Checkbox
                   checked={item.is_completed}
                   onCheckedChange={(v) => {
@@ -390,17 +391,17 @@ export default function WeeklyReportsPage() {
                     if (v) next[idx].progress = 'completed'
                     setItems(next)
                   }}
-                  className="h-6 w-6 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500/30 transition-all"
+                  className="h-6 w-6 rounded-lg border-slate-350 dark:border-slate-650 text-indigo-600 focus:ring-indigo-500/20 transition-all"
                 />
-                <span className="text-xs font-bold text-slate-700 select-none">ทำสำเร็จแล้ว</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 select-none font-thai">ทำสำเร็จแล้ว</span>
               </label>
-              <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-100/50 px-2.5 py-1 rounded-xl">
-                รายการที่ #{idx + 1}
+              <span className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/30 px-2.5 py-1 rounded-xl font-sans">
+                TASK #{idx + 1}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1 hidden sm:inline">ความคืบหน้า:</span>
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mr-1 hidden sm:inline font-sans">PROGRESS:</span>
               <Select 
                 value={item.progress} 
                 onValueChange={v => { 
@@ -410,14 +411,14 @@ export default function WeeklyReportsPage() {
                   setItems(next) 
                 }}
               >
-                <SelectTrigger className={cn("rounded-xl border-slate-200 text-xs font-bold h-9 px-4 min-w-[130px] shadow-sm bg-white focus:ring-2 focus:ring-indigo-100", 
+                <SelectTrigger className={cn("rounded-xl border-slate-200 dark:border-slate-800 text-xs font-bold h-9 px-4 min-w-[130px] shadow-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-150/20 font-thai", 
                   PROGRESS_OPTIONS.find(o => o.value === item.progress)?.color
                 )}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200">
+                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                   {PROGRESS_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs font-bold rounded-lg m-1 cursor-pointer">{o.label}</SelectItem>
+                    <SelectItem key={o.value} value={o.value} className="text-xs font-bold rounded-lg m-1 cursor-pointer font-thai">{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -425,7 +426,7 @@ export default function WeeklyReportsPage() {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl h-9 w-9 transition-colors ml-2"
+                className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-350 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl h-9 w-9 transition-colors ml-2"
                 onClick={() => { const next = items.filter((_, i) => i !== idx); setItems(next) }}
               >
                 <Trash2 className="w-4 h-4" />
@@ -437,12 +438,12 @@ export default function WeeklyReportsPage() {
           <div className="grid grid-cols-1 gap-4 pt-1 lg:grid-cols-12">
             {/* Plan / Work details (spacious textarea) */}
             <div className="lg:col-span-7 space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">📝 แผนงาน / รายละเอียดผลงานประจำสัปดาห์</label>
+              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block font-thai">📝 แผนงาน / รายละเอียดผลงานประจำสัปดาห์</label>
               <Textarea
                 placeholder="ระบุแผนงานหรือรายละเอียดผลงานประจำสัปดาห์นี้..."
                 value={item.plan}
                 onChange={e => { const next = [...items]; next[idx].plan = e.target.value; setItems(next) }}
-                className="rounded-2xl border-slate-200 bg-white text-slate-800 focus:ring-4 focus:ring-indigo-100/50 focus:border-indigo-500 transition-all resize-none min-h-[100px] p-4 text-sm font-medium leading-relaxed"
+                className="rounded-2xl border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-950/40 text-slate-800 dark:text-slate-200 focus:ring-4 focus:ring-indigo-100/30 dark:focus:ring-indigo-950/30 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all resize-none min-h-[100px] p-4 text-sm font-medium leading-relaxed font-thai"
               />
             </div>
 
@@ -451,37 +452,37 @@ export default function WeeklyReportsPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* Problems */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">⚠ ปัญหาที่พบ (ถ้ามี)</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block font-thai">⚠ ปัญหาที่พบ (ถ้ามี)</label>
                   <Input
                     placeholder="ระบุอุปสรรคหรือปัญหา..."
                     value={item.problems}
                     onChange={e => { const next = [...items]; next[idx].problems = e.target.value; setItems(next) }}
-                    className="rounded-2xl border-slate-200 bg-white text-slate-800 text-xs h-11 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    className="rounded-2xl border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-950/40 text-slate-800 dark:text-slate-200 text-xs h-11 focus:ring-2 focus:ring-indigo-100/30 focus:border-indigo-500 font-thai"
                   />
                 </div>
 
                 {/* Suggestions */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">💡 ข้อเสนอแนะ (ถ้ามี)</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block font-thai">💡 ข้อเสนอแนะ (ถ้ามี)</label>
                   <Input
                     placeholder="ระบุข้อเสนอแนะหรือแนวทาง..."
                     value={item.suggestions}
                     onChange={e => { const next = [...items]; next[idx].suggestions = e.target.value; setItems(next) }}
-                    className="rounded-2xl border-slate-200 bg-white text-slate-800 text-xs h-11 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    className="rounded-2xl border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-950/40 text-slate-800 dark:text-slate-200 text-xs h-11 focus:ring-2 focus:ring-indigo-100/30 focus:border-indigo-500 font-thai"
                   />
                 </div>
               </div>
 
               {/* File input / name */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 block">📎 ลิงก์ไฟล์หรือเอกสารแนบ (ถ้ามี)</label>
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 block font-thai">📎 ลิงก์ไฟล์หรือเอกสารแนบ (ถ้ามี)</label>
                 <div className="relative">
-                  <Paperclip className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Paperclip className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <Input
                     placeholder="ระบุชื่อหรือ URL ของเอกสารแนบ..."
                     value={item.file_name}
                     onChange={e => { const next = [...items]; next[idx].file_name = e.target.value; setItems(next) }}
-                    className="rounded-2xl border-slate-200 bg-white text-slate-800 pl-10 text-xs h-11 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                    className="rounded-2xl border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-950/40 text-slate-800 dark:text-slate-200 pl-10 text-xs h-11 focus:ring-2 focus:ring-indigo-100/30 focus:border-indigo-500 font-thai"
                   />
                 </div>
               </div>
@@ -491,7 +492,7 @@ export default function WeeklyReportsPage() {
       ))}
       <Button 
         variant="outline" 
-        className="rounded-2xl border-dashed border-slate-300 text-slate-500 w-full h-14 bg-white/20 hover:bg-white/60 hover:text-indigo-600 hover:border-indigo-300 transition-all duration-300 font-bold flex items-center justify-center gap-2 border-2"
+        className="rounded-2xl border-dashed border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 w-full h-14 bg-white/20 dark:bg-slate-900/20 hover:bg-white/60 dark:hover:bg-slate-900/40 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-850 transition-all duration-300 font-bold flex items-center justify-center gap-2 border-2 font-thai"
         onClick={() => setItems([...items, emptyItem()])}
       >
         <Plus className="w-5 h-5 mr-1" /> เพิ่มรายการงานใหม่
@@ -519,19 +520,20 @@ export default function WeeklyReportsPage() {
 
       {showCreate ? (
         /* ===== IN-PAGE CREATE FORM ===== */
-        <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-6">
           <Button 
             variant="ghost" 
             onClick={() => { setShowCreate(false); setNewItems([emptyItem(), emptyItem(), emptyItem()]); }} 
-            className="mb-6 rounded-2xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 font-bold transition-all"
+            className="rounded-2xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 dark:text-slate-400 dark:hover:text-indigo-450 dark:hover:bg-indigo-950/20 font-bold font-thai transition-all"
           >
-            <ArrowLeft className="mr-2 w-4 h-4" /> กลับไปรายการ
+            <ArrowLeft className="mr-2 w-4 h-4" /> 
+            <span>กลับไปรายการ</span>
           </Button>
-
-          <Card className="rounded-[2.5rem] border border-white/40 shadow-[0_20px_50px_rgba(0,0,0,0.03)] bg-white/70 backdrop-blur-xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-indigo-600 to-violet-600 p-6 md:p-8 text-white relative">
+ 
+          <Card className="rounded-[2.5rem] border border-white/40 dark:border-slate-800/40 shadow-[0_20px_50px_rgba(0,0,0,0.025)] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl overflow-hidden transition-all duration-300">
+            <CardHeader className="bg-gradient-to-r from-indigo-600 to-violet-600 p-6 md:p-8 text-white relative border-b border-white/10 dark:border-slate-800/10">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+              <CardTitle className="text-2xl font-extrabold tracking-tight flex items-center gap-3 font-thai">
                 <Sparkles className="w-6 h-6 text-indigo-200" />
                 <span>สร้างรายงานประจำสัปดาห์</span>
               </CardTitle>
@@ -539,70 +541,70 @@ export default function WeeklyReportsPage() {
             <CardContent className="p-6 md:p-8 space-y-8">
               
               {/* Date & Import Panel */}
-              <div className="flex flex-col gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 shadow-inner">
+              <div className="flex flex-col gap-6 bg-slate-50/30 dark:bg-slate-900/30 p-6 rounded-[2rem] border border-slate-100/60 dark:border-slate-800/40 shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
                 {/* Week selector */}
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <Button 
                     variant="outline" 
-                    className="rounded-2xl border-slate-200 hover:bg-white hover:border-slate-300 font-bold shadow-sm"
+                    className="rounded-2xl border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 font-bold font-thai shadow-sm"
                     onClick={() => setNewWeekOffset(p => p - 1)}
                   >
                     ← สัปดาห์ก่อนหน้า
                   </Button>
                   <div className="text-center min-w-[200px] py-1">
-                    <p className="font-extrabold text-lg text-slate-800 tracking-tight flex items-center justify-center gap-2">
+                    <p className="font-extrabold text-lg text-slate-800 dark:text-slate-200 tracking-tight flex items-center justify-center gap-2 font-thai">
                       <Calendar className="w-5 h-5 text-indigo-500" />
                       สัปดาห์ {weekLabel}
                     </p>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">{format(weekStart, 'yyyy-MM-dd')} ถึง {format(weekEnd, 'yyyy-MM-dd')}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium font-thai mt-1">{format(weekStart, 'yyyy-MM-dd')} ถึง {format(weekEnd, 'yyyy-MM-dd')}</p>
                   </div>
                   <Button 
                     variant="outline" 
-                    className="rounded-2xl border-slate-200 hover:bg-white hover:border-slate-300 font-bold shadow-sm"
+                    className="rounded-2xl border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 font-bold font-thai shadow-sm"
                     onClick={() => setNewWeekOffset(p => p + 1)}
                   >
                     สัปดาห์ถัดไป →
                   </Button>
                 </div>
-
+ 
                 {/* Import actions */}
-                <div className="flex flex-col sm:flex-row justify-center gap-3 border-t border-slate-200/55 pt-5">
+                <div className="flex flex-col sm:flex-row justify-center gap-3 border-t border-slate-200/30 dark:border-slate-800/30 pt-5">
                   <Button 
                     type="button"
                     variant="outline" 
-                    className="rounded-2xl border-indigo-200 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-50 font-bold h-11 px-5 gap-2 flex items-center justify-center transition-all duration-300 shadow-sm"
+                    className="rounded-2xl border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-bold font-thai h-11 px-5 gap-2 flex items-center justify-center transition-all duration-300 shadow-sm"
                     onClick={handleImportDailyLogs}
                     disabled={isImporting}
                   >
-                    {isImporting ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" /> : <FileText className="w-4 h-4 text-indigo-500" />}
+                    {isImporting ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-600" /> : <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
                     <span>ดึงจากบันทึกเนื้องานรายวัน</span>
                   </Button>
-
+ 
                   <Button 
                     type="button"
                     variant="outline" 
-                    className="rounded-2xl border-amber-200 bg-amber-50/30 text-amber-800 hover:bg-amber-50 font-bold h-11 px-5 gap-2 flex items-center justify-center transition-all duration-300 shadow-sm"
+                    className="rounded-2xl border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 font-bold font-thai h-11 px-5 gap-2 flex items-center justify-center transition-all duration-300 shadow-sm"
                     onClick={handleImportPreviousIncomplete}
                   >
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                    <AlertCircle className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                     <span>ดึงงานค้างจากสัปดาห์ก่อน</span>
                   </Button>
                 </div>
               </div>
-
+ 
               {renderItemEditor(newItems, setNewItems)}
-
+ 
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100/60 dark:border-slate-800/40">
                 <Button 
                   variant="outline" 
-                  className="rounded-2xl h-12 px-6 font-bold text-slate-500 border-slate-200 hover:bg-slate-50" 
+                  className="rounded-2xl h-12 px-6 font-bold font-thai text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-850" 
                   onClick={() => { setShowCreate(false); setNewItems([emptyItem(), emptyItem(), emptyItem()]); }}
                 >
                   ยกเลิก
                 </Button>
                 <Button 
-                  className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-6 shadow-lg shadow-indigo-600/10 flex items-center gap-2 transition-all duration-300"
+                  className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-6 shadow-lg shadow-indigo-600/10 flex items-center gap-2 transition-all duration-300 font-thai"
                   onClick={() => createMutation.mutate()}
                   disabled={createMutation.isPending || !newItems.some(i => i.plan.trim())}
                 >
@@ -617,91 +619,94 @@ export default function WeeklyReportsPage() {
         /* ===== NORMAL PAGE CONTENT ===== */
         <>
           {/* Header Card (Bento/Glassmorphism style) */}
-          <div className="relative overflow-hidden bg-white/70 backdrop-blur-xl border border-white/50 p-6 md:p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.02)] flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-300">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="space-y-1">
-              <h1 className="text-3xl font-black tracking-tight text-slate-800 leading-tight flex items-center gap-2">
+          <div className="relative overflow-hidden bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/30 dark:border-slate-800/30 p-6 md:p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.015)] flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(99,102,241,0.04)]">
+            <div className="absolute -top-12 -right-12 w-64 h-64 bg-gradient-to-tr from-indigo-500/10 to-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="space-y-2 relative z-10">
+              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-full border border-indigo-100/30 font-sans">WORKSPACE HUB</span>
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 leading-normal font-thai mt-1 flex items-center gap-3">
                 <span>📋 รายงานรายสัปดาห์</span>
               </h1>
-              <p className="text-slate-400 font-semibold text-sm">สั่งงาน ติดตาม และรายงานความคืบหน้าในทีม</p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm md:text-base leading-relaxed font-thai">
+                สั่งงาน ติดตาม และรายงานความคืบหน้าการดำเนินงานในทีมของท่าน
+              </p>
             </div>
             
             <Button 
-              className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-6 h-13 shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-300 flex items-center gap-2 self-start md:self-auto"
+              className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-6 h-13 shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 transition-all duration-300 flex items-center gap-2 self-start md:self-auto transform hover:-translate-y-0.5"
               onClick={() => setShowCreate(true)}
             >
               <Plus className="w-5 h-5" /> 
-              <span>สร้างรายงานใหม่</span>
+              <span className="font-thai">สร้างรายงานใหม่</span>
             </Button>
           </div>
 
           {/* Stats Bar */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 p-4 rounded-[2rem] shadow-sm flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+            <div className="bg-white/40 dark:bg-slate-900/30 backdrop-blur-md border border-white/20 dark:border-slate-800/20 p-5 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.01)] flex items-center gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(99,102,241,0.04)] group">
+              <div className="p-3.5 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 text-indigo-600 dark:text-indigo-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-indigo-100/10">
                 <FileText className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ทั้งหมด</p>
-                <p className="text-xl font-black text-slate-700">{stats.total} <span className="text-xs font-semibold text-slate-400">ฉบับ</span></p>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans">TOTALS</p>
+                <p className="text-2xl font-black text-slate-800 dark:text-slate-200 font-sans leading-none">{stats.total} <span className="text-xs font-bold text-slate-400 dark:text-slate-500 font-thai">ฉบับ</span></p>
               </div>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 p-4 rounded-[2rem] shadow-sm flex items-center gap-4">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+            <div className="bg-white/40 dark:bg-slate-900/30 backdrop-blur-md border border-white/20 dark:border-slate-800/20 p-5 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.01)] flex items-center gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(16,185,129,0.04)] group">
+              <div className="p-3.5 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-emerald-100/10">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ตรวจแล้ว</p>
-                <p className="text-xl font-black text-slate-700">{stats.completed} <span className="text-xs font-semibold text-slate-400">ฉบับ</span></p>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans">COMPLETED</p>
+                <p className="text-2xl font-black text-slate-800 dark:text-slate-200 font-sans leading-none">{stats.completed} <span className="text-xs font-bold text-slate-400 dark:text-slate-500 font-thai">ฉบับ</span></p>
               </div>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 p-4 rounded-[2rem] shadow-sm flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 text-indigo-500 rounded-2xl">
+            <div className="bg-white/40 dark:bg-slate-900/30 backdrop-blur-md border border-white/20 dark:border-slate-800/20 p-5 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.01)] flex items-center gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(99,102,241,0.04)] group">
+              <div className="p-3.5 bg-gradient-to-br from-violet-500/10 to-violet-500/5 text-violet-600 dark:text-violet-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-violet-100/10">
                 <Send className="w-5 h-5 animate-pulse" />
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">รอรีวิว</p>
-                <p className="text-xl font-black text-slate-700">{stats.pending} <span className="text-xs font-semibold text-slate-400">ฉบับ</span></p>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans">PENDING REVIEW</p>
+                <p className="text-2xl font-black text-slate-800 dark:text-slate-200 font-sans leading-none">{stats.pending} <span className="text-xs font-bold text-slate-400 dark:text-slate-500 font-thai">ฉบับ</span></p>
               </div>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 p-4 rounded-[2rem] shadow-sm flex items-center gap-4">
-              <div className="p-3 bg-slate-100 text-slate-500 rounded-2xl">
+            <div className="bg-white/40 dark:bg-slate-900/30 backdrop-blur-md border border-white/20 dark:border-slate-800/20 p-5 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.01)] flex items-center gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(148,163,184,0.04)] group">
+              <div className="p-3.5 bg-gradient-to-br from-slate-500/10 to-slate-500/5 text-slate-500 dark:text-slate-400 rounded-2xl group-hover:scale-110 transition-transform duration-300 border border-slate-100/10">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">แบบร่าง</p>
-                <p className="text-xl font-black text-slate-700">{stats.drafts} <span className="text-xs font-semibold text-slate-400">ฉบับ</span></p>
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans">DRAFTS</p>
+                <p className="text-2xl font-black text-slate-800 dark:text-slate-200 font-sans leading-none">{stats.drafts} <span className="text-xs font-bold text-slate-400 dark:text-slate-500 font-thai">ฉบับ</span></p>
               </div>
             </div>
           </div>
 
           {/* Sub Menu Navigation (Pill Selector tabs) */}
-          <div className="flex p-1.5 bg-slate-200/40 backdrop-blur-md border border-slate-200/50 rounded-2xl max-w-sm gap-1 shadow-sm">
+          <div className="flex p-1 bg-slate-200/30 dark:bg-slate-900/50 backdrop-blur-lg border border-white/10 dark:border-slate-800/40 rounded-2xl max-w-[340px] gap-1 shadow-[0_4px_24px_rgba(0,0,0,0.015)]">
             <button 
               onClick={() => setActiveTab("my")}
               className={cn(
-                "flex-1 py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2",
+                "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 font-thai transform active:scale-95",
                 activeTab === "my" 
-                  ? "bg-white text-indigo-600 shadow-sm font-extrabold" 
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_4px_12px_rgba(99,102,241,0.08)] font-extrabold" 
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-white/10"
               )}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5" />
               <span>รายงานของฉัน</span>
             </button>
             <button 
               onClick={() => setActiveTab("team")}
               className={cn(
-                "flex-1 py-2.5 px-4 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2",
+                "flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-2 font-thai transform active:scale-95",
                 activeTab === "team" 
-                  ? "bg-white text-indigo-600 shadow-sm font-extrabold" 
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-[0_4px_12px_rgba(99,102,241,0.08)] font-extrabold" 
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-white/10"
               )}
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" />
               <span>รายงานทีม</span>
             </button>
           </div>
@@ -784,9 +789,7 @@ export default function WeeklyReportsPage() {
           </CardContent>
         </Card>
       )
-    }
-
-    return reportList.map((report: any) => {
+    }    return reportList.map((report: any) => {
       const isExpanded = expandedReports.includes(report.id)
       const isEditing = editingReport === report.id
       const isReviewing = reviewingReport === report.id
@@ -794,17 +797,25 @@ export default function WeeklyReportsPage() {
       const totalCount = report.items?.length || 0
       const issueCount = report.items?.filter((i: any) => i.progress === 'has_issue').length || 0
 
+      // Accent border class
+      const borderAccentClass = 
+        report.status === 'reviewed' ? "border-l-4 border-l-emerald-500" :
+        issueCount > 0 ? "border-l-4 border-l-rose-500 animate-pulse" :
+        completedCount === totalCount && totalCount > 0 ? "border-l-4 border-l-teal-500" :
+        "border-l-4 border-l-indigo-500"
+
       return (
         <Card 
           key={report.id} 
           className={cn(
-            "rounded-[2.5rem] border border-white/50 bg-white/70 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.01)] overflow-hidden hover:shadow-[0_12px_40px_rgba(0,0,0,0.03)] hover:bg-white/90 transition-all duration-300",
-            isExpanded && "shadow-[0_15px_45px_rgba(0,0,0,0.03)]"
+            "rounded-[2.5rem] border border-white/40 dark:border-slate-800/30 bg-white/70 dark:bg-slate-900/50 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.015)] overflow-hidden hover:shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300",
+            borderAccentClass,
+            isExpanded && "shadow-[0_15px_45px_rgba(99,102,241,0.04)]"
           )}
         >
           {/* Report Header Block */}
           <div
-            className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/30 transition-colors"
+            className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/20 dark:hover:bg-slate-800/10 transition-colors"
             role="button"
             tabIndex={0}
             onClick={() => toggleExpand(report.id)}
@@ -815,38 +826,38 @@ export default function WeeklyReportsPage() {
             }}
           >
             <div className="flex items-start gap-4">
-              <div className="mt-1.5 p-1 bg-slate-100 rounded-lg text-slate-400 flex-shrink-0">
-                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              <div className="mt-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500 flex-shrink-0 transition-transform duration-300" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                <ChevronRight className="w-4 h-4" />
               </div>
 
               {activeTab === 'team' && report.user && (
-                <Avatar className="h-11 w-11 border-2 border-white shadow-sm ring-1 ring-slate-100 flex-shrink-0">
+                <Avatar className="h-11 w-11 border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-100 dark:ring-slate-800 flex-shrink-0">
                   <AvatarImage src={report.user.avatar_url} />
-                  <AvatarFallback className="text-xs font-bold bg-indigo-50 text-indigo-600">{report.user.full_name?.charAt(0)}</AvatarFallback>
+                  <AvatarFallback className="text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">{report.user.full_name?.charAt(0)}</AvatarFallback>
                 </Avatar>
               )}
 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-extrabold text-slate-800 text-base">สัปดาห์ {report.week_label}</h3>
+                  <h3 className="font-extrabold text-slate-800 dark:text-slate-200 text-base font-thai leading-relaxed">สัปดาห์ {report.week_label}</h3>
                   {getStatusBadge(report.status)}
                   {issueCount > 0 && (
-                    <Badge className="bg-rose-50 text-rose-600 border border-rose-100 rounded-full text-[10px] px-2 py-0.5 font-bold flex items-center gap-1">
+                    <Badge className="bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-100/30 rounded-full text-[10px] px-2.5 py-0.5 font-bold flex items-center gap-1 font-thai">
                       <AlertTriangle className="w-3 h-3 text-rose-500" /> 
                       <span>{issueCount} ปัญหา</span>
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold flex flex-wrap items-center gap-1.5 font-thai">
                   {activeTab === 'team' && report.user && (
-                    <span className="text-slate-600 font-bold">{report.user.full_name}</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-bold">{report.user.full_name}</span>
                   )}
                   {activeTab === 'team' && report.user && <span>•</span>}
                   <span>เสร็จสิ้น {completedCount}/{totalCount} รายการ</span>
                   {report.submitted_at && (
                     <>
                       <span>•</span>
-                      <span className="text-slate-400 font-medium">ส่งเมื่อ {format(new Date(report.submitted_at), 'd MMM HH:mm', { locale: th })}</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-medium">ส่งเมื่อ {format(new Date(report.submitted_at), 'd MMM HH:mm', { locale: th })}</span>
                     </>
                   )}
                 </p>
@@ -857,11 +868,11 @@ export default function WeeklyReportsPage() {
             <div className="flex items-center gap-2 self-end sm:self-auto" onClick={e => e.stopPropagation()}>
               {report.status === 'draft' && (
                 confirmSubmitReportId === report.id ? (
-                  <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-2xl animate-in fade-in slide-in-from-right-2 duration-300">
-                    <span className="text-xs font-bold text-indigo-700">ส่งรายงานนี้?</span>
+                  <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100/30 px-3 py-1.5 rounded-2xl animate-in fade-in slide-in-from-right-2 duration-300">
+                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 font-thai">ส่งรายงานนี้?</span>
                     <Button 
                       size="sm" 
-                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-7 px-3 text-white shadow-sm"
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-7 px-3 text-white shadow-sm font-thai"
                       onClick={() => {
                         submitMutation.mutate(report.id)
                         setConfirmSubmitReportId(null)
@@ -872,7 +883,7 @@ export default function WeeklyReportsPage() {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="rounded-xl text-slate-500 hover:bg-slate-100 text-xs font-bold h-7 px-2.5"
+                      className="rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold h-7 px-2.5 font-thai"
                       onClick={() => setConfirmSubmitReportId(null)}
                     >
                       ยกเลิก
@@ -880,16 +891,16 @@ export default function WeeklyReportsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
-                    <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 border-slate-200 hover:bg-slate-50" onClick={() => startEditing(report)}>
+                    <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-thai" onClick={() => startEditing(report)}>
                       แก้ไข
                     </Button>
-                    <Button size="sm" className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-8 text-white shadow-sm flex items-center gap-1"
+                    <Button size="sm" className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-8 text-white shadow-sm flex items-center gap-1 font-thai"
                       onClick={() => setConfirmSubmitReportId(report.id)}
                     >
                       <Send className="w-3 h-3" /> 
                       <span>ส่งรายงาน</span>
                     </Button>
-                    <Button variant="ghost" size="icon" className="rounded-xl text-rose-400 hover:bg-rose-50 h-8 w-8"
+                    <Button variant="ghost" size="icon" className="rounded-xl text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 h-8 w-8"
                       onClick={() => { if (confirm('ต้องการลบรายงานนี้ใช่หรือไม่?')) deleteMutation.mutate(report.id) }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -900,7 +911,7 @@ export default function WeeklyReportsPage() {
               {report.status === 'submitted' && activeTab === 'team' && (
                 <Button 
                   size="sm" 
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold h-8 text-white flex items-center gap-1 shadow-sm"
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold h-8 text-white flex items-center gap-1 shadow-sm font-thai"
                   onClick={() => {
                     setReviewingReport(report.id)
                     setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
@@ -917,8 +928,8 @@ export default function WeeklyReportsPage() {
                 </Button>
               )}
               {report.status === 'reviewed' && (
-                <div className="p-1 bg-emerald-50 text-emerald-500 rounded-full border border-emerald-100 shadow-sm flex items-center justify-center">
-                  <Check className="w-4 h-4" />
+                <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400 rounded-full border border-emerald-100/30 shadow-sm flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5" />
                 </div>
               )}
             </div>
@@ -926,7 +937,7 @@ export default function WeeklyReportsPage() {
 
           {/* Progress Bar Widget */}
           <div className="px-6 pb-4">
-            <div className="h-2 bg-slate-100 dark:bg-slate-900/40 rounded-full overflow-hidden relative shadow-inner">
+            <div className="h-1.5 bg-slate-100 dark:bg-slate-800/40 rounded-full overflow-hidden relative shadow-inner">
               <div 
                 className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(16,185,129,0.25)]"
                 style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }} 
@@ -936,135 +947,154 @@ export default function WeeklyReportsPage() {
 
           {/* Expanded Content View */}
           {isExpanded && (
-            <div className="border-t border-slate-100 dark:border-slate-800/20 bg-slate-50/20">
+            <div className="border-t border-slate-100/60 dark:border-slate-800/20 bg-slate-50/15 dark:bg-slate-900/10">
               {isEditing ? (
                 <div className="p-5 md:p-6 space-y-4">
                   {renderItemEditor(editItems, setEditItems)}
-                  <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-4">
-                    <Button variant="outline" className="rounded-2xl px-5 h-11 font-bold text-slate-500 border-slate-200 hover:bg-slate-50" onClick={() => setEditingReport(null)}>ยกเลิก</Button>
-                    <Button className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 h-11 shadow-lg shadow-indigo-600/10 flex items-center gap-2 transition-all duration-300"
+                  <div className="flex justify-end gap-3 pt-6 border-t border-slate-200/40 mt-4">
+                    <Button variant="outline" className="rounded-2xl px-5 h-11 font-bold text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850" onClick={() => setEditingReport(null)}>ยกเลิก</Button>
+                    <Button className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 h-11 shadow-lg shadow-indigo-600/10 flex items-center gap-2 transition-all duration-300 animate-in fade-in duration-300"
                       onClick={() => updateMutation.mutate({ id: report.id, items: editItems })}
                       disabled={updateMutation.isPending}
                     >
                       {updateMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      <span>บันทึกการแก้ไข</span>
+                      <span className="font-thai">บันทึกการแก้ไข</span>
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="p-5 md:p-6 space-y-4 divide-y divide-slate-100">
-                  {report.items?.map((item: any, idx: number) => (
-                    <div key={item.id || idx} className="pt-4 first:pt-0 flex items-start gap-4 transition-all duration-300 hover:translate-x-0.5">
-                      {/* Completion check indicator */}
-                      <div className="mt-1 flex-shrink-0">
-                        {item.is_completed ? (
-                          <div className="p-1 bg-emerald-50 text-emerald-500 rounded-full border border-emerald-100 shadow-sm flex items-center justify-center">
-                            <Check className="w-4.5 h-4.5" />
-                          </div>
-                        ) : (
-                          <div className="p-1 text-slate-300 rounded-full border border-slate-200 shadow-sm flex items-center justify-center bg-white">
-                            <div className="w-4.5 h-4.5 rounded-full border border-dashed border-slate-300" />
-                          </div>
-                        )}
-                      </div>
+                <div className="p-5 md:p-6 space-y-4">
+                  {/* Checklist Items Container */}
+                  <div className="grid grid-cols-1 gap-4">
+                    {report.items?.map((item: any, idx: number) => {
+                      const itemBorderColor = 
+                        item.is_completed || item.progress === 'completed' ? "border-l-4 border-l-emerald-500 bg-emerald-500/5 dark:bg-emerald-950/5" :
+                        item.progress === 'has_issue' ? "border-l-4 border-l-rose-500 bg-rose-500/5 dark:bg-rose-950/5 animate-pulse-subtle" :
+                        item.progress === 'in_progress' ? "border-l-4 border-l-amber-500 bg-amber-500/5 dark:bg-amber-950/5" :
+                        "border-l-4 border-l-slate-300 dark:border-l-slate-700 bg-slate-100/5 dark:bg-slate-900/5"
 
-                      {/* Content block */}
-                      <div className="flex-1 space-y-2.5">
-                        <div className="pr-4">
-                          <p className={cn(
-                            "text-sm font-semibold text-slate-700 leading-relaxed whitespace-pre-wrap",
-                            item.is_completed && "text-slate-400 line-through decoration-slate-300/40"
-                          )}>
-                            {item.plan}
-                          </p>
-                        </div>
-
-                        {/* Metadata Tag Row */}
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          {getProgressBadge(item.progress)}
-
-                          {item.file_name && (
-                            <a 
-                              href={item.file_url || '#'} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-indigo-50/50 border border-indigo-100/50 text-indigo-600 hover:bg-indigo-50 font-bold transition-all text-[10px]"
-                            >
-                              <Paperclip className="w-3 h-3 text-indigo-400" /> 
-                              <span>{item.file_name}</span>
-                              <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-indigo-400" />
-                            </a>
+                      return (
+                        <div 
+                          key={item.id || idx} 
+                          className={cn(
+                            "p-5 rounded-2xl border border-slate-100 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(0,0,0,0.01)] flex flex-col gap-4 transition-all duration-300 hover:shadow-md hover:bg-white dark:hover:bg-slate-900/60", 
+                            itemBorderColor
                           )}
-
-                          {item.problems && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 font-bold text-[10px] max-w-sm truncate">
-                              <span className="text-rose-500">⚠ ปัญหา:</span> {item.problems}
-                            </span>
-                          )}
-
-                          {item.suggestions && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-violet-50 border border-violet-100 text-violet-700 font-bold text-[10px] max-w-sm truncate">
-                              <span className="text-violet-500">💡 ข้อคิดเห็น:</span> {item.suggestions}
-                            </span>
-                          )}
-
-                          {!isReviewing && item.manager_comment && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50/60 border border-emerald-100/50 text-emerald-700 font-bold w-full mt-1.5 text-xs">
-                              <span className="font-extrabold flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> ความเห็นหัวหน้า:</span> {item.manager_comment}
-                            </span>
-                          )}
-
-                          {!isReviewing && item.deadline && (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-100 text-amber-700 font-bold text-[10px] mt-1">
-                              <span>⏰ กำหนดส่ง:</span> {format(new Date(item.deadline), 'd MMM yyyy', { locale: th })}
-                            </span>
-                          )}
-
-                          {/* Reviewer Inputs */}
-                          {isReviewing && (
-                            <div className="w-full mt-3 p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100 space-y-3">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest block">ความเห็น / ข้อเสนอแนะ (เฉพาะรายการนี้)</label>
-                                <Input 
-                                  placeholder="เพิ่มข้อเสนอแนะสำหรับการทำงานชิ้นนี้..." 
-                                  value={editItems[idx]?.manager_comment || ''}
-                                  onChange={e => {
-                                    const newItems = [...editItems]
-                                    newItems[idx] = { ...newItems[idx], manager_comment: e.target.value }
-                                    setEditItems(newItems)
-                                  }}
-                                  className="h-9 text-xs bg-white border-emerald-200 focus-visible:ring-emerald-500 focus-visible:ring-2"
-                                />
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 flex-1">
+                              {/* Completion indicator icon */}
+                              <div className="mt-1 flex-shrink-0">
+                                {item.is_completed ? (
+                                  <div className="p-1 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-200/30 shadow-sm flex items-center justify-center">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </div>
+                                ) : (
+                                  <div className="p-1 text-slate-300 dark:text-slate-655 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center bg-white dark:bg-slate-800">
+                                    <div className="w-3.5 h-3.5 rounded-full border border-dashed border-slate-300 dark:border-slate-600" />
+                                  </div>
+                                )}
                               </div>
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest block">กำหนดส่งงาน (Deadline)</label>
-                                <Input 
-                                  type="date"
-                                  value={editItems[idx]?.deadline || ''}
-                                  onChange={e => {
-                                    const newItems = [...editItems]
-                                    newItems[idx] = { ...newItems[idx], deadline: e.target.value }
-                                    setEditItems(newItems)
-                                  }}
-                                  className="h-9 text-xs w-full sm:w-48 bg-white border-emerald-200 focus-visible:ring-emerald-500 focus-visible:ring-2"
-                                />
+                              <div className="space-y-1 flex-1">
+                                <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest font-sans">TASK #{idx + 1}</span>
+                                <p className={cn(
+                                  "text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed font-thai whitespace-pre-wrap",
+                                  item.is_completed && "text-slate-400 dark:text-slate-500 line-through decoration-slate-300/40"
+                                )}>
+                                  {item.plan}
+                                </p>
                               </div>
                             </div>
-                          )}
+                            <div className="shrink-0 flex items-center gap-2">
+                              {getProgressBadge(item.progress)}
+                            </div>
+                          </div>
+
+                          {/* Metadata Tag Row */}
+                          <div className="flex flex-wrap items-center gap-2 text-xs pt-2 border-t border-slate-100/30 dark:border-slate-800/10">
+                            {item.file_name && (
+                              <a 
+                                href={item.file_url || '#'} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 font-bold transition-all text-[10px] font-thai"
+                              >
+                                <Paperclip className="w-3 h-3 text-indigo-400" /> 
+                                <span>{item.file_name}</span>
+                                <ExternalLink className="w-2.5 h-2.5 ml-0.5 text-indigo-400" />
+                              </a>
+                            )}
+
+                            {item.problems && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-100/30 text-rose-700 dark:text-rose-400 font-bold text-[10px] font-thai max-w-sm truncate">
+                                <span className="text-rose-500">⚠ ปัญหา:</span> {item.problems}
+                              </span>
+                            )}
+
+                            {item.suggestions && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100/30 text-violet-700 dark:text-violet-400 font-bold text-[10px] font-thai max-w-sm truncate">
+                                <span className="text-violet-500">💡 ข้อคิดเห็น:</span> {item.suggestions}
+                              </span>
+                            )}
+
+                            {!isReviewing && item.manager_comment && (
+                              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100/30 text-emerald-700 dark:text-emerald-400 font-bold w-full mt-1.5 text-xs font-thai">
+                                <span className="font-extrabold flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> ความเห็นหัวหน้า:</span> {item.manager_comment}
+                              </span>
+                            )}
+
+                            {!isReviewing && item.deadline && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100/30 text-amber-700 dark:text-amber-400 font-bold text-[10px] font-thai mt-1">
+                                <span>⏰ กำหนดส่ง:</span> {format(new Date(item.deadline), 'd MMM yyyy', { locale: th })}
+                              </span>
+                            )}
+
+                            {/* Reviewer Inputs */}
+                            {isReviewing && (
+                              <div className="w-full mt-3 p-4 bg-emerald-50/20 dark:bg-emerald-950/10 rounded-2xl border border-emerald-150/30 space-y-3">
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest block font-thai">ความเห็น / ข้อเสนอแนะ (เฉพาะรายการนี้)</label>
+                                  <Input 
+                                    placeholder="เพิ่มข้อเสนอแนะสำหรับการทำงานชิ้นนี้..." 
+                                    value={editItems[idx]?.manager_comment || ''}
+                                    onChange={e => {
+                                      const newItems = [...editItems]
+                                      newItems[idx] = { ...newItems[idx], manager_comment: e.target.value }
+                                      setEditItems(newItems)
+                                    }}
+                                    className="h-10 text-xs bg-white dark:bg-slate-900 border-emerald-250 dark:border-emerald-900/50 focus-visible:ring-emerald-500 focus-visible:ring-2 rounded-xl"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-widest block font-thai">กำหนดส่งงาน (Deadline)</label>
+                                  <Input 
+                                    type="date"
+                                    value={editItems[idx]?.deadline || ''}
+                                    onChange={e => {
+                                      const newItems = [...editItems]
+                                      newItems[idx] = { ...newItems[idx], deadline: e.target.value }
+                                      setEditItems(newItems)
+                                    }}
+                                    className="h-10 text-xs w-full sm:w-48 bg-white dark:bg-slate-900 border-emerald-250 dark:border-emerald-900/50 focus-visible:ring-emerald-500 focus-visible:ring-2 rounded-xl"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })}
+                  </div>
 
                   {/* Manager Overall Comment */}
                   {report.reviewer_comment && (
-                    <div className="mt-4 p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100/50">
+                    <div className="mt-6 p-5 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100/30 shadow-inner">
                       <div className="flex items-start gap-3">
-                        <MessageSquare className="w-4 h-4 text-emerald-600 mt-1 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest">ความเห็นและคำแนะนำจากหัวหน้างาน</p>
-                          <p className="text-sm text-slate-600 mt-1 font-medium leading-relaxed">{report.reviewer_comment}</p>
-                          {report.reviewer && <p className="text-[10px] text-slate-400 mt-1.5 font-bold">— {report.reviewer.full_name}</p>}
+                        <MessageSquare className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400 mt-1 flex-shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-extrabold text-emerald-650 dark:text-emerald-450 uppercase tracking-widest font-thai">ความเห็นและคำแนะนำภาพรวมจากหัวหน้างาน</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed font-thai">{report.reviewer_comment}</p>
+                          {report.reviewer && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold font-thai">— {report.reviewer.full_name}</p>}
                         </div>
                       </div>
                     </div>
@@ -1072,32 +1102,32 @@ export default function WeeklyReportsPage() {
 
                   {/* Inline Review Panel */}
                   {isReviewing && (
-                    <div className="p-5 md:p-6 bg-emerald-50/20 border-t border-emerald-100 rounded-[2rem] mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <h4 className="text-sm font-extrabold text-emerald-800 flex items-center gap-2">
-                        <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" /> 
+                    <div className="p-5 md:p-6 bg-emerald-55/10 dark:bg-emerald-950/5 border-t border-emerald-100/40 rounded-[2.5rem] mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <h4 className="text-sm font-extrabold text-emerald-800 dark:text-emerald-400 flex items-center gap-2 font-thai">
+                        <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" /> 
                         <span>บันทึกความเห็นผลประเมินรายงาน</span>
                       </h4>
                       <Textarea 
                         placeholder="เขียนคำสั่งงานหรือข้อความประเมินภาพรวมรายสัปดาห์..." 
                         value={reviewComment}
                         onChange={e => setReviewComment(e.target.value)} 
-                        className="rounded-2xl min-h-[100px] bg-white border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm p-4 leading-relaxed" 
+                        className="rounded-2xl min-h-[100px] bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-900/50 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm p-4 leading-relaxed font-thai" 
                       />
                       <div className="flex justify-end gap-3">
                         <Button 
                           variant="outline" 
-                          className="rounded-xl h-10 px-4 font-bold border-slate-200 hover:bg-slate-50 text-slate-500" 
+                          className="rounded-xl h-10 px-4 font-bold border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-450 font-thai" 
                           onClick={() => { setReviewingReport(null); setReviewComment(""); setEditItems([]); }}
                         >
                           ยกเลิก
                         </Button>
                         <Button 
-                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-4 shadow-sm"
+                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-4 shadow-sm font-thai"
                           onClick={() => reviewMutation.mutate({ id: report.id, comment: reviewComment, items: editItems })}
                           disabled={reviewMutation.isPending}
                         >
                           {reviewMutation.isPending && <RefreshCw className="w-4 h-4 animate-spin mr-2" />}
-                          ยืนยันการตรวจและส่งข้อเห็น
+                          ยืนยันการตรวจและส่งข้อคิดเห็น
                         </Button>
                       </div>
                     </div>
