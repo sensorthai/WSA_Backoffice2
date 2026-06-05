@@ -62,9 +62,11 @@ export async function PUT(
 
     // 3. Recalculate Total if items changed
     if (body.items) {
-      body.total_amount = body.items.reduce((acc: number, item: any) => {
+      const itemsTotal = body.items.reduce((acc: number, item: any) => {
         return acc + (Number(item.quantity) * Number(item.unit_price))
       }, 0)
+      const vat = Number(body.vat_amount !== undefined ? body.vat_amount : (purchase.vat_amount || 0))
+      body.total_amount = itemsTotal + vat
     }
 
     // 4. Update

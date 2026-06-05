@@ -109,16 +109,14 @@
     button, 
     a, 
     input[type="checkbox"], 
-    input[type="radio"], 
-    [role="button"] {
+    input[type="radio"] {
       position: relative;
     }
     
     button::after,
     a::after,
     input[type="checkbox"]::after,
-    input[type="radio"]::after,
-    [role="button"]::after {
+    input[type="radio"]::after {
       content: '';
       position: absolute;
       top: 50%;

@@ -329,14 +329,24 @@ export default function WeeklyReportsPage() {
   }
 
   const startEditing = (report: any) => {
-    setEditingReport(report.id)
-    // Auto-expand the card so the editor + save button are visible
-    setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
-    setEditItems((report.items || []).map((i: any) => ({
-      plan: i.plan, progress: i.progress, problems: i.problems || '',
-      suggestions: i.suggestions || '', file_url: i.file_url || '',
-      file_name: i.file_name || '', is_completed: i.is_completed
-    })))
+    try {
+      console.log("startEditing called for report:", report.id)
+      setEditingReport(report.id)
+      // Auto-expand the card so the editor + save button are visible
+      setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
+      setEditItems((report.items || []).map((i: any) => ({
+        plan: i.plan || '', 
+        progress: i.progress || 'not_started', 
+        problems: i.problems || '',
+        suggestions: i.suggestions || '', 
+        file_url: i.file_url || '',
+        file_name: i.file_name || '', 
+        is_completed: !!i.is_completed
+      })))
+    } catch (err: any) {
+      toast.error("เกิดข้อผิดพลาดในการเปิดโหมดแก้ไข: " + err.message)
+      console.error("Error in startEditing:", err)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -865,15 +875,17 @@ export default function WeeklyReportsPage() {
             </div>
 
             {/* Header Actions */}
-            <div className="flex items-center gap-2 self-end sm:self-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 self-end sm:self-auto relative z-20" onClick={e => e.stopPropagation()}>
               {report.status === 'draft' && (
                 confirmSubmitReportId === report.id ? (
-                  <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100/30 px-3 py-1.5 rounded-2xl animate-in fade-in slide-in-from-right-2 duration-300">
+                  <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100/30 px-3 py-1.5 rounded-2xl animate-in fade-in slide-in-from-right-2 duration-300" onClick={e => e.stopPropagation()}>
                     <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 font-thai">ส่งรายงานนี้?</span>
                     <Button 
+                      type="button"
                       size="sm" 
                       className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-7 px-3 text-white shadow-sm font-thai"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         submitMutation.mutate(report.id)
                         setConfirmSubmitReportId(null)
                       }}
@@ -881,27 +893,55 @@ export default function WeeklyReportsPage() {
                       ยืนยัน
                     </Button>
                     <Button 
+                      type="button"
                       variant="ghost" 
                       size="sm" 
                       className="rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold h-7 px-2.5 font-thai"
-                      onClick={() => setConfirmSubmitReportId(null)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmSubmitReportId(null)
+                      }}
                     >
                       ยกเลิก
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5">
-                    <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold h-8 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-thai" onClick={() => startEditing(report)}>
+                  <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm" 
+                      className="rounded-xl text-xs font-bold h-8 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-thai" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEditing(report)
+                      }}
+                    >
                       แก้ไข
                     </Button>
-                    <Button size="sm" className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-8 text-white shadow-sm flex items-center gap-1 font-thai"
-                      onClick={() => setConfirmSubmitReportId(report.id)}
+                    <Button 
+                      type="button"
+                      size="sm" 
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold h-8 text-white shadow-sm flex items-center gap-1 font-thai"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmSubmitReportId(report.id)
+                      }}
                     >
                       <Send className="w-3 h-3" /> 
                       <span>ส่งรายงาน</span>
                     </Button>
-                    <Button variant="ghost" size="icon" className="rounded-xl text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 h-8 w-8"
-                      onClick={() => { if (confirm('ต้องการลบรายงานนี้ใช่หรือไม่?')) deleteMutation.mutate(report.id) }}
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="icon" 
+                      className="rounded-xl text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 h-8 w-8"
+                      onClick={(e) => { 
+                        e.stopPropagation()
+                        if (confirm('ต้องการลบรายงานนี้ใช่หรือไม่?')) {
+                           deleteMutation.mutate(report.id)
+                        }
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -910,9 +950,11 @@ export default function WeeklyReportsPage() {
               )}
               {report.status === 'submitted' && activeTab === 'team' && (
                 <Button 
+                  type="button"
                   size="sm" 
                   className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold h-8 text-white flex items-center gap-1 shadow-sm font-thai"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setReviewingReport(report.id)
                     setExpandedReports(prev => prev.includes(report.id) ? prev : [...prev, report.id])
                     setEditItems((report.items || []).map((i: any) => ({

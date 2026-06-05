@@ -51,8 +51,8 @@ export async function POST(req: Request) {
     const itemsTotal = items.reduce((acc: number, item: any) => {
       return acc + (Number(item.quantity) * Number(item.unit_price))
     }, 0)
-    // If VAT breakdown is provided, grand total = subtotal + vat; otherwise items total
-    const grandTotal = (subtotal && subtotal > 0) ? (Number(subtotal) + Number(vat_amount || 0)) : itemsTotal
+    // Grand total: items total + vat_amount
+    const grandTotal = itemsTotal + Number(vat_amount || 0)
 
     const supabase = createSupabaseServerClient()
 

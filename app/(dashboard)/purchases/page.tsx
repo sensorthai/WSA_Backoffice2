@@ -362,13 +362,11 @@ function PurchasesContent() {
     return purchaseForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
   }, [purchaseForm.items])
 
-  // Grand total: if VAT data exists use subtotal + vat, otherwise items total
+  // Grand total: items total + vat_amount
   const grandTotal = useMemo(() => {
-    const sub = Number((purchaseForm as any).subtotal) || 0
     const vat = Number((purchaseForm as any).vat_amount) || 0
-    if (sub > 0) return sub + vat
-    return itemsTotal
-  }, [(purchaseForm as any).subtotal, (purchaseForm as any).vat_amount, itemsTotal])
+    return itemsTotal + vat
+  }, [itemsTotal, (purchaseForm as any).vat_amount])
 
   const generateManifestText = (form: any, total: number) => {
     const todayStr = format(new Date(), "d MMMM yyyy HH:mm", { locale: th })
