@@ -52,10 +52,65 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-6">
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-slate-400 font-medium font-thai">
             เฉพาะบุคลากรภายในองค์กรเท่านั้น
           </p>
         </div>
+
+        {process.env.NODE_ENV === "development" && (
+          <div className="mt-8 pt-6 border-t border-slate-100 space-y-4 animate-in fade-in duration-300">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
+              Developer Quick Login (Bypass)
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signIn("credentials", { email: "tin@wirelesssolution.asia", callbackUrl: "/dashboard" })}
+                className="justify-start font-bold h-10 px-3 border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[11px]"
+              >
+                🔑 CEO (คุณตฤณ)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signIn("credentials", { email: "narumon.i@wirelesssolution.asia", callbackUrl: "/dashboard" })}
+                className="justify-start font-bold h-10 px-3 border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[11px]"
+              >
+                🔑 Admin (คุณนฤมล)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signIn("credentials", { email: "aunchalee@wirelesssolution.asia", callbackUrl: "/dashboard" })}
+                className="justify-start font-bold h-10 px-3 border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[11px]"
+              >
+                🔑 Supervisor (คุณอัญชลี)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signIn("credentials", { email: "nattapon@wirelesssolution.asia", callbackUrl: "/dashboard" })}
+                className="justify-start font-bold h-10 px-3 border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[11px]"
+              >
+                🔑 Employee (คุณณัฐพล)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signIn("credentials", { email: "ratchakornworks@gmail.com", callbackUrl: "/teaching" })}
+                className="justify-start font-bold h-10 px-3 border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-[11px] col-span-2"
+              >
+                🔑 Outsource / Teacher (คุณรัชกร)
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

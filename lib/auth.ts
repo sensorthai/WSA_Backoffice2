@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import Credentials from "next-auth/providers/credentials"
 import { createSupabaseServerClient } from "./supabase"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -10,6 +11,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
+    Credentials({
+      id: "credentials",
+      name: "Bypass",
+      credentials: {
+        email: { label: "Email", type: "text" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email) return null
+        const supabase = createSupabaseServerClient()
+        const { data: user } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', credentials.email)
+          .single()
+
+        if (user) {
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.full_name,
+            image: user.avatar_url,
+            role: user.role,
+            is_active: user.is_active
+          }
+        }
+        return null
+      }
+    })
   ],
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
