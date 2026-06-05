@@ -6,6 +6,7 @@ import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   Plus, 
   Wallet, 
@@ -94,10 +95,10 @@ export default function ReimbursementsPage() {
       queryClient.invalidateQueries({ queryKey: ["my-reimbursements"] })
       setIsCreateModalOpen(false)
       resetForm()
-      alert("ยื่นคำขอเบิกเงินเรียบร้อยแล้ว!")
+      toast.success("ยื่นคำขอเบิกเงินเรียบร้อยแล้ว!")
     },
     onError: (err: any) => {
-      alert(err.message)
+      toast.error(err.message)
     }
   })
 
@@ -113,10 +114,10 @@ export default function ReimbursementsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-reimbursements"] })
-      alert("ยกเลิกคำขอเรียบร้อยแล้ว")
+      toast.success("ยกเลิกคำขอเรียบร้อยแล้ว")
     },
     onError: (err: any) => {
-        alert(err.message)
+        toast.error(err.message)
     }
   })
 
@@ -195,7 +196,7 @@ export default function ReimbursementsPage() {
     } catch (err) {
       console.error(err)
       setIsScanning(false)
-      alert("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
+      toast.error("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
       setCurrentStep(2) // Go to manual input
     }
   }
@@ -214,7 +215,7 @@ export default function ReimbursementsPage() {
         receipt_url: url
       })
     } catch {
-      alert("การอัปโหลดไฟล์ล้มเหลว")
+      toast.error("การอัปโหลดไฟล์ล้มเหลว")
     } finally {
       setIsUploading(false)
     }

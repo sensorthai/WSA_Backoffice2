@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
+import { Inter, IBM_Plex_Sans_Thai } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
 });
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["thai", "latin"],
+  variable: "--font-thai",
+  display: "swap",
+});
+
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
@@ -23,6 +31,7 @@ import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { cookies } from "next/headers";
+import { Toaster } from "sonner";
 
 export default function RootLayout({
   children,
@@ -36,7 +45,8 @@ export default function RootLayout({
     <html lang={locale} suppressHydrationWarning>
       <body
         className={cn(
-          geistSans.variable,
+          inter.variable,
+          ibmPlexSansThai.variable,
           geistMono.variable,
           "antialiased font-sans transition-colors duration-300"
         )}
@@ -50,6 +60,7 @@ export default function RootLayout({
           <I18nProvider initialLocale={locale}>
             <Providers>
               {children}
+              <Toaster richColors position="top-center" />
             </Providers>
           </I18nProvider>
         </ThemeProvider>

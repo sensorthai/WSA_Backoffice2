@@ -2,11 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
+import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   Plus, 
   Receipt, 
@@ -79,9 +82,23 @@ const CATEGORIES = [
 ]
 
 export default function PurchasesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    }>
+      <PurchasesContent />
+    </Suspense>
+  )
+}
+
+function PurchasesContent() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const userRole = (session?.user as any)?.role
+  const searchParams = useSearchParams()
+  const tabParam = searchParams?.get("tab")
 
   // --- States ---
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -89,8 +106,14 @@ export default function PurchasesPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null)
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [activeView, setActiveView] = useState("my-purchases")
+  const [activeView, setActiveView] = useState(tabParam || "my-purchases")
   const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveView(tabParam)
+    }
+  }, [tabParam])
 
   useEffect(() => {
     setMounted(true)
@@ -159,6 +182,39 @@ export default function PurchasesPage() {
     enabled: !!session?.user && (userRole !== 'employee')
   })
 
+  // Fetch current user details with department and position names
+  const { data: userProfile } = useQuery({
+    queryKey: ["currentUserProfile", session?.user?.email],
+    queryFn: async () => {
+      if (!session?.user?.email) return null
+      const { data, error } = await supabase
+        .from('users')
+        .select('*, department:departments(name), position:positions(name)')
+        .eq('email', session.user.email)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session?.user?.email
+  })
+
+  const isFinanceUser = useMemo(() => {
+    if (!session?.user) return false
+    const role = (session.user as any).role
+    const isCEOOrAdmin = role === 'ceo' || role === 'admin'
+    const isFinManager = (userProfile as any)?.department?.name === 'ฝ่ายบัญชีและการเงิน' && (userProfile as any)?.position?.name === 'ผู้จัดการ'
+    return isCEOOrAdmin || isFinManager
+  }, [session?.user, userProfile])
+
+  const { data: approvedPurchases, isLoading: isApprovedLoading } = useQuery({
+    queryKey: ["approved-purchases"],
+    queryFn: async () => {
+      const res = await fetch("/api/purchases/approved?status=all")
+      return res.json()
+    },
+    enabled: !!session?.user && isFinanceUser
+  })
+
   // --- Mutations ---
   const createMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -221,7 +277,11 @@ export default function PurchasesPage() {
       queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
       setIsCreateModalOpen(false)
       resetForm()
-      alert("ยื่นคำขอเบิกเงินเรียบร้อยแล้ว!")
+      toast.success("ยื่นคำขอเบิกเงินเรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      console.error("Submit Error:", err);
+      toast.error("เกิดข้อผิดพลาด: " + err.message);
     }
   })
 
@@ -238,7 +298,30 @@ export default function PurchasesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
       queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
-      alert("ดำเนินการเรียบร้อยแล้ว")
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      toast.success("ดำเนินการเรียบร้อยแล้ว")
+    }
+  })
+
+  const payMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note?: string }) => {
+      const res = await fetch(`/api/purchases/${id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note })
+      })
+      if (!res.ok) throw new Error((await res.json()).error || "Payment action failed")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
+      toast.success("บันทึกการจ่ายเงินเรียบร้อยแล้ว!")
+      setIsDetailDrawerOpen(false)
+    },
+    onError: (err: any) => {
+      toast.error("การจ่ายเงินล้มเหลว: " + err.message)
     }
   })
 
@@ -419,7 +502,7 @@ ${form.purpose || "-"}
         files: [file],
         receipt_urls: file.type.startsWith('image/') ? [URL.createObjectURL(file)] : []
       })
-      alert("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
+      toast.error("ไม่สามารถวิเคราะห์ใบเสร็จด้วย AI ได้ ระบบจะเปลี่ยนเป็นโหมดกรอกข้อมูลด้วยตนเอง")
       setCurrentStep(2)
     }
   }
@@ -470,7 +553,129 @@ ${form.purpose || "-"}
   }
 
   const handlePrint = () => {
-    window.print()
+    if (!selectedPurchase) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const docDate = selectedPurchase.document_date || selectedPurchase.created_at ? format(new Date(selectedPurchase.document_date || selectedPurchase.created_at), "d MMMM yyyy", { locale: th }) : "-";
+    const createdDate = selectedPurchase.created_at ? format(new Date(selectedPurchase.created_at), "d MMMM yyyy HH:mm", { locale: th }) : "-";
+    const requesterName = session?.user?.name || "-";
+    
+    const getStatusText = (status: string) => {
+      switch (status) {
+        case 'pending': return 'รอดำเนินการ'
+        case 'supervisor_approved': return 'หัวหน้าอนุมัติแล้ว'
+        case 'approved': return 'อนุมัติแล้ว'
+        case 'rejected': return 'ปฏิเสธ'
+        case 'paid': return 'จ่ายเงินแล้ว'
+        default: return status
+      }
+    };
+
+    const html = `
+      <html>
+        <head>
+          <title>เอกสารคุมสั่งจ่าย (Manifest Voucher) - ${selectedPurchase.id.substring(0, 8)}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+            body { font-family: 'Sarabun', sans-serif; color: #1e293b; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+            .header h1 { margin: 0; font-size: 24px; font-weight: 700; color: #0f172a; }
+            .header p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
+            
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            .info-item { margin-bottom: 10px; font-size: 14px; }
+            .info-label { font-weight: 600; color: #475569; width: 120px; display: inline-block; }
+            .info-value { color: #0f172a; font-weight: 500; }
+            
+            .manifest-section { margin-bottom: 40px; }
+            .manifest-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #0f172a; border-left: 4px solid #3b82f6; padding-left: 10px; }
+            .manifest-content { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Sarabun', monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; color: #334155; }
+            
+            .timeline-section { margin-bottom: 40px; }
+            .timeline-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; color: #0f172a; border-left: 4px solid #10b981; padding-left: 10px; }
+            .timeline-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+            .timeline-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background-color: #ffffff; }
+            .timeline-step { font-size: 12px; font-weight: 700; color: #3b82f6; text-transform: uppercase; margin-bottom: 5px; }
+            .timeline-name { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 5px; }
+            .timeline-status { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+            .status-approved { color: #059669; }
+            .status-pending { color: #d97706; }
+            .status-rejected { color: #e11d48; }
+            .timeline-date { font-size: 12px; color: #64748b; }
+            .timeline-note { font-size: 12px; color: #64748b; font-style: italic; margin-top: 5px; border-top: 1px dashed #e2e8f0; padding-top: 5px; }
+            
+            @media print {
+              body { padding: 0; max-width: 100%; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: 'Sarabun', sans-serif;">พิมพ์เอกสาร (Print)</button>
+          </div>
+          
+          <div class="header">
+            <h1>เอกสารคุมสั่งจ่าย (AI Manifest Voucher)</h1>
+            <p>อ้างอิงเลขที่: #${selectedPurchase.id.substring(0, 8)}</p>
+          </div>
+          
+          <div class="info-grid">
+            <div>
+              <div class="info-item"><span class="info-label">วันที่จัดทำ:</span> <span class="info-value">${createdDate}</span></div>
+              <div class="info-item"><span class="info-label">วันที่อ้างอิง:</span> <span class="info-value">${docDate}</span></div>
+              <div class="info-item"><span class="info-label">ยอดรวมสุทธิ:</span> <span class="info-value" style="font-size: 16px; font-weight: 700;">${Number(selectedPurchase.total_amount).toLocaleString('th-TH')} ฿</span></div>
+            </div>
+            <div>
+              <div class="info-item"><span class="info-label">ผู้ขอเบิก:</span> <span class="info-value">${requesterName}</span></div>
+              <div class="info-item"><span class="info-label">วิธีชำระเงิน:</span> <span class="info-value">${getPaymentMethodLabel(selectedPurchase.payment_method)}</span></div>
+              <div class="info-item"><span class="info-label">สถานะเอกสาร:</span> <span class="info-value">${getStatusText(selectedPurchase.status)}</span></div>
+            </div>
+          </div>
+          
+          <div class="manifest-section">
+            <div class="manifest-title">รายละเอียดเอกสาร (Manifest Text)</div>
+            <div class="manifest-content">${selectedPurchase.manifest_text || 'ไม่มีข้อมูล Manifest'}</div>
+          </div>
+          
+          <div class="timeline-section">
+            <div class="timeline-title">ไทม์ไลน์การอนุมัติ (Approval Step)</div>
+            <div class="timeline-grid">
+              <div class="timeline-card">
+                <div class="timeline-step">1. ผู้ขอเบิก</div>
+                <div class="timeline-name">${requesterName}</div>
+                <div class="timeline-status status-approved">✔ สร้างคำขอแล้ว</div>
+                <div class="timeline-date">${createdDate}</div>
+              </div>
+              
+              <div class="timeline-card">
+                <div class="timeline-step">2. หัวหน้างาน</div>
+                <div class="timeline-name">หัวหน้างานผู้อนุมัติ</div>
+                <div class="timeline-status ${selectedPurchase.supervisor_approved_at ? 'status-approved' : (selectedPurchase.status === 'rejected' && selectedPurchase.supervisor_note ? 'status-rejected' : 'status-pending')}">
+                  ${selectedPurchase.supervisor_approved_at ? '✔ อนุมัติแล้ว' : (selectedPurchase.status === 'rejected' && selectedPurchase.supervisor_note ? '✖ ปฏิเสธ' : 'รอดำเนินการ')}
+                </div>
+                ${selectedPurchase.supervisor_approved_at ? `<div class="timeline-date">${format(new Date(selectedPurchase.supervisor_approved_at), "d MMMM yyyy HH:mm", { locale: th })}</div>` : ''}
+                ${selectedPurchase.supervisor_note ? `<div class="timeline-note">"${selectedPurchase.supervisor_note}"</div>` : ''}
+              </div>
+              
+              <div class="timeline-card">
+                <div class="timeline-step">3. CEO / ผู้ดูแลสูงสุด</div>
+                <div class="timeline-name">CEO ผู้อนุมัติขั้นสูงสุด</div>
+                <div class="timeline-status ${selectedPurchase.ceo_approved_at ? 'status-approved' : (selectedPurchase.status === 'supervisor_approved' ? 'status-pending' : 'status-pending')}">
+                  ${selectedPurchase.ceo_approved_at ? '✔ อนุมัติแล้ว' : (selectedPurchase.status === 'supervisor_approved' ? 'รออนุมัติขั้นสุดท้าย' : (selectedPurchase.status === 'approved' ? '<span style="color:#94a3b8;font-weight:normal;">ไม่จำเป็น (อยู่ในวงเงิน)</span>' : '<span style="color:#94a3b8;font-weight:normal;">-</span>'))}
+                </div>
+                ${selectedPurchase.ceo_approved_at ? `<div class="timeline-date">${format(new Date(selectedPurchase.ceo_approved_at), "d MMMM yyyy HH:mm", { locale: th })}</div>` : ''}
+                ${selectedPurchase.ceo_note ? `<div class="timeline-note">"${selectedPurchase.ceo_note}"</div>` : ''}
+              </div>
+            </div>
+          </div>
+          
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
   }
 
   if (!mounted) {
@@ -484,17 +689,19 @@ ${form.purpose || "-"}
   return (
     <div className="space-y-8 animate-in fade-in duration-700 max-w-6xl mx-auto pb-12">
       {/* Hero Header */}
-      <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 text-white relative overflow-hidden shadow-2xl">
-         <div className="absolute top-0 right-0 w-1/3 h-full bg-blue-600/10 blur-[100px] rounded-full" />
-         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+      <div className="relative rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 overflow-hidden shadow-sm border border-white/60 bg-white/60 backdrop-blur-2xl">
+         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-500/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/10 blur-[100px] rounded-full translate-y-1/3 -translate-x-1/3 pointer-events-none" />
+         
+         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
             <div className="flex items-center gap-4 md:gap-6">
-               <div className="p-3 md:p-5 bg-blue-600 rounded-xl md:rounded-[2rem] shadow-lg shadow-blue-600/20">
+               <div className="p-3 md:p-5 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl md:rounded-[2rem] shadow-xl shadow-blue-600/20 ring-1 ring-white/50">
                   <Wallet size={32} className="md:hidden" />
-                  <Wallet size={48} className="hidden md:block" />
+                  <Wallet size={44} className="hidden md:block" />
                </div>
                <div>
-                  <h1 className="text-2xl md:text-4xl font-black tracking-tight">ระบบเบิกจ่ายค่าใช้จ่าย</h1>
-                  <p className="text-slate-400 font-medium mt-1 md:mt-2 text-sm md:text-base">จัดการคำขอเบิกเงินและติดตามสถานะ</p>
+                  <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900 leading-tight">ระบบเบิกจ่ายค่าใช้จ่าย</h1>
+                  <p className="text-slate-500 font-medium mt-1 md:mt-2 text-sm md:text-base leading-relaxed">จัดการคำขอเบิกเงินและติดตามสถานะ</p>
                </div>
             </div>
             <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
@@ -502,11 +709,11 @@ ${form.purpose || "-"}
               if (!open) resetForm()
             }}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 rounded-2xl px-6 md:px-8 h-12 md:h-16 font-black text-base md:text-lg shadow-xl transition-all active:scale-95 w-full md:w-auto">
-                  <Plus className="mr-2 w-6 h-6" /> สร้างใบเบิกเงิน
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl px-6 md:px-8 h-12 md:h-14 font-bold text-base md:text-lg shadow-lg shadow-blue-600/20 transition-all active:scale-95 w-full md:w-auto border-0">
+                  <Plus className="mr-2 w-5 h-5" /> สร้างใบเบิกเงิน
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+              <DialogContent className="max-w-4xl md:rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[100vh] h-[100vh] md:h-auto md:max-h-[90vh] w-full sm:rounded-none">
                  {/* Modal Header & Progress */}
                  <div className="bg-slate-900 p-6 md:p-8 text-white shrink-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -1108,33 +1315,43 @@ ${form.purpose || "-"}
       </div>
 
       {/* Sub Menu Navigation */}
-      <div className="flex border-b border-slate-200 gap-8 mb-8 pb-1">
+      <div className="flex p-1.5 bg-slate-100/60 backdrop-blur-xl rounded-2xl md:rounded-[2rem] gap-2 mb-8 md:w-max mx-auto shadow-sm ring-1 ring-slate-200/50 overflow-x-auto custom-scrollbar">
         <button 
           onClick={() => setActiveView("my-purchases")}
           className={cn(
-            "pb-3 text-base font-bold transition-all relative",
-            activeView === "my-purchases" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+            "px-5 md:px-8 py-3 text-sm md:text-base font-bold transition-all relative rounded-xl md:rounded-3xl flex-1 md:flex-none text-center whitespace-nowrap",
+            activeView === "my-purchases" ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
           )}
         >
           ใบเบิกของฉัน
-          {activeView === "my-purchases" && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
-          )}
         </button>
         {userRole !== 'employee' && (
           <button 
             onClick={() => setActiveView("approve")}
             className={cn(
-              "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
-              activeView === "approve" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              "px-5 md:px-8 py-3 text-sm md:text-base font-bold transition-all relative rounded-xl md:rounded-3xl flex-1 md:flex-none flex items-center justify-center gap-2 whitespace-nowrap",
+              activeView === "approve" ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
             )}
           >
             <span>พิจารณาอนุมัติ</span>
-            {pendingPurchases?.length > 0 && (
-              <Badge className="bg-blue-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full">{pendingPurchases.length}</Badge>
+            {Array.isArray(pendingPurchases) && pendingPurchases.length > 0 && (
+              <Badge className="bg-rose-500 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border-0 shadow-sm">{pendingPurchases.length}</Badge>
             )}
-            {activeView === "approve" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+          </button>
+        )}
+        {isFinanceUser && (
+          <button 
+            onClick={() => setActiveView("finance")}
+            className={cn(
+              "px-5 md:px-8 py-3 text-sm md:text-base font-bold transition-all relative rounded-xl md:rounded-3xl flex-1 md:flex-none flex items-center justify-center gap-2 whitespace-nowrap",
+              activeView === "finance" ? "bg-white text-blue-600 shadow-sm ring-1 ring-slate-200/50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+            )}
+          >
+            <span>การเงิน / จ่ายเงิน</span>
+            {Array.isArray(approvedPurchases) && approvedPurchases.filter((r: any) => r.status === 'approved').length > 0 && (
+              <Badge className="bg-emerald-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border-0 shadow-sm">
+                {approvedPurchases.filter((r: any) => r.status === 'approved').length}
+              </Badge>
             )}
           </button>
         )}
@@ -1142,10 +1359,11 @@ ${form.purpose || "-"}
 
       {activeView === "my-purchases" && (
         <div className="space-y-6">
-           <Card className="rounded-[2rem] md:rounded-[2.5rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+           {/* Desktop View: Table */}
+           <Card className="hidden md:block rounded-[2.5rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
               <div className="overflow-x-auto custom-scrollbar">
                  <Table className="min-w-[600px]">
-                 <TableHeader className="bg-slate-50/50">
+                 <TableHeader className="bg-slate-50/80 backdrop-blur-md">
                     <TableRow className="border-slate-100 hover:bg-transparent">
                        <TableHead className="py-6 pl-8 font-black text-slate-400 uppercase tracking-widest text-[10px]">วันที่</TableHead>
                        <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[10px]">รายการ</TableHead>
@@ -1158,7 +1376,7 @@ ${form.purpose || "-"}
                     {isMyLoading ? (
                       <TableRow>
                          <TableCell colSpan={5} className="py-20 text-center">
-                            <Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" />
+                            <Loader2 className="animate-spin inline-block text-blue-400 w-10 h-10" />
                          </TableCell>
                       </TableRow>
                     ) : myPurchases?.length === 0 ? (
@@ -1171,16 +1389,16 @@ ${form.purpose || "-"}
                          </TableCell>
                       </TableRow>
                     ) : myPurchases?.map((p: any) => (
-                      <TableRow key={p.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group">
+                      <TableRow key={p.id} className="border-slate-100 hover:bg-slate-50/50 transition-colors group">
                          <TableCell className="py-6 pl-8 font-bold text-slate-500">
                             {format(new Date(p.created_at), "d MMM yy", { locale: th })}
                          </TableCell>
                          <TableCell>
-                            <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{p.title}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{p.vendor_name && <span className="text-slate-500">{p.vendor_name} · </span>}{p.items.length} รายการ</div>
+                            <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">{p.title}</div>
+                            <div className="text-[11px] text-slate-400 font-medium mt-1">{p.vendor_name && <span className="text-slate-500">{p.vendor_name} · </span>}{p.items.length} รายการ</div>
                          </TableCell>
                          <TableCell className="font-black text-lg text-slate-900">
-                            {Number(p.total_amount).toLocaleString('th-TH')} ฿
+                            {Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm text-slate-400">฿</span>
                          </TableCell>
                          <TableCell>
                             {getStatusBadge(p.status)}
@@ -1189,7 +1407,7 @@ ${form.purpose || "-"}
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="rounded-xl font-bold text-blue-600 hover:bg-blue-50"
+                              className="rounded-xl font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                               onClick={() => {
                                 setSelectedPurchase(p)
                                 setIsDetailDrawerOpen(true)
@@ -1204,6 +1422,42 @@ ${form.purpose || "-"}
                </Table>
             </div>
            </Card>
+
+           {/* Mobile View: Stacked Cards */}
+           <div className="grid md:hidden gap-4">
+              {isMyLoading ? (
+                 <div className="py-20 text-center"><Loader2 className="animate-spin inline-block text-blue-400 w-10 h-10" /></div>
+              ) : myPurchases?.length === 0 ? (
+                 <Card className="py-20 text-center rounded-[2rem] border-2 border-dashed border-slate-200 bg-white/50 backdrop-blur-md">
+                    <Package size={48} className="mx-auto text-slate-300 mb-4" />
+                    <p className="font-bold text-slate-500">ไม่พบรายการใบเบิกเงิน</p>
+                 </Card>
+              ) : myPurchases?.map((p: any) => (
+                 <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-slate-200 p-5 space-y-5">
+                    <div className="flex justify-between items-start gap-4">
+                       <div className="flex-1">
+                          <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">{format(new Date(p.created_at), "d MMM yyyy", { locale: th })}</div>
+                          <div className="font-black text-slate-900 text-base leading-tight">{p.title}</div>
+                          <div className="text-xs text-slate-500 mt-1.5 line-clamp-1">{p.vendor_name && <span>{p.vendor_name} · </span>}{p.items.length} รายการ</div>
+                       </div>
+                       <div className="text-right shrink-0">
+                          <div className="font-black text-blue-600 text-lg">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></div>
+                          <div className="mt-2 flex justify-end">{getStatusBadge(p.status)}</div>
+                       </div>
+                    </div>
+                    <Button 
+                       variant="outline" 
+                       className="w-full h-12 rounded-2xl font-bold text-slate-700 border-slate-200 bg-white hover:bg-slate-50"
+                       onClick={() => {
+                         setSelectedPurchase(p)
+                         setIsDetailDrawerOpen(true)
+                       }}
+                    >
+                       ดูรายละเอียด
+                    </Button>
+                 </Card>
+              ))}
+           </div>
         </div>
       )}
 
@@ -1222,11 +1476,11 @@ ${form.purpose || "-"}
            ) : (
              <div className="grid grid-cols-1 gap-6">
                 {pendingPurchases.map((p: any) => (
-                  <Card key={p.id} className="rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 overflow-hidden">
+                  <Card key={p.id} className="rounded-[2.5rem] md:rounded-[3rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-slate-200 hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500 overflow-hidden">
                      <CardContent className="p-0">
                         <div className="flex flex-col lg:flex-row">
-                           <div className="flex-1 p-10 border-r border-slate-50">
-                              <div className="flex items-center gap-5 mb-8">
+                           <div className="flex-1 p-6 md:p-10 border-b lg:border-b-0 lg:border-r border-slate-200">
+                              <div className="flex items-center gap-5 mb-6 md:mb-8">
                                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black text-2xl">
                                     {p.user?.full_name?.charAt(0)}
                                  </div>
@@ -1265,23 +1519,23 @@ ${form.purpose || "-"}
                                  )}
                                  
                                  {/* Expandable Items List */}
-                                 <div className="bg-slate-50 rounded-3xl p-6 space-y-4">
+                                 <div className="bg-slate-50/80 backdrop-blur-md rounded-3xl p-5 md:p-6 space-y-4">
                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                        <Package size={14} /> รายการเบิกจ่าย
                                     </div>
                                     <div className="space-y-3">
                                        {p.items.map((item: any, idx: number) => (
-                                          <div key={idx} className="flex justify-between items-center text-sm font-bold text-slate-700">
-                                             <div className="flex gap-4">
-                                                <span className="text-slate-400">x{item.quantity}</span>
-                                                <span>{item.name}</span>
+                                          <div key={idx} className="flex justify-between items-start text-sm font-bold text-slate-700 gap-4">
+                                             <div className="flex gap-3 md:gap-4 leading-tight">
+                                                <span className="text-slate-400 shrink-0">x{item.quantity}</span>
+                                                <span className="line-clamp-2">{item.name}</span>
                                              </div>
-                                             <div className="text-slate-900">{(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</div>
+                                             <div className="text-slate-900 shrink-0">{(item.quantity * item.unit_price).toLocaleString('th-TH')} <span className="text-xs text-slate-400">฿</span></div>
                                           </div>
                                        ))}
-                                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-xl text-slate-900">
+                                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-lg md:text-xl text-slate-900">
                                           <span>ยอดรวม</span>
-                                          <span className="text-blue-600">{Number(p.total_amount).toLocaleString('th-TH')} ฿</span>
+                                          <span className="text-blue-600">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></span>
                                        </div>
                                     </div>
                                  </div>
@@ -1406,14 +1660,403 @@ ${form.purpose || "-"}
                            </div>
                         </div>
                      </CardContent>
-                  </Card>
+                </Card>
                 ))}
              </div>
            )}
         </div>
+       )}
+
+      {activeView === "finance" && (
+        <div className="space-y-6">
+          {isApprovedLoading ? (
+            <div className="py-32 text-center">
+               <Loader2 className="animate-spin inline-block text-emerald-300 w-12 h-12" />
+            </div>
+          ) : (() => {
+            const waitingItems = (approvedPurchases || []).filter((r: any) => r.status === 'approved')
+            const paidItems = (approvedPurchases || []).filter((r: any) => r.status === 'paid')
+            return (
+              <div className="space-y-8">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-[2rem] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 space-y-2">
+                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest">รอจ่ายเงิน</div>
+                    <div className="text-3xl font-black text-amber-700">{waitingItems.length} <span className="text-base font-bold text-amber-400">รายการ</span></div>
+                    <div className="text-sm font-bold text-amber-600">
+                      {waitingItems.reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                    </div>
+                  </div>
+                  <div className="rounded-[2rem] border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6 space-y-2">
+                    <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">จ่ายเงินแล้ว</div>
+                    <div className="text-3xl font-black text-emerald-700">{paidItems.length} <span className="text-base font-bold text-emerald-400">รายการ</span></div>
+                    <div className="text-sm font-bold text-emerald-600">
+                      {paidItems.reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                    </div>
+                  </div>
+                  <div className="rounded-[2rem] border border-blue-200/60 bg-gradient-to-br from-blue-50 to-indigo-50/40 p-6 space-y-2">
+                    <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest">รวมทั้งหมด</div>
+                    <div className="text-3xl font-black text-blue-700">{(approvedPurchases || []).length} <span className="text-base font-bold text-blue-400">รายการ</span></div>
+                    <div className="text-sm font-bold text-blue-600">
+                      {(approvedPurchases || []).reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                    </div>
+                  </div>
+                </div>
+
+                {/* Waiting for Payment Section */}
+                {waitingItems.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">รอดำเนินการจ่ายเงิน</h3>
+                        <p className="text-xs text-slate-400 font-medium">รายการที่ผ่านการอนุมัติแล้ว รอฝ่ายการเงินกดยืนยันจ่ายเงิน</p>
+                      </div>
+                    </div>
+
+                    {/* Desktop Table */}
+                    <Card className="hidden md:block rounded-[2.5rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-amber-200/40 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <Table className="min-w-[700px]">
+                          <TableHeader className="bg-amber-50/80 backdrop-blur-md">
+                            <TableRow className="border-amber-100 hover:bg-transparent">
+                              <TableHead className="py-5 pl-8 font-black text-amber-500/80 uppercase tracking-widest text-[10px]">วันที่</TableHead>
+                              <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ผู้ขอเบิก</TableHead>
+                              <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">รายการ</TableHead>
+                              <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ยอดรวม</TableHead>
+                              <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">วิธีจ่าย</TableHead>
+                              <TableHead className="pr-8 text-right font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ดำเนินการ</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {waitingItems.map((p: any) => (
+                              <TableRow key={p.id} className="border-amber-100/50 hover:bg-amber-50/30 transition-colors group">
+                                <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
+                                  {format(new Date(p.created_at), "d MMM yy", { locale: th })}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-black text-sm">
+                                      {p.user?.full_name?.charAt(0) || '?'}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-slate-800 text-sm">{p.user?.full_name || '-'}</div>
+                                      <div className="text-[10px] text-slate-400 font-medium">{p.user?.departments?.name || ''}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight text-sm">{p.title}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium mt-0.5">{p.vendor_name && <span>{p.vendor_name} · </span>}{p.items?.length || 0} รายการ</div>
+                                </TableCell>
+                                <TableCell className="font-black text-lg text-slate-900">
+                                  {Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm text-slate-400">฿</span>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className="bg-slate-100 text-slate-600 border-slate-200 font-bold text-[10px]">
+                                    {getPaymentMethodLabel(p.payment_method)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="pr-8 text-right">
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="rounded-xl font-bold text-blue-600 hover:bg-blue-50 text-xs"
+                                      onClick={() => {
+                                        setSelectedPurchase(p)
+                                        setIsDetailDrawerOpen(true)
+                                      }}
+                                    >
+                                      <Eye size={14} className="mr-1" /> ดูข้อมูล
+                                    </Button>
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button 
+                                          size="sm"
+                                          className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 h-9 px-4"
+                                        >
+                                          <Wallet size={14} className="mr-1.5" /> จ่ายเงินแล้ว
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden">
+                                        <div className="bg-emerald-600 p-6 text-white">
+                                          <DialogHeader>
+                                            <DialogTitle className="text-xl font-black text-white">ยืนยันการจ่ายเงิน</DialogTitle>
+                                          </DialogHeader>
+                                          <p className="text-emerald-100 text-sm mt-2 font-medium">คุณกำลังยืนยันว่าได้จ่ายเงินให้กับรายการนี้แล้ว</p>
+                                        </div>
+                                        <div className="p-6 space-y-5">
+                                          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-sm font-bold text-slate-500">รายการ</span>
+                                              <span className="text-sm font-black text-slate-900">{p.title}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-sm font-bold text-slate-500">ผู้เบิก</span>
+                                              <span className="text-sm font-bold text-slate-700">{p.user?.full_name || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                                              <span className="text-sm font-bold text-slate-500">ยอดจ่าย</span>
+                                              <span className="text-xl font-black text-emerald-600">{Number(p.total_amount).toLocaleString('th-TH')} ฿</span>
+                                            </div>
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุการจ่ายเงิน (ไม่บังคับ)</Label>
+                                            <Textarea
+                                              id={`pay-note-${p.id}`}
+                                              placeholder="เช่น โอนผ่าน K-BIZ เลขที่อ้างอิง..."
+                                              className="min-h-[100px] rounded-2xl border-slate-100 bg-slate-50 p-4 focus:ring-emerald-600/20 font-medium"
+                                            />
+                                          </div>
+                                          <Button
+                                            className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-lg shadow-emerald-600/20"
+                                            disabled={payMutation.isPending}
+                                            onClick={() => {
+                                              const note = (document.getElementById(`pay-note-${p.id}`) as HTMLTextAreaElement)?.value || ''
+                                              payMutation.mutate({ id: p.id, note })
+                                            }}
+                                          >
+                                            {payMutation.isPending ? <Loader2 className="animate-spin" /> : (
+                                              <><CheckCircle2 className="mr-2" size={20} /> ยืนยัน — จ่ายเงินแล้ว</>
+                                            )}
+                                          </Button>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </Card>
+
+                    {/* Mobile Cards */}
+                    <div className="grid md:hidden gap-4">
+                      {waitingItems.map((p: any) => (
+                        <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-amber-200/40 p-5 space-y-4">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 font-black text-xs">
+                                  {p.user?.full_name?.charAt(0) || '?'}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-slate-700">{p.user?.full_name || '-'}</div>
+                                  <div className="text-[10px] text-slate-400">{p.user?.departments?.name || ''}</div>
+                                </div>
+                              </div>
+                              <div className="font-black text-slate-900 text-base leading-tight">{p.title}</div>
+                              <div className="text-[10px] text-slate-400 font-medium mt-1">{format(new Date(p.created_at), "d MMM yyyy", { locale: th })} · {p.items?.length || 0} รายการ</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-black text-blue-600 text-lg">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></div>
+                              <Badge className="mt-1 bg-slate-100 text-slate-600 border-slate-200 font-bold text-[10px]">
+                                {getPaymentMethodLabel(p.payment_method)}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <Button 
+                              variant="outline"
+                              className="h-12 rounded-2xl font-bold text-slate-600 border-slate-200 text-sm"
+                              onClick={() => {
+                                setSelectedPurchase(p)
+                                setIsDetailDrawerOpen(true)
+                              }}
+                            >
+                              <Eye size={16} className="mr-1.5" /> ดูข้อมูล
+                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-md shadow-emerald-600/20">
+                                  <Wallet size={16} className="mr-1.5" /> จ่ายเงิน
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden">
+                                <div className="bg-emerald-600 p-6 text-white">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-xl font-black text-white">ยืนยันการจ่ายเงิน</DialogTitle>
+                                  </DialogHeader>
+                                  <p className="text-emerald-100 text-sm mt-2 font-medium">ยืนยันว่าได้จ่ายเงินให้กับรายการนี้แล้ว</p>
+                                </div>
+                                <div className="p-6 space-y-5">
+                                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-bold text-slate-500">รายการ</span>
+                                      <span className="text-sm font-black text-slate-900 text-right max-w-[60%]">{p.title}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm font-bold text-slate-500">ผู้เบิก</span>
+                                      <span className="text-sm font-bold text-slate-700">{p.user?.full_name || '-'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                                      <span className="text-sm font-bold text-slate-500">ยอดจ่าย</span>
+                                      <span className="text-xl font-black text-emerald-600">{Number(p.total_amount).toLocaleString('th-TH')} ฿</span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุ (ไม่บังคับ)</Label>
+                                    <Textarea
+                                      id={`pay-note-m-${p.id}`}
+                                      placeholder="เช่น โอนผ่าน K-BIZ เลขที่อ้างอิง..."
+                                      className="min-h-[80px] rounded-2xl border-slate-100 bg-slate-50 p-4 focus:ring-emerald-600/20 font-medium"
+                                    />
+                                  </div>
+                                  <Button
+                                    className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-lg shadow-emerald-600/20"
+                                    disabled={payMutation.isPending}
+                                    onClick={() => {
+                                      const note = (document.getElementById(`pay-note-m-${p.id}`) as HTMLTextAreaElement)?.value || ''
+                                      payMutation.mutate({ id: p.id, note })
+                                    }}
+                                  >
+                                    {payMutation.isPending ? <Loader2 className="animate-spin" /> : (
+                                      <><CheckCircle2 className="mr-2" size={20} /> ยืนยัน — จ่ายเงินแล้ว</>
+                                    )}
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Already Paid Section */}
+                {paidItems.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-2xl">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-slate-900">จ่ายเงินแล้ว</h3>
+                        <p className="text-xs text-slate-400 font-medium">รายการที่ดำเนินการจ่ายเงินเรียบร้อยแล้ว</p>
+                      </div>
+                    </div>
+
+                    {/* Desktop Table */}
+                    <Card className="hidden md:block rounded-[2.5rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-emerald-200/30 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <Table className="min-w-[700px]">
+                          <TableHeader className="bg-emerald-50/60 backdrop-blur-md">
+                            <TableRow className="border-emerald-100 hover:bg-transparent">
+                              <TableHead className="py-5 pl-8 font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">วันที่จ่าย</TableHead>
+                              <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">ผู้ขอเบิก</TableHead>
+                              <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">รายการ</TableHead>
+                              <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">ยอดจ่าย</TableHead>
+                              <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">สถานะ</TableHead>
+                              <TableHead className="pr-8 text-right font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">จัดการ</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paidItems.map((p: any) => (
+                              <TableRow key={p.id} className="border-emerald-100/30 hover:bg-emerald-50/20 transition-colors">
+                                <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
+                                  {p.paid_at ? format(new Date(p.paid_at), "d MMM yy", { locale: th }) : format(new Date(p.updated_at || p.created_at), "d MMM yy", { locale: th })}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500 font-black text-sm">
+                                      {p.user?.full_name?.charAt(0) || '?'}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-slate-800 text-sm">{p.user?.full_name || '-'}</div>
+                                      <div className="text-[10px] text-slate-400 font-medium">{p.user?.departments?.name || ''}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-bold text-slate-700 leading-tight text-sm">{p.title}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium mt-0.5">{p.vendor_name && <span>{p.vendor_name}</span>}</div>
+                                </TableCell>
+                                <TableCell className="font-black text-lg text-slate-900">
+                                  {Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm text-slate-400">฿</span>
+                                </TableCell>
+                                <TableCell>
+                                  {getStatusBadge('paid')}
+                                </TableCell>
+                                <TableCell className="pr-8 text-right">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="rounded-xl font-bold text-blue-600 hover:bg-blue-50 text-xs"
+                                    onClick={() => {
+                                      setSelectedPurchase(p)
+                                      setIsDetailDrawerOpen(true)
+                                    }}
+                                  >
+                                    <Eye size={14} className="mr-1" /> ดูข้อมูล
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </Card>
+
+                    {/* Mobile Cards */}
+                    <div className="grid md:hidden gap-4">
+                      {paidItems.map((p: any) => (
+                        <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-emerald-200/30 p-5 space-y-4">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-500 font-black text-xs">
+                                  {p.user?.full_name?.charAt(0) || '?'}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-slate-700">{p.user?.full_name || '-'}</div>
+                                  <div className="text-[10px] text-slate-400">{p.user?.departments?.name || ''}</div>
+                                </div>
+                              </div>
+                              <div className="font-black text-slate-900 text-base leading-tight">{p.title}</div>
+                              <div className="text-[10px] text-slate-400 font-medium mt-1">{p.paid_at ? format(new Date(p.paid_at), "d MMM yyyy", { locale: th }) : format(new Date(p.updated_at || p.created_at), "d MMM yyyy", { locale: th })}</div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-black text-emerald-600 text-lg">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></div>
+                              <div className="mt-1">{getStatusBadge('paid')}</div>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="outline"
+                            className="w-full h-12 rounded-2xl font-bold text-slate-600 border-slate-200 text-sm"
+                            onClick={() => {
+                              setSelectedPurchase(p)
+                              setIsDetailDrawerOpen(true)
+                            }}
+                          >
+                            <Eye size={16} className="mr-1.5" /> ดูรายละเอียด
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {waitingItems.length === 0 && paidItems.length === 0 && (
+                  <Card className="py-32 text-center rounded-[3rem] border-2 border-dashed border-slate-200 bg-slate-50/50">
+                    <Wallet size={64} className="mx-auto text-slate-200 mb-6" />
+                    <h3 className="text-xl font-black text-slate-900">ไม่มีรายการ</h3>
+                    <p className="text-slate-400 font-medium">ยังไม่มีรายการเบิกเงินที่ผ่านการอนุมัติ</p>
+                  </Card>
+                )}
+              </div>
+            )
+          })()}
+        </div>
       )}
 
-      {/* Detail Dialog */}
+       {/* Detail Dialog */}
       <Dialog open={isDetailDrawerOpen} onOpenChange={setIsDetailDrawerOpen}>
          <DialogContent className="max-w-4xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
             {selectedPurchase && (

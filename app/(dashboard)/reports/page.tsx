@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   FileBarChart, 
   Download, 
@@ -197,7 +198,7 @@ function ReportsContent() {
           </div>
           <div class="header">
             <h1>ใบขออนุมัติเบิกเงินจ่าย / ใบสำคัญจ่าย</h1>
-            <p>บริษัท เซนเซอร์ไทย จำกัด</p>
+            <p>WSA</p>
           </div>
           
           <div class="info-grid">
@@ -338,9 +339,9 @@ function ReportsContent() {
   const handleSendGmail = async () => {
     try {
       const res = await fetch('/api/admin/send-report', { method: 'POST' })
-      if (res.ok) alert("ส่งรายงานเข้า Gmail เรียบร้อยแล้ว")
+      if (res.ok) toast.success("ส่งรายงานเข้า Gmail เรียบร้อยแล้ว")
     } catch {
-      alert("เกิดข้อผิดพลาดในการส่งอีเมล")
+      toast.error("เกิดข้อผิดพลาดในการส่งอีเมล")
     }
   }
 
@@ -412,7 +413,7 @@ function ReportsContent() {
       <div className="hidden print:block mb-6 border-b-4 border-slate-900 pb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">บริษัท เซนเซอร์ไทย จำกัด</h1>
+            <h1 className="text-2xl font-black text-slate-900">WSA</h1>
             <h2 className="text-xl font-bold text-slate-700 mt-1">รายงานสรุปการเบิกจ่าย</h2>
           </div>
           <div className="text-right text-sm text-slate-500">

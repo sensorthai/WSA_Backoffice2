@@ -15,6 +15,7 @@ import {
   Clock, Send, ChevronLeft, ChevronRight, Users,
   Edit2, Save, FilePlus, UserCheck
 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function LogbookPage() {
   return (
@@ -172,7 +173,7 @@ function LogbookContent() {
       setIsModalOpen(false)
       setEditingLog(null)
     },
-    onError: (err: any) => alert(err.message)
+    onError: (err: any) => toast.error(err.message)
   })
 
   function openNewLog() {

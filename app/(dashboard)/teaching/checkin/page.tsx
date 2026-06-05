@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useUser } from "@/hooks/useUser"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 import {
   MapPin, School, BookOpen, CheckCircle2,
   LogIn, LogOut, Loader2, ClipboardCheck, CalendarDays
@@ -103,7 +104,7 @@ function TeachingCheckinContent() {
       return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-teaching-logs"] }),
-    onError: (err: any) => alert(err.message),
+    onError: (err: any) => toast.error(err.message),
   })
 
   // Check-out mutation
@@ -118,7 +119,7 @@ function TeachingCheckinContent() {
       return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-teaching-logs"] }),
-    onError: (err: any) => alert(err.message),
+    onError: (err: any) => toast.error(err.message),
   })
 
   function getLogForAssignment(assignmentId: string) {

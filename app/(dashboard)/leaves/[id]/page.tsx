@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
+import { toast } from "sonner"
 import { 
   ChevronLeft, 
   CalendarDays, 
@@ -47,11 +48,11 @@ export default function LeaveDetailPage({ params }: { params: { id: string } }) 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-leaves"] })
-      alert("ยกเลิกใบลาเรียบร้อยแล้ว")
+      toast.success("ยกเลิกใบลาเรียบร้อยแล้ว")
       router.push("/leaves")
     },
     onError: (err: any) => {
-      alert(err.message)
+      toast.error(err.message)
     }
   })
 
