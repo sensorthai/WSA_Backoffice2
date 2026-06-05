@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const supabase = createSupabaseServerClient()
   let query = supabase
     .from('purchase_requests')
-    .select('*')
+    .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name))')
     .eq('user_id', session.user.id)
     .order('created_at', { ascending: false })
 
@@ -22,7 +22,16 @@ export async function GET(req: Request) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json(data)
+  const transformed = data.map((item: any) => ({
+    ...item,
+    user: {
+      full_name: item.users?.full_name,
+      avatar_url: item.users?.avatar_url,
+      department: (item.users?.departments as any)?.name
+    }
+  }))
+
+  return NextResponse.json(transformed)
 }
 
 export async function POST(req: Request) {

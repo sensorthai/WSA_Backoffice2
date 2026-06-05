@@ -557,120 +557,140 @@ ${form.purpose || "-"}
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const docDate = selectedPurchase.document_date || selectedPurchase.created_at ? format(new Date(selectedPurchase.document_date || selectedPurchase.created_at), "d MMMM yyyy", { locale: th }) : "-";
+    const docDate = selectedPurchase.document_date ? format(new Date(selectedPurchase.document_date), "d MMMM yyyy", { locale: th }) : "-";
     const createdDate = selectedPurchase.created_at ? format(new Date(selectedPurchase.created_at), "d MMMM yyyy HH:mm", { locale: th }) : "-";
-    const requesterName = session?.user?.name || "-";
     
-    const getStatusText = (status: string) => {
-      switch (status) {
-        case 'pending': return 'รอดำเนินการ'
-        case 'supervisor_approved': return 'หัวหน้าอนุมัติแล้ว'
-        case 'approved': return 'อนุมัติแล้ว'
-        case 'rejected': return 'ปฏิเสธ'
-        case 'paid': return 'จ่ายเงินแล้ว'
-        default: return status
-      }
+    const paymentLabels: Record<string, string> = { 
+      petty_cash: 'เงินสดย่อย', 
+      credit_card: 'ตัดบัตรเครดิต', 
+      k_biz: 'K BIZ (โอน)' 
     };
+
+    const items = selectedPurchase.items || [];
+    const itemsHtml = items.map((item: any, idx: number) => `
+      <tr>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${idx + 1}</td>
+        <td style="border: 1px solid #ccc; padding: 8px;">${item.name}</td>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${item.quantity}</td>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${(item.quantity * item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+      </tr>
+    `).join('');
 
     const html = `
       <html>
         <head>
-          <title>เอกสารคุมสั่งจ่าย (Manifest Voucher) - ${selectedPurchase.id.substring(0, 8)}</title>
+          <title>ใบขออนุมัติเบิกเงินจ่าย / ใบสำคัญจ่าย - ${selectedPurchase.document_number || 'TEMP'}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-            body { font-family: 'Sarabun', sans-serif; color: #1e293b; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
-            .header h1 { margin: 0; font-size: 24px; font-weight: 700; color: #0f172a; }
-            .header p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
-            
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .info-item { margin-bottom: 10px; font-size: 14px; }
-            .info-label { font-weight: 600; color: #475569; width: 120px; display: inline-block; }
-            .info-value { color: #0f172a; font-weight: 500; }
-            
-            .manifest-section { margin-bottom: 40px; }
-            .manifest-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #0f172a; border-left: 4px solid #3b82f6; padding-left: 10px; }
-            .manifest-content { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; font-family: 'Sarabun', monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; color: #334155; }
-            
-            .timeline-section { margin-bottom: 40px; }
-            .timeline-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; color: #0f172a; border-left: 4px solid #10b981; padding-left: 10px; }
-            .timeline-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-            .timeline-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background-color: #ffffff; }
-            .timeline-step { font-size: 12px; font-weight: 700; color: #3b82f6; text-transform: uppercase; margin-bottom: 5px; }
-            .timeline-name { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 5px; }
-            .timeline-status { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
-            .status-approved { color: #059669; }
-            .status-pending { color: #d97706; }
-            .status-rejected { color: #e11d48; }
-            .timeline-date { font-size: 12px; color: #64748b; }
-            .timeline-note { font-size: 12px; color: #64748b; font-style: italic; margin-top: 5px; border-top: 1px dashed #e2e8f0; padding-top: 5px; }
-            
+            body { font-family: 'Sarabun', sans-serif; color: #333; padding: 40px; line-height: 1.6; max-width: 900px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+            .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 14px; }
+            .info-section { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+            .info-section h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 5px; font-size: 14px; text-transform: uppercase; color: #555; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+            th { background-color: #f5f5f5; border: 1px solid #ccc; padding: 10px; font-weight: bold; text-align: left; }
+            .totals { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 40px; font-size: 14px; }
+            .totals-row { display: flex; justify-content: space-between; width: 300px; padding: 5px 0; }
+            .totals-row.grand { font-weight: bold; font-size: 16px; border-top: 2px double #333; padding-top: 10px; }
+            .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; text-align: center; margin-top: 60px; font-size: 14px; }
+            .signature-box { border-top: 1px solid #ccc; padding-top: 10px; }
             @media print {
-              body { padding: 0; max-width: 100%; }
+              body { padding: 20px; }
               .no-print { display: none; }
+              .attachment-page { page-break-before: always; }
             }
           </style>
         </head>
         <body>
           <div class="no-print" style="text-align: right; margin-bottom: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: 'Sarabun', sans-serif;">พิมพ์เอกสาร (Print)</button>
+            <button onclick="window.print()" style="padding: 10px 20px; background-color: #0070f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Sarabun', sans-serif;">พิมพ์เอกสาร (Print)</button>
           </div>
-          
           <div class="header">
-            <h1>เอกสารคุมสั่งจ่าย (AI Manifest Voucher)</h1>
-            <p>อ้างอิงเลขที่: #${selectedPurchase.id.substring(0, 8)}</p>
+            <h1>ใบขออนุมัติเบิกเงินจ่าย / ใบสำคัญจ่าย</h1>
+            <p>WSA</p>
           </div>
           
           <div class="info-grid">
-            <div>
-              <div class="info-item"><span class="info-label">วันที่จัดทำ:</span> <span class="info-value">${createdDate}</span></div>
-              <div class="info-item"><span class="info-label">วันที่อ้างอิง:</span> <span class="info-value">${docDate}</span></div>
-              <div class="info-item"><span class="info-label">ยอดรวมสุทธิ:</span> <span class="info-value" style="font-size: 16px; font-weight: 700;">${Number(selectedPurchase.total_amount).toLocaleString('th-TH')} ฿</span></div>
+            <div class="info-section">
+              <h3>ข้อมูลการสั่งจ่าย</h3>
+              <p><strong>ผู้ขอเบิก:</strong> ${selectedPurchase.user?.full_name || '-'}</p>
+              <p><strong>แผนก:</strong> ${selectedPurchase.user?.department || '-'}</p>
+              <p><strong>วันที่ยื่นคำขอ:</strong> ${createdDate}</p>
+              <p><strong>วิธีการชำระเงิน:</strong> ${paymentLabels[selectedPurchase.payment_method] || selectedPurchase.payment_method || '-'}</p>
             </div>
-            <div>
-              <div class="info-item"><span class="info-label">ผู้ขอเบิก:</span> <span class="info-value">${requesterName}</span></div>
-              <div class="info-item"><span class="info-label">วิธีชำระเงิน:</span> <span class="info-value">${getPaymentMethodLabel(selectedPurchase.payment_method)}</span></div>
-              <div class="info-item"><span class="info-label">สถานะเอกสาร:</span> <span class="info-value">${getStatusText(selectedPurchase.status)}</span></div>
+            <div class="info-section">
+              <h3>ข้อมูลเอกสารอ้างอิง</h3>
+              <p><strong>เลขที่เอกสาร:</strong> ${selectedPurchase.document_number || '-'}</p>
+              <p><strong>วันที่เอกสาร:</strong> ${docDate}</p>
+              <p><strong>ชื่อคู่ค้า (ผู้ขาย):</strong> ${selectedPurchase.vendor_name || selectedPurchase.vendor || '-'}</p>
+              <p><strong>ชื่องาน / โครงการ:</strong> ${selectedPurchase.project_name || '-'}</p>
             </div>
           </div>
-          
-          <div class="manifest-section">
-            <div class="manifest-title">รายละเอียดเอกสาร (Manifest Text)</div>
-            <div class="manifest-content">${selectedPurchase.manifest_text || 'ไม่มีข้อมูล Manifest'}</div>
+
+          <div style="margin-bottom: 20px; font-size: 14px;">
+            <strong>วัตถุประสงค์ในการเบิกจ่าย:</strong> ${selectedPurchase.purpose || '-'}
           </div>
-          
-          <div class="timeline-section">
-            <div class="timeline-title">ไทม์ไลน์การอนุมัติ (Approval Step)</div>
-            <div class="timeline-grid">
-              <div class="timeline-card">
-                <div class="timeline-step">1. ผู้ขอเบิก</div>
-                <div class="timeline-name">${requesterName}</div>
-                <div class="timeline-status status-approved">✔ สร้างคำขอแล้ว</div>
-                <div class="timeline-date">${createdDate}</div>
-              </div>
-              
-              <div class="timeline-card">
-                <div class="timeline-step">2. หัวหน้างาน</div>
-                <div class="timeline-name">หัวหน้างานผู้อนุมัติ</div>
-                <div class="timeline-status ${selectedPurchase.supervisor_approved_at ? 'status-approved' : (selectedPurchase.status === 'rejected' && selectedPurchase.supervisor_note ? 'status-rejected' : 'status-pending')}">
-                  ${selectedPurchase.supervisor_approved_at ? '✔ อนุมัติแล้ว' : (selectedPurchase.status === 'rejected' && selectedPurchase.supervisor_note ? '✖ ปฏิเสธ' : 'รอดำเนินการ')}
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px; text-align: center;">ลำดับ</th>
+                <th>รายการสินค้า / บริการ</th>
+                <th style="width: 100px; text-align: center;">จำนวน</th>
+                <th style="width: 150px; text-align: right;">ราคาต่อหน่วย</th>
+                <th style="width: 150px; text-align: right;">จำนวนเงิน</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="totals-row">
+              <span>ยอดก่อน VAT:</span>
+              <span>${Number(selectedPurchase.amount_before_vat || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+            </div>
+            <div class="totals-row">
+              <span>VAT 7%:</span>
+              <span>${Number(selectedPurchase.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+            </div>
+            <div class="totals-row grand">
+              <span>ยอดรวมสุทธิ:</span>
+              <span>${Number(selectedPurchase.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+            </div>
+          </div>
+
+          <div class="signatures">
+            <div class="signature-box">
+              <p style="margin-bottom: 50px;">....................................................</p>
+              <p>ผู้ขออนุมัติเบิกจ่าย</p>
+              <p style="font-size: 12px; color: #666;">(${selectedPurchase.user?.full_name || '-'})</p>
+            </div>
+            <div class="signature-box">
+              <p style="margin-bottom: 50px;">....................................................</p>
+              <p>ผู้ตรวจสอบ / บัญชีและการเงิน</p>
+            </div>
+            <div class="signature-box">
+              <p style="margin-bottom: 50px;">....................................................</p>
+              <p>ผู้อนุมัติสั่งจ่าย (CEO / กรรมการ)</p>
+            </div>
+          </div>
+
+          ${selectedPurchase.receipt_url ? (() => {
+            const urls = getReceiptUrls(selectedPurchase.receipt_url);
+            return urls.map((url, i) => `
+              <div class="attachment-page" style="margin-top: 40px; text-align: center;">
+                <h2 style="font-size: 18px; border-bottom: 2px solid #eee; padding-bottom: 5px; color: #555; text-align: left;">เอกสารแนบ (Attachment) ${urls.length > 1 ? `#${i + 1}` : ''}</h2>
+                <div style="text-align: center; margin-top: 20px;">
+                  <img src="${url}" style="max-width: 100%; max-height: 800px; object-fit: contain; border: 1px solid #ccc; padding: 10px; border-radius: 8px;" />
                 </div>
-                ${selectedPurchase.supervisor_approved_at ? `<div class="timeline-date">${format(new Date(selectedPurchase.supervisor_approved_at), "d MMMM yyyy HH:mm", { locale: th })}</div>` : ''}
-                ${selectedPurchase.supervisor_note ? `<div class="timeline-note">"${selectedPurchase.supervisor_note}"</div>` : ''}
               </div>
-              
-              <div class="timeline-card">
-                <div class="timeline-step">3. CEO / ผู้ดูแลสูงสุด</div>
-                <div class="timeline-name">CEO ผู้อนุมัติขั้นสูงสุด</div>
-                <div class="timeline-status ${selectedPurchase.ceo_approved_at ? 'status-approved' : (selectedPurchase.status === 'supervisor_approved' ? 'status-pending' : 'status-pending')}">
-                  ${selectedPurchase.ceo_approved_at ? '✔ อนุมัติแล้ว' : (selectedPurchase.status === 'supervisor_approved' ? 'รออนุมัติขั้นสุดท้าย' : (selectedPurchase.status === 'approved' ? '<span style="color:#94a3b8;font-weight:normal;">ไม่จำเป็น (อยู่ในวงเงิน)</span>' : '<span style="color:#94a3b8;font-weight:normal;">-</span>'))}
-                </div>
-                ${selectedPurchase.ceo_approved_at ? `<div class="timeline-date">${format(new Date(selectedPurchase.ceo_approved_at), "d MMMM yyyy HH:mm", { locale: th })}</div>` : ''}
-                ${selectedPurchase.ceo_note ? `<div class="timeline-note">"${selectedPurchase.ceo_note}"</div>` : ''}
-              </div>
-            </div>
-          </div>
-          
+            `).join('');
+          })() : ''}
         </body>
       </html>
     `;

@@ -149,7 +149,7 @@ export function NotificationBell() {
 
       {/* Custom Dropdown Content */}
       <div className={cn(
-        "absolute right-0 mt-4 w-96 bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-[0_30px_70px_rgba(0,0,0,0.2)] ring-1 ring-slate-200/50 overflow-hidden z-[100] notification-dropdown border border-white",
+        "fixed md:absolute left-1/2 md:left-auto -translate-x-1/2 md:translate-x-0 md:right-0 top-20 md:top-auto md:mt-4 w-[calc(100vw-2rem)] md:w-96 bg-white/95 backdrop-blur-xl rounded-[2rem] md:rounded-[3rem] shadow-[0_30px_70px_rgba(0,0,0,0.2)] ring-1 ring-slate-200/50 overflow-hidden z-[100] notification-dropdown border border-white",
         isOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-90 invisible pointer-events-none"
       )}>
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-white flex justify-between items-center">
