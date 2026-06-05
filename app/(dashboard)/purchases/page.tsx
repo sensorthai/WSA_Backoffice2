@@ -126,10 +126,12 @@ export default function PurchasesPage() {
     document_date: format(new Date(), "yyyy-MM-dd"),
     subtotal: 0,
     vat_amount: 0,
+    vendor: "",
     vendor_address: "",
     vendor_tax_id: "",
     customer_name: "",
     customer_tax_id: "",
+    customer_address: "",
     project_name: "",
   })
 
@@ -179,10 +181,12 @@ export default function PurchasesPage() {
           document_date: payload.document_date,
           subtotal: parseFloat(payload.subtotal) || 0,
           vat_amount: parseFloat(payload.vat_amount) || 0,
+          vendor_name: payload.vendor,
           vendor_address: payload.vendor_address,
           vendor_tax_id: payload.vendor_tax_id,
           customer_name: payload.customer_name,
           customer_tax_id: payload.customer_tax_id,
+          customer_address: payload.customer_address,
           project_name: payload.project_name
         }),
         headers: { "Content-Type": "application/json" }
@@ -256,10 +260,12 @@ export default function PurchasesPage() {
       document_date: format(new Date(), "yyyy-MM-dd"),
       subtotal: 0,
       vat_amount: 0,
+      vendor: "",
       vendor_address: "",
       vendor_tax_id: "",
       customer_name: "",
       customer_tax_id: "",
+      customer_address: "",
       project_name: "",
     } as any)
     setCurrentStep(1)
@@ -307,6 +313,7 @@ export default function PurchasesPage() {
 ที่อยู่คู่ค้า: ${form.vendor_address || "-"}
 เลขประจำตัวผู้เสียภาษี (คู่ค้า): ${form.vendor_tax_id || "-"}
 ลูกค้า (ผู้ซื้อ): ${form.customer_name || "-"}
+ที่อยู่ลูกค้า: ${form.customer_address || "-"}
 เลขประจำตัวผู้เสียภาษี (ลูกค้า): ${form.customer_tax_id || "-"}
 ชื่องาน/โครงการ: ${form.project_name || "-"}
 วิธีการชำระเงินต้นทาง: ${getPaymentMethodLabel(form.payment_method)}
@@ -375,8 +382,10 @@ ${form.purpose || "-"}
         vat_amount: data.vatAmount || 0,
         vendor_address: data.vendorAddress || "",
         vendor_tax_id: data.vendorTaxId || "",
+        vendor: data.vendor || "",
         customer_name: data.customerName || "",
         customer_tax_id: data.customerTaxId || "",
+        customer_address: data.customerAddress || "",
         project_name: data.projectName || "",
         file,
         receipt_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : "",
@@ -669,6 +678,15 @@ ${form.purpose || "-"}
                                      className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm font-mono"
                                      value={(purchaseForm as any).customer_tax_id || ""}
                                      onChange={(e) => setPurchaseForm({ ...purchaseForm, customer_tax_id: e.target.value } as any)}
+                                  />
+                               </div>
+                               <div className="md:col-span-2 space-y-2">
+                                  <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ที่อยู่ลูกค้า</Label>
+                                  <Input 
+                                     placeholder="ที่อยู่ลูกค้า (ผู้ซื้อ)"
+                                     className="h-12 rounded-xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold text-sm"
+                                     value={(purchaseForm as any).customer_address || ""}
+                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, customer_address: e.target.value } as any)}
                                   />
                                </div>
 
@@ -1159,7 +1177,7 @@ ${form.purpose || "-"}
                          </TableCell>
                          <TableCell>
                             <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{p.title}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{p.items.length} รายการ</div>
+                            <div className="text-[10px] text-slate-400 font-medium">{p.vendor_name && <span className="text-slate-500">{p.vendor_name} · </span>}{p.items.length} รายการ</div>
                          </TableCell>
                          <TableCell className="font-black text-lg text-slate-900">
                             {Number(p.total_amount).toLocaleString('th-TH')} ฿
@@ -1230,6 +1248,21 @@ ${form.purpose || "-"}
                                     </div>
                                     <p className="text-slate-500 font-medium leading-relaxed italic">"{p.purpose}"</p>
                                  </div>
+
+                                 {/* Vendor / Customer Info */}
+                                 {(p.vendor_name || p.customer_name || p.customer_address) && (
+                                   <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                                      {p.vendor_name && (
+                                        <div><span className="text-slate-400 font-bold">คู่ค้า:</span> <span className="font-bold text-slate-700">{p.vendor_name}</span></div>
+                                      )}
+                                      {p.customer_name && (
+                                        <div><span className="text-slate-400 font-bold">ลูกค้า:</span> <span className="font-bold text-slate-700">{p.customer_name}</span></div>
+                                      )}
+                                      {p.customer_address && (
+                                        <div><span className="text-slate-400 font-bold">ที่อยู่ลูกค้า:</span> <span className="font-bold text-slate-700">{p.customer_address}</span></div>
+                                      )}
+                                   </div>
+                                 )}
                                  
                                  {/* Expandable Items List */}
                                  <div className="bg-slate-50 rounded-3xl p-6 space-y-4">
@@ -1438,10 +1471,13 @@ ${form.purpose || "-"}
                               </div>
                            )}
                            {/* Vendor / Customer / Project */}
-                           {(selectedPurchase.vendor_address || selectedPurchase.vendor_tax_id || selectedPurchase.customer_name || selectedPurchase.project_name) && (
+                           {(selectedPurchase.vendor_name || selectedPurchase.vendor_address || selectedPurchase.vendor_tax_id || selectedPurchase.customer_name || selectedPurchase.customer_address || selectedPurchase.project_name) && (
                               <div className="space-y-4">
                                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ข้อมูลคู่ค้า / ลูกค้า</h4>
                                  <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100 space-y-3 text-sm">
+                                    {selectedPurchase.vendor_name && (
+                                       <div><span className="text-slate-400 font-bold">ชื่อคู่ค้า:</span> <span className="font-bold text-slate-700">{selectedPurchase.vendor_name}</span></div>
+                                    )}
                                     {selectedPurchase.vendor_address && (
                                        <div><span className="text-slate-400 font-bold">ที่อยู่คู่ค้า:</span> <span className="font-bold text-slate-700">{selectedPurchase.vendor_address}</span></div>
                                     )}
@@ -1453,6 +1489,9 @@ ${form.purpose || "-"}
                                     )}
                                     {selectedPurchase.customer_tax_id && (
                                        <div><span className="text-slate-400 font-bold">Tax ID (ลูกค้า):</span> <span className="font-mono font-bold text-slate-700">{selectedPurchase.customer_tax_id}</span></div>
+                                    )}
+                                    {selectedPurchase.customer_address && (
+                                       <div><span className="text-slate-400 font-bold">ที่อยู่ลูกค้า:</span> <span className="font-bold text-slate-700">{selectedPurchase.customer_address}</span></div>
                                     )}
                                     {selectedPurchase.project_name && (
                                        <div><span className="text-slate-400 font-bold">ชื่องาน:</span> <span className="font-bold text-slate-700">{selectedPurchase.project_name}</span></div>

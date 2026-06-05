@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       try {
         const prompt = `You are a professional financial document analyzer. Analyze the attached receipt, invoice, or voucher. 
 Identify its document type in Thai (e.g., 'ใบกำกับภาษีเต็มรูป', 'ใบเสร็จรับเงิน', 'บิลเงินสด', 'ใบแจ้งหนี้', 'สลิปโอนเงิน'). 
-Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), customer tax ID, project/job name, document number, document date, items, quantities, unit prices, subtotal (before VAT), VAT amount, total after VAT, purpose, and suggested category. 
+Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), customer address (buyer address), customer tax ID, project/job name, document number, document date, items, quantities, unit prices, subtotal (before VAT), VAT amount, total after VAT, purpose, and suggested category. 
 The category must be strictly one of: 'ค่าเดินทาง', 'ค่าอาหาร/รับรองลูกค้า', 'อุปกรณ์สำนักงาน', 'ค่าซ่อมบำรุง', 'ค่าอินเทอร์เน็ต/โทรศัพท์', 'อื่นๆ'.
 The payment method must be strictly one of: 'petty_cash', 'credit_card', 'k_biz'.
 The documentDate should be in YYYY-MM-DD format.
@@ -46,6 +46,7 @@ Your output must be a single JSON object matching this schema:
   "vendorAddress": "STRING",
   "vendorTaxId": "STRING",
   "customerName": "STRING",
+  "customerAddress": "STRING",
   "customerTaxId": "STRING",
   "projectName": "STRING",
   "paymentMethod": "STRING ('petty_cash' | 'credit_card' | 'k_biz')",
@@ -117,7 +118,7 @@ Your output must be a single JSON object matching this schema:
       try {
         const prompt = `You are a professional financial document analyzer. Analyze the attached receipt, invoice, or voucher. 
 Identify its document type in Thai (e.g., 'ใบกำกับภาษีเต็มรูป', 'ใบเสร็จรับเงิน', 'บิลเงินสด', 'ใบแจ้งหนี้', 'สลิปโอนเงิน'). 
-Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), customer tax ID, project/job name, document number, document date, items, quantities, unit prices, subtotal (before VAT), VAT amount, total after VAT, purpose, and suggested category. 
+Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), customer address (buyer address), customer tax ID, project/job name, document number, document date, items, quantities, unit prices, subtotal (before VAT), VAT amount, total after VAT, purpose, and suggested category. 
 The category must be strictly one of: 'ค่าเดินทาง', 'ค่าอาหาร/รับรองลูกค้า', 'อุปกรณ์สำนักงาน', 'ค่าซ่อมบำรุง', 'ค่าอินเทอร์เน็ต/โทรศัพท์', 'อื่นๆ'.
 The payment method must be strictly one of: 'petty_cash', 'credit_card', 'k_biz'.
 The documentDate should be in YYYY-MM-DD format.
@@ -151,6 +152,7 @@ Return the response in strict JSON format matching the required schema.`
                 vendorAddress: { type: "STRING" },
                 vendorTaxId: { type: "STRING" },
                 customerName: { type: "STRING" },
+                customerAddress: { type: "STRING" },
                 customerTaxId: { type: "STRING" },
                 projectName: { type: "STRING" },
                 paymentMethod: { type: "STRING" },
@@ -217,6 +219,7 @@ Return the response in strict JSON format matching the required schema.`
       vendorAddress: "88/8 ถ.รัตนาธิเบศร์ แขวงบางนา เขตบางนา กรุงเทพฯ 10260",
       vendorTaxId: "0105548091234",
       customerName: "บริษัท เซนเซอร์ไทย จำกัด",
+      customerAddress: "99/9 อาคารเซนเซอร์ ถ.สุขุมวิท แขวงคลองตัน เขตคลองเตย กรุงเทพฯ 10110",
       customerTaxId: "0105565012345",
       projectName: "โครงการปรับปรุงสำนักงานใหญ่",
       paymentMethod: "petty_cash",
@@ -242,6 +245,7 @@ Return the response in strict JSON format matching the required schema.`
         vendorAddress: "1 อาคารเอ็มไทย ชั้น18 ถ.วิภาวดีรังสิต กรุงเทพฯ 10110",
         vendorTaxId: "0105559036512",
         customerName: "บริษัท เซนเซอร์ไทย จำกัด",
+        customerAddress: "99/9 อาคารเซนเซอร์ ถ.สุขุมวิท แขวงคลองตัน เขตคลองเตย กรุงเทพฯ 10110",
         customerTaxId: "0105565012345",
         projectName: "ประชุมโครงการอโศก",
         paymentMethod: "credit_card",
@@ -264,6 +268,7 @@ Return the response in strict JSON format matching the required schema.`
         vendorAddress: "1 อาคารเซ็นทรัลลาดพร้าว ชั้น G แขวงจตุจักร เขตจตุจักร กทม. 10900",
         vendorTaxId: "0107537000319",
         customerName: "บริษัท เซนเซอร์ไทย จำกัด",
+        customerAddress: "99/9 อาคารเซนเซอร์ ถ.สุขุมวิท แขวงคลองตัน เขตคลองเตย กรุงเทพฯ 10110",
         customerTaxId: "0105565012345",
         projectName: "เลี้ยงรับรองคู่ค้า",
         paymentMethod: "petty_cash",
@@ -286,6 +291,7 @@ Return the response in strict JSON format matching the required schema.`
         vendorAddress: "414 ถ.พหลโยธิน แขวงสามเสนใน เขตพญาไท กทม. 10400",
         vendorTaxId: "0107545000081",
         customerName: "บริษัท เซนเซอร์ไทย จำกัด",
+        customerAddress: "99/9 อาคารเซนเซอร์ ถ.สุขุมวิท แขวงคลองตัน เขตคลองเตย กรุงเทพฯ 10110",
         customerTaxId: "0105565012345",
         projectName: "ค่าสาธารณูปโภคสำนักงาน",
         paymentMethod: "k_biz",
@@ -308,6 +314,7 @@ Return the response in strict JSON format matching the required schema.`
         vendorAddress: "55/3 ซ.ลาดพร้าว 71 แขวงลาดพร้าว เขตลาดพร้าว กทม. 10230",
         vendorTaxId: "0103556078901",
         customerName: "บริษัท เซนเซอร์ไทย จำกัด",
+        customerAddress: "99/9 อาคารเซนเซอร์ ถ.สุขุมวิท แขวงคลองตัน เขตคลองเตย กรุงเทพฯ 10110",
         customerTaxId: "0105565012345",
         projectName: "ซ่อมบำรุงห้องประชุมใหญ่",
         paymentMethod: "petty_cash",
