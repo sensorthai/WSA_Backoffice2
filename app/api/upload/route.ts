@@ -12,7 +12,11 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const file = formData.get("file") as File | null
     const folder = (formData.get("folder") as string) || "general"
-    const bucket = (formData.get("bucket") as string) || "attachments"
+    let bucket = (formData.get("bucket") as string) || "attachments"
+
+    if (!formData.get("bucket") && folder === "receipts") {
+      bucket = "receipts"
+    }
 
     if (!file) {
       return NextResponse.json({ error: "ไม่พบไฟล์" }, { status: 400 })

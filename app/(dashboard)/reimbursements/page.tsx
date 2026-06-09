@@ -140,6 +140,7 @@ export default function ReimbursementsPage() {
     const formData = new FormData()
     formData.append("file", file)
     formData.append("folder", "receipts")
+    formData.append("bucket", "receipts")
 
     const res = await fetch("/api/upload", {
       method: "POST",
