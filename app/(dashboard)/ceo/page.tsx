@@ -10,8 +10,6 @@ import {
   Building2, 
   Home, 
   Palmtree, 
-  Clock, 
-  Search, 
   RefreshCw,
   CheckCircle2,
   XCircle,
@@ -23,7 +21,6 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -34,12 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-
 import { cn } from "@/lib/utils"
 
 

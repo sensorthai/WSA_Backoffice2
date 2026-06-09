@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useTranslation } from "@/contexts/I18nContext"
 import {
-  LayoutDashboard,
   UserCheck,
   CalendarRange,
   ShoppingBag,

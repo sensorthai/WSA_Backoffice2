@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
     const sortedDates = Array.from(datesSet).sort()
     const teach_dates_str = sortedDates.map(d => {
-      const [yy, mm, dd] = d.split("-")
+      const [, mm, dd] = d.split("-")
       return `${dd}/${mm}`
     }).join(", ")
 

@@ -8,7 +8,6 @@ import {
   CalendarDays,
   MapPin,
   School,
-  BookOpen,
   Users,
   CheckCircle2,
   Clock,
@@ -16,7 +15,6 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
-  HelpCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"

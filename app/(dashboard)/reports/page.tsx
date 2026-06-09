@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -110,6 +111,77 @@ function ReportsContent() {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [selectedViewPurchase, setSelectedViewPurchase] = useState<any>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+
+  // Leave Management States
+  const [selectedViewLeave, setSelectedViewLeave] = useState<any>(null)
+  const [isViewLeaveDialogOpen, setIsViewLeaveDialogOpen] = useState(false)
+  const [selectedEditLeave, setSelectedEditLeave] = useState<any>(null)
+  const [isEditLeaveDialogOpen, setIsEditLeaveDialogOpen] = useState(false)
+  
+  const [editType, setEditType] = useState("vacation")
+  const [editStartDate, setEditStartDate] = useState("")
+  const [editEndDate, setEditEndDate] = useState("")
+  const [editReason, setEditReason] = useState("")
+  const [editStatus, setEditStatus] = useState("pending")
+  const [editSupervisorNote, setEditSupervisorNote] = useState("")
+  const [editCeoNote, setEditCeoNote] = useState("")
+
+  const openEditLeave = (leave: any) => {
+    setSelectedEditLeave(leave)
+    setEditType(leave.leave_type)
+    setEditStartDate(leave.start_date)
+    setEditEndDate(leave.end_date)
+    setEditReason(leave.reason || "")
+    setEditStatus(leave.status)
+    setEditSupervisorNote(leave.supervisor_note || "")
+    setEditCeoNote(leave.ceo_note || "")
+    setIsEditLeaveDialogOpen(true)
+  }
+
+  const handleSaveEditLeave = async () => {
+    if (!selectedEditLeave) return
+    try {
+      const res = await fetch(`/api/leaves/${selectedEditLeave.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leave_type: editType,
+          start_date: editStartDate,
+          end_date: editEndDate,
+          reason: editReason,
+          status: editStatus,
+          supervisor_note: editSupervisorNote,
+          ceo_note: editCeoNote
+        })
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || "เกิดข้อผิดพลาดในการแก้ไขใบลา")
+      }
+      toast.success("แก้ไขรายละเอียดวันลาเรียบร้อยแล้ว!")
+      setIsEditLeaveDialogOpen(false)
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleDeleteLeave = async (id: string) => {
+    if (!confirm("คุณต้องการลบคำขอลาและคืนยอดโควตานี้ใช่หรือไม่? (การดำเนินการนี้ไม่สามารถย้อนกลับได้)")) return
+    try {
+      const res = await fetch(`/api/leaves/${id}`, {
+        method: 'DELETE'
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || "เกิดข้อผิดพลาดในการลบใบลา")
+      }
+      toast.success("ลบใบลาและปรับปรุงยอดโควตาสำเร็จ!")
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
 
   const { profile } = useUser()
   const { data: userDept } = useQuery({
@@ -668,7 +740,8 @@ function ReportsContent() {
                     )}
                     {reportType === 'leave' && (
                       <>
-                        <TableHead className="pl-10 py-6 font-black text-slate-400 uppercase tracking-widest text-[10px]">รายชื่อพนักงาน</TableHead>
+                        <TableHead className="pl-4 py-6 font-black text-slate-400 uppercase tracking-widest text-[10px] w-6"></TableHead>
+                        <TableHead className="py-6 font-black text-slate-400 uppercase tracking-widest text-[10px]">รายชื่อพนักงาน</TableHead>
                         <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[10px] text-center border-x border-slate-100" colSpan={3}>ลาป่วย</TableHead>
                         <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[10px] text-center border-x border-slate-100" colSpan={3}>ลากิจ</TableHead>
                         <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[10px] text-center border-x border-slate-100" colSpan={3}>ลาพักร้อน</TableHead>
@@ -703,7 +776,8 @@ function ReportsContent() {
                 {reportType === 'leave' && (
                   <TableHeader className="bg-slate-50/30">
                     <TableRow className="border-slate-100 hover:bg-transparent">
-                      <TableHead className="pl-10"></TableHead>
+                      <TableHead className="pl-4 w-6"></TableHead>
+                      <TableHead className="pl-4"></TableHead>
                       <TableHead className="text-[9px] font-black text-slate-400 text-center border-l border-slate-100">สิทธิ</TableHead>
                       <TableHead className="text-[9px] font-black text-slate-400 text-center">ใช้ไป</TableHead>
                       <TableHead className="text-[9px] font-black text-slate-400 text-center border-r border-slate-100">คงเหลือ</TableHead>
@@ -723,12 +797,12 @@ function ReportsContent() {
                     filteredData.map((row: any, idx: number) => (
                       <Fragment key={idx}>
                         <TableRow 
-                           className={`border-slate-50 hover:bg-slate-50/30 ${reportType === 'purchase' ? 'cursor-pointer' : ''}`}
-                           role={reportType === 'purchase' ? 'button' : undefined}
-                           tabIndex={reportType === 'purchase' ? 0 : undefined}
-                           onClick={() => reportType === 'purchase' && toggleRow(idx)}
+                           className={`border-slate-50 hover:bg-slate-50/30 ${(reportType === 'purchase' || reportType === 'leave') ? 'cursor-pointer' : ''}`}
+                           role={(reportType === 'purchase' || reportType === 'leave') ? 'button' : undefined}
+                           tabIndex={(reportType === 'purchase' || reportType === 'leave') ? 0 : undefined}
+                           onClick={() => (reportType === 'purchase' || reportType === 'leave') && toggleRow(idx)}
                            onKeyDown={(e) => {
-                             if (reportType === 'purchase' && (e.key === 'Enter' || e.key === ' ')) {
+                             if ((reportType === 'purchase' || reportType === 'leave') && (e.key === 'Enter' || e.key === ' ')) {
                                toggleRow(idx)
                              }
                            }}
@@ -825,13 +899,94 @@ function ReportsContent() {
                             </TableCell>
                           </TableRow>
                         )}
+                        {/* Expanded Detail Row for Leave */}
+                        {reportType === 'leave' && expandedRows.has(idx) && (
+                          <TableRow className="bg-slate-50/50 print:bg-white border-slate-100">
+                            <TableCell colSpan={11} className="px-10 py-6">
+                              <div className="space-y-4">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">ประวัติการขอลาของ {row.name} สำหรับปีนี้</h4>
+                                {(!row.leaves || row.leaves.length === 0) ? (
+                                  <div className="text-sm font-bold text-slate-400 py-4">ไม่มีประวัติการขอลาในปีนี้</div>
+                                ) : (
+                                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                                    <Table style={{ minWidth: 800 }}>
+                                      <TableHeader className="bg-slate-50/50">
+                                        <TableRow className="border-slate-100 hover:bg-transparent">
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3 pl-6">ประเภทการลา</TableHead>
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3">ระยะเวลาที่ขอลา</TableHead>
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3 text-center">จำนวนวัน</TableHead>
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3">เหตุผลการลา</TableHead>
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3 text-center">สถานะ</TableHead>
+                                          <TableHead className="font-bold text-slate-500 text-xs py-3 pr-6 text-right">ดำเนินการ</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {row.leaves.map((leave: any, lIdx: number) => (
+                                          <TableRow key={lIdx} className="border-slate-50 hover:bg-slate-50/20">
+                                            <TableCell className="font-semibold text-slate-700 py-3 pl-6">
+                                              ลา{leave.leave_type === 'sick' ? 'ป่วย' : leave.leave_type === 'personal' ? 'กิจ' : leave.leave_type === 'vacation' ? 'พักร้อน' : 'อื่นๆ'}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 py-3 text-xs">
+                                              {format(new Date(leave.start_date), "d MMM yyyy", { locale: th })} - {format(new Date(leave.end_date), "d MMM yyyy", { locale: th })}
+                                            </TableCell>
+                                            <TableCell className="text-center font-bold text-slate-800 py-3">{leave.days_count} วัน</TableCell>
+                                            <TableCell className="text-slate-500 py-3 max-w-[200px] truncate text-xs">{leave.reason}</TableCell>
+                                            <TableCell className="text-center py-3">
+                                              {getStatusBadge(leave.status)}
+                                            </TableCell>
+                                            <TableCell className="pr-6 py-3 text-right space-x-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-8 rounded-lg font-bold text-xs gap-1 border-slate-200"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedViewLeave(leave);
+                                                  setIsViewLeaveDialogOpen(true);
+                                                }}
+                                              >
+                                                <Eye size={12} /> รายละเอียด
+                                              </Button>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-8 rounded-lg font-bold text-xs gap-1 text-blue-600 border-blue-100 hover:bg-blue-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openEditLeave(leave);
+                                                }}
+                                              >
+                                                แก้ไข
+                                              </Button>
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-8 rounded-lg font-bold text-xs gap-1 text-rose-600 hover:bg-rose-50"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteLeave(leave.id);
+                                                }}
+                                              >
+                                                ลบ
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </Fragment>
                     ))
                   )}
                 </TableBody>
                 <TableFooter className="bg-slate-900 text-white font-black print:bg-slate-800">
                   <TableRow>
-                    <TableCell className="pl-10 print:pl-2 py-6" colSpan={reportType === 'purchase' ? 2 : 1}>Grand Total</TableCell>
+                    <TableCell className="pl-10 print:pl-2 py-6" colSpan={(reportType === 'purchase' || reportType === 'leave') ? 2 : 1}>Grand Total</TableCell>
                     {reportType === 'wfh' && (
                       <><TableCell>{(totals as any)?.office}</TableCell><TableCell>{(totals as any)?.home}</TableCell><TableCell>{(totals as any)?.onsite}</TableCell><TableCell>{(totals as any)?.absent}</TableCell><TableCell className="pr-10 text-right">-</TableCell></>
                     )}
@@ -987,6 +1142,156 @@ function ReportsContent() {
                )}
             </DialogFooter>
          </DialogContent>
+      </Dialog>
+
+      {/* View Leave Request Details Dialog */}
+      <Dialog open={isViewLeaveDialogOpen} onOpenChange={setIsViewLeaveDialogOpen}>
+        <DialogContent className="max-w-xl rounded-[2.5rem] p-6 border-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <FileText className="text-emerald-600" />
+              รายละเอียดคำขอลาหยุด
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedViewLeave && (
+            <div className="flex-1 overflow-y-auto space-y-6 py-4 pr-1 custom-scrollbar text-sm">
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ประเภทการลา</div>
+                  <div className="font-bold text-slate-800">
+                    ลา{selectedViewLeave.leave_type === 'sick' ? 'ป่วย' : selectedViewLeave.leave_type === 'personal' ? 'กิจ' : selectedViewLeave.leave_type === 'vacation' ? 'พักร้อน' : 'อื่นๆ'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">จำนวนวันหยุด</div>
+                  <div className="font-bold text-slate-800">{selectedViewLeave.days_count} วัน</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">วันที่เริ่มต้น</div>
+                  <div className="font-bold text-slate-800">{format(new Date(selectedViewLeave.start_date), "d MMMM yyyy", { locale: th })}</div>
+                </div>
+                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">วันที่สิ้นสุด</div>
+                  <div className="font-bold text-slate-800">{format(new Date(selectedViewLeave.end_date), "d MMMM yyyy", { locale: th })}</div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">เหตุผลการลา</div>
+                <div className="text-slate-700 leading-relaxed font-medium italic">"{selectedViewLeave.reason}"</div>
+              </div>
+
+              {selectedViewLeave.attachment_url && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ใบรับรองแพทย์ / เอกสารแนบ</div>
+                  <div className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center p-4">
+                    <a href={selectedViewLeave.attachment_url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90">
+                      <img src={selectedViewLeave.attachment_url} alt="Medical Certificate" className="max-h-[200px] object-contain rounded-xl" />
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">บันทึกการพิจารณา</div>
+                {selectedViewLeave.supervisor_note && (
+                  <div className="text-xs"><span className="font-bold text-amber-700">หัวหน้างาน:</span> {selectedViewLeave.supervisor_note}</div>
+                )}
+                {selectedViewLeave.ceo_note && (
+                  <div className="text-xs"><span className="font-bold text-blue-700">CEO:</span> {selectedViewLeave.ceo_note}</div>
+                )}
+                {!selectedViewLeave.supervisor_note && !selectedViewLeave.ceo_note && (
+                  <div className="text-xs text-slate-400 italic">ไม่มีบันทึกการพิจารณา</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-slate-100 pt-4">
+            <Button variant="outline" className="rounded-xl font-bold h-11" onClick={() => setIsViewLeaveDialogOpen(false)}>ปิด</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Leave Request Dialog */}
+      <Dialog open={isEditLeaveDialogOpen} onOpenChange={setIsEditLeaveDialogOpen}>
+        <DialogContent className="max-w-xl rounded-[2.5rem] p-6 border-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <FileText className="text-blue-600" />
+              แก้ไขใบลาหยุด
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedEditLeave && (
+            <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 custom-scrollbar text-sm">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการลา</label>
+                <Select value={editType} onValueChange={setEditType}>
+                  <SelectTrigger className="rounded-xl h-11 border-slate-100 bg-slate-50 font-bold">
+                    <SelectValue placeholder="เลือกประเภทการลา" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="sick">ลาป่วย (Sick Leave)</SelectItem>
+                    <SelectItem value="personal">ลากิจ (Personal Leave)</SelectItem>
+                    <SelectItem value="vacation">ลาพักร้อน (Vacation Leave)</SelectItem>
+                    <SelectItem value="other">ลาอื่นๆ (Other)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">วันที่เริ่มต้น</label>
+                  <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="h-11 rounded-xl border-slate-100 bg-slate-50 font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">วันที่สิ้นสุด</label>
+                  <Input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} className="h-11 rounded-xl border-slate-100 bg-slate-50 font-bold" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">เหตุผลการลา</label>
+                <Textarea value={editReason} onChange={e => setEditReason(e.target.value)} className="rounded-xl min-h-[80px] border-slate-100 bg-slate-50 p-3 font-medium" />
+              </div>
+
+              <div className="space-y-2 border-t border-slate-100 pt-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">สถานะใบลา</label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger className="rounded-xl h-11 border-slate-100 bg-slate-50 font-bold">
+                    <SelectValue placeholder="เลือกสถานะ" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="pending">รออนุมัติ (Pending)</SelectItem>
+                    <SelectItem value="supervisor_approved">หัวหน้าอนุมัติแล้ว (Supervisor Approved)</SelectItem>
+                    <SelectItem value="approved">อนุมัติแล้ว (Approved)</SelectItem>
+                    <SelectItem value="rejected">ถูกปฏิเสธ (Rejected)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">บันทึกหัวหน้างาน (Supervisor Note)</label>
+                <Input value={editSupervisorNote} onChange={e => setEditSupervisorNote(e.target.value)} className="h-11 rounded-xl border-slate-100 bg-slate-50 font-medium" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">บันทึก CEO (CEO Note)</label>
+                <Input value={editCeoNote} onChange={e => setEditCeoNote(e.target.value)} className="h-11 rounded-xl border-slate-100 bg-slate-50 font-medium" />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="border-t border-slate-100 pt-4 flex gap-2">
+            <Button variant="outline" className="rounded-xl font-bold h-11" onClick={() => setIsEditLeaveDialogOpen(false)}>ยกเลิก</Button>
+            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold h-11" onClick={handleSaveEditLeave}>บันทึกข้อมูล</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   )

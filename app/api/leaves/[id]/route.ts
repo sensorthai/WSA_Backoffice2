@@ -70,15 +70,18 @@ export async function PUT(
   if (fetchError || !existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   // 2. Permissions & Status check
-  if (existing.user_id !== session.user.id) {
+  const userRole = (session.user as any).role
+  const isAdminOrCeo = ['admin', 'ceo'].includes(userRole)
+
+  if (existing.user_id !== session.user.id && !isAdminOrCeo) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  if (existing.status !== 'pending') {
+  if (existing.status !== 'pending' && !isAdminOrCeo) {
     return NextResponse.json({ error: "สามารถแก้ไขได้เฉพาะคำขอที่รอดำเนินการเท่านั้น" }, { status: 400 })
   }
 
   try {
-    const { leave_type, start_date, end_date, reason } = await req.json()
+    const { leave_type, start_date, end_date, reason, status, supervisor_note, ceo_note } = await req.json()
     const start = parseISO(start_date)
     const end = parseISO(end_date)
     
@@ -88,16 +91,81 @@ export async function PUT(
 
     const daysCount = calculateWorkingDays(start, end)
 
+    // Quota validation check (excluding current request's original days)
+    const quotaKeyMap: Record<string, string> = {
+      sick: 'sick_quota',
+      personal: 'personal_quota',
+      vacation: 'vacation_quota'
+    }
+
+    const quotaKey = quotaKeyMap[leave_type]
+    if (quotaKey) {
+      // Fetch user quota
+      const { data: user } = await supabase
+        .from('users')
+        .select('sick_quota, personal_quota, vacation_quota')
+        .eq('id', existing.user_id)
+        .single()
+
+      if (user) {
+        const quotaValue = (user as any)[quotaKey] ?? 0
+        const requestYear = start.getFullYear()
+
+        // Fetch all other approved/pending leave requests of this type in the requested year (excluding this request)
+        const { data: existingLeaves } = await supabase
+          .from('leave_requests')
+          .select('days_count')
+          .eq('user_id', existing.user_id)
+          .eq('leave_type', leave_type)
+          .neq('status', 'rejected')
+          .neq('id', params.id)
+          .gte('start_date', `${requestYear}-01-01`)
+          .lte('start_date', `${requestYear}-12-31`)
+
+        const totalUsed = (existingLeaves || []).reduce((sum, l) => sum + Number(l.days_count), 0)
+
+        if (totalUsed + daysCount > quotaValue) {
+          const remaining = Math.max(0, quotaValue - totalUsed)
+          return NextResponse.json({
+            error: `จำนวนวันลาเต็มโควตาสำหรับปี ${requestYear} (โควตาปีนี้: ${quotaValue} วัน, ใช้ไปแล้ว: ${totalUsed} วัน, คงเหลือสิทธิ์ลา: ${remaining} วัน, ต้องการลาเพิ่ม: ${daysCount} วัน)`
+          }, { status: 400 })
+        }
+      }
+    }
+
+    const updatePayload: any = {
+      leave_type,
+      start_date,
+      end_date,
+      days_count: daysCount,
+      reason,
+      updated_at: new Date().toISOString()
+    }
+
+    if (isAdminOrCeo) {
+      if (status) {
+        updatePayload.status = status
+        if (status === 'approved') {
+          updatePayload.supervisor_approved_at = existing.supervisor_approved_at || new Date().toISOString()
+          updatePayload.ceo_approved_at = existing.ceo_approved_at || new Date().toISOString()
+        } else if (status === 'pending') {
+          updatePayload.supervisor_approved_at = null
+          updatePayload.ceo_approved_at = null
+        } else if (status === 'supervisor_approved') {
+          updatePayload.supervisor_approved_at = existing.supervisor_approved_at || new Date().toISOString()
+          updatePayload.ceo_approved_at = null
+        } else if (status === 'rejected') {
+          updatePayload.supervisor_approved_at = existing.supervisor_approved_at || new Date().toISOString()
+          updatePayload.ceo_approved_at = existing.ceo_approved_at || new Date().toISOString()
+        }
+      }
+      if (supervisor_note !== undefined) updatePayload.supervisor_note = supervisor_note
+      if (ceo_note !== undefined) updatePayload.ceo_note = ceo_note
+    }
+
     const { data, error } = await supabase
       .from('leave_requests')
-      .update({
-        leave_type,
-        start_date,
-        end_date,
-        days_count: daysCount,
-        reason,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', params.id)
       .select()
       .single()
@@ -126,11 +194,14 @@ export async function DELETE(
 
   if (fetchError || !existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  if (existing.user_id !== session.user.id) {
+  const userRole = (session.user as any).role
+  const isAdminOrCeo = ['admin', 'ceo'].includes(userRole)
+
+  if (existing.user_id !== session.user.id && !isAdminOrCeo) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  if (existing.status !== 'pending') {
+  if (existing.status !== 'pending' && !isAdminOrCeo) {
     return NextResponse.json({ error: "สามารถยกเลิกได้เฉพาะคำขอที่รอดำเนินการเท่านั้น" }, { status: 400 })
   }
 

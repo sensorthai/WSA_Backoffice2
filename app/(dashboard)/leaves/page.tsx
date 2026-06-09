@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic'
 import { useState } from "react"
 import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useSession } from "next-auth/react"
 import { format, parseISO, isWeekend, addDays } from "date-fns"
 import { th } from "date-fns/locale"
 import { toast } from "sonner"
@@ -37,7 +36,6 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 export default function LeavesPage() {
-  const { data: session } = useSession()
   const queryClient = useQueryClient()
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")

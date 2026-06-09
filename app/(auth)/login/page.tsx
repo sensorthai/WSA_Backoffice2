@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50/50 px-4 py-12 sm:px-6 lg:px-8">
       {/* Dynamic Background Glow Orbs */}
-      <div className="absolute top-[-20%] left-[-15%] h-[500px] w-[500px] rounded-full bg-indigo-200/40 blur-[100px] pointer-events-none animate-pulse duration-[8000ms]" />
+      <div className="absolute top-[-20%] left-[-15%] h-[500px] w-[500px] rounded-full bg-indigo-200/40 blur-[100px] pointer-events-none animate-[pulse_8s_ease-in-out_infinite]" />
       <div className="absolute bottom-[-15%] right-[-10%] h-[550px] w-[550px] rounded-full bg-purple-200/35 blur-[120px] pointer-events-none" />
       <div className="absolute top-[35%] right-[15%] h-[350px] w-[350px] rounded-full bg-blue-100/30 blur-[90px] pointer-events-none" />
 

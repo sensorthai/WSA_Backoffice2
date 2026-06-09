@@ -8,7 +8,7 @@ import { format, startOfWeek, endOfWeek, addWeeks } from "date-fns"
 import { th } from "date-fns/locale"
 import {
   Plus, Trash2, Send, CheckCircle2, FileText,
-  ChevronDown, ChevronRight, Paperclip, AlertCircle,
+  ChevronRight, Paperclip, AlertCircle,
   Users, RefreshCw, MessageSquare, Save, ArrowLeft, Calendar,
   Sparkles, AlertTriangle, Check, ExternalLink, CalendarOff
 } from "lucide-react"

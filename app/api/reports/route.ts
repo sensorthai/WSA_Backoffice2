@@ -64,17 +64,19 @@ export async function GET(req: Request) {
       
     const { data: leaves } = await supabase.from('leave_requests')
       .select('*')
-      .eq('status', 'approved')
       .gte('start_date', yearStart)
       .lte('start_date', yearEnd)
+      .order('start_date', { ascending: false })
 
     data = (users || []).map(u => {
       const uLeaves = leaves?.filter(l => l.user_id === u.id) || []
-      const sickUsed = uLeaves.filter(l => l.leave_type === 'sick').reduce((acc, l) => acc + l.days_count, 0)
-      const personalUsed = uLeaves.filter(l => l.leave_type === 'personal').reduce((acc, l) => acc + l.days_count, 0)
-      const vacationUsed = uLeaves.filter(l => l.leave_type === 'vacation').reduce((acc, l) => acc + l.days_count, 0)
+      const approvedLeaves = uLeaves.filter(l => l.status === 'approved')
+      const sickUsed = approvedLeaves.filter(l => l.leave_type === 'sick').reduce((acc, l) => acc + l.days_count, 0)
+      const personalUsed = approvedLeaves.filter(l => l.leave_type === 'personal').reduce((acc, l) => acc + l.days_count, 0)
+      const vacationUsed = approvedLeaves.filter(l => l.leave_type === 'vacation').reduce((acc, l) => acc + l.days_count, 0)
       
       return {
+        id: u.id,
         name: u.full_name,
         sick_quota: u.sick_quota || 30,
         sick_used: sickUsed,
@@ -84,7 +86,8 @@ export async function GET(req: Request) {
         personal_remaining: (u.personal_quota || 3) - personalUsed,
         vacation_quota: u.vacation_quota || 6,
         vacation_used: vacationUsed,
-        vacation_remaining: (u.vacation_quota || 6) - vacationUsed
+        vacation_remaining: (u.vacation_quota || 6) - vacationUsed,
+        leaves: uLeaves
       }
     })
     csvHeaders = [
