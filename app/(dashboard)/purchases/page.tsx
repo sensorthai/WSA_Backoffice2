@@ -149,6 +149,7 @@ function PurchasesContent() {
     document_date: format(new Date(), "yyyy-MM-dd"),
     subtotal: 0,
     vat_amount: 0,
+    vat_enabled: false,
     vendor: "",
     vendor_address: "",
     vendor_tax_id: "",
@@ -343,6 +344,7 @@ function PurchasesContent() {
       document_date: format(new Date(), "yyyy-MM-dd"),
       subtotal: 0,
       vat_amount: 0,
+      vat_enabled: false,
       vendor: "",
       vendor_address: "",
       vendor_tax_id: "",
@@ -358,15 +360,29 @@ function PurchasesContent() {
     setShowCustomCategory(false)
   }
 
+  // ยอดก่อน VAT = ผลรวมของทุกรายการ
   const itemsTotal = useMemo(() => {
-    return purchaseForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+    return purchaseForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
   }, [purchaseForm.items])
 
-  // Grand total: items total + vat_amount
+  // VAT 7%: คำนวณจากยอดก่อน VAT เมื่อติ๊ก checkbox เท่านั้น
+  const vatAmount = useMemo(() => {
+    return (purchaseForm as any).vat_enabled ? itemsTotal * 0.07 : 0
+  }, [itemsTotal, (purchaseForm as any).vat_enabled])
+
+  // ยอดรวมหลัง VAT = ยอดก่อน VAT + VAT
   const grandTotal = useMemo(() => {
-    const vat = Number((purchaseForm as any).vat_amount) || 0
-    return itemsTotal + vat
-  }, [itemsTotal, (purchaseForm as any).vat_amount])
+    return itemsTotal + vatAmount
+  }, [itemsTotal, vatAmount])
+
+  // sync subtotal / vat_amount เข้า form state สำหรับการบันทึก
+  useEffect(() => {
+    setPurchaseForm((prev: any) => {
+      if (Number(prev.subtotal) === itemsTotal && Number(prev.vat_amount) === vatAmount) return prev
+      return { ...prev, subtotal: itemsTotal, vat_amount: vatAmount }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsTotal, vatAmount])
 
   const generateManifestText = (form: any, total: number) => {
     const todayStr = format(new Date(), "d MMMM yyyy HH:mm", { locale: th })
@@ -461,6 +477,7 @@ ${form.purpose || "-"}
         document_date: data.documentDate || format(new Date(), "yyyy-MM-dd"),
         subtotal: data.subtotal || 0,
         vat_amount: data.vatAmount || 0,
+        vat_enabled: Number(data.vatAmount) > 0,
         vendor_address: data.vendorAddress || "",
         vendor_tax_id: data.vendorTaxId || "",
         vendor: data.vendor || "",
@@ -1084,25 +1101,30 @@ ${form.purpose || "-"}
                             </div>
                             {/* VAT Breakdown */}
                             <div className="rounded-3xl overflow-hidden border border-slate-200">
+                               {/* ยอดก่อน VAT = ผลรวมของทุกรายการ (คำนวณอัตโนมัติ) */}
                                <div className="flex justify-between items-center px-6 py-4 bg-slate-50">
                                   <span className="font-bold text-slate-500 text-sm">ยอดก่อน VAT</span>
-                                  <Input 
-                                     type="number" 
-                                     className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
-                                     value={(purchaseForm as any).subtotal === 0 ? "" : (purchaseForm as any).subtotal}
-                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, subtotal: e.target.value } as any)}
-                                     placeholder="0.00"
-                                  />
+                                  <span className="font-black text-slate-700 text-sm tabular-nums">
+                                     {itemsTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                  </span>
                                </div>
+                               {/* VAT 7% เป็น checkbox: ถ้าติ๊ก คำนวณ ยอดก่อน VAT * 7% */}
                                <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-t border-slate-200">
-                                  <span className="font-bold text-slate-500 text-sm">VAT 7%</span>
-                                  <Input 
-                                     type="number" 
-                                     className="h-9 w-40 rounded-xl border-slate-200 bg-white text-right font-bold text-sm"
-                                     value={(purchaseForm as any).vat_amount === 0 ? "" : (purchaseForm as any).vat_amount}
-                                     onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_amount: e.target.value } as any)}
-                                     placeholder="0.00"
-                                  />
+                                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                                     <input
+                                        type="checkbox"
+                                        className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600/30 cursor-pointer accent-blue-600"
+                                        checked={!!(purchaseForm as any).vat_enabled}
+                                        onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_enabled: e.target.checked } as any)}
+                                     />
+                                     <span className="font-bold text-slate-500 text-sm">VAT 7%</span>
+                                  </label>
+                                  <span className={cn(
+                                     "font-black text-sm tabular-nums",
+                                     (purchaseForm as any).vat_enabled ? "text-slate-700" : "text-slate-300"
+                                  )}>
+                                     {vatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                  </span>
                                </div>
                                <div className="flex justify-between items-center px-6 py-5 bg-slate-900 text-white">
                                   <span className="font-bold text-slate-400">ยอดรวมหลัง VAT</span>
