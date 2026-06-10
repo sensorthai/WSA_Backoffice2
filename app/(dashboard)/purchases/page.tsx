@@ -592,6 +592,12 @@ ${form.purpose || "-"}
       </tr>
     `).join('');
 
+    // คำนวณยอดสำหรับสรุป (fallback จากรายการ หากไม่มีค่าในฐานข้อมูล)
+    const computedItemsTotal = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
+    const printBeforeVat = Number(selectedPurchase.amount_before_vat) > 0 ? Number(selectedPurchase.amount_before_vat) : computedItemsTotal;
+    const printVat = Number(selectedPurchase.vat_amount) || 0;
+    const printTotal = Number(selectedPurchase.total_amount) || (printBeforeVat + printVat);
+
     const html = `
       <html>
         <head>
@@ -667,15 +673,15 @@ ${form.purpose || "-"}
           <div class="totals">
             <div class="totals-row">
               <span>ยอดก่อน VAT:</span>
-              <span>${Number(selectedPurchase.amount_before_vat || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+              <span>${printBeforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
             </div>
             <div class="totals-row">
               <span>VAT 7%:</span>
-              <span>${Number(selectedPurchase.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+              <span>${printVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
             </div>
             <div class="totals-row grand">
               <span>ยอดรวมสุทธิ:</span>
-              <span>${Number(selectedPurchase.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+              <span>${printTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
             </div>
           </div>
 
@@ -1573,10 +1579,31 @@ ${form.purpose || "-"}
                                              <div className="text-slate-900 shrink-0">{(item.quantity * item.unit_price).toLocaleString('th-TH')} <span className="text-xs text-slate-400">฿</span></div>
                                           </div>
                                        ))}
-                                       <div className="pt-4 border-t border-slate-200 flex justify-between items-center font-black text-lg md:text-xl text-slate-900">
-                                          <span>ยอดรวม</span>
-                                          <span className="text-blue-600">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></span>
-                                       </div>
+                                       {(() => {
+                                          const computedItemsTotal = (p.items || []).reduce(
+                                             (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                                             0
+                                          )
+                                          const beforeVat = Number(p.amount_before_vat) > 0 ? Number(p.amount_before_vat) : computedItemsTotal
+                                          const vat = Number(p.vat_amount) || 0
+                                          const totalAfterVat = Number(p.total_amount) || (beforeVat + vat)
+                                          return (
+                                          <div className="pt-4 border-t border-slate-200 space-y-2">
+                                             <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+                                                <span>ยอดก่อน VAT</span>
+                                                <span>{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-sm font-bold text-slate-500">
+                                                <span>VAT 7%</span>
+                                                <span>{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
+                                             </div>
+                                             <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center font-black text-lg md:text-xl text-slate-900">
+                                                <span>ยอดรวมหลัง VAT</span>
+                                                <span className="text-blue-600">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-sm">฿</span></span>
+                                             </div>
+                                          </div>
+                                          )
+                                       })()}
                                     </div>
                                  </div>
 
@@ -2192,24 +2219,33 @@ ${form.purpose || "-"}
                                     </div>
                                  ))}
                                  {/* VAT Breakdown */}
+                                 {(() => {
+                                    const computedItemsTotal = (selectedPurchase.items || []).reduce(
+                                       (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                                       0
+                                    )
+                                    const beforeVat = Number(selectedPurchase.amount_before_vat) > 0
+                                       ? Number(selectedPurchase.amount_before_vat)
+                                       : computedItemsTotal
+                                    const vat = Number(selectedPurchase.vat_amount) || 0
+                                    const totalAfterVat = Number(selectedPurchase.total_amount) || (beforeVat + vat)
+                                    return (
                                  <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
-                                    {selectedPurchase.amount_before_vat > 0 && (
-                                       <div className="flex justify-between items-center text-sm">
-                                          <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
-                                          <span className="font-bold text-slate-600">{Number(selectedPurchase.amount_before_vat).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
-                                       </div>
-                                    )}
-                                    {selectedPurchase.vat_amount > 0 && (
-                                       <div className="flex justify-between items-center text-sm">
-                                          <span className="text-slate-400 font-bold">VAT 7%</span>
-                                          <span className="font-bold text-slate-600">{Number(selectedPurchase.vat_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
-                                       </div>
-                                    )}
+                                    <div className="flex justify-between items-center text-sm">
+                                       <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
+                                       <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                       <span className="text-slate-400 font-bold">VAT 7%</span>
+                                       <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                    </div>
                                     <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-200">
                                        <span className="font-black text-slate-900 text-sm">ยอดรวมหลัง VAT</span>
-                                       <span className="font-black text-slate-900 text-lg">{Number(selectedPurchase.total_amount).toLocaleString('th-TH')} ฿</span>
+                                       <span className="font-black text-slate-900 text-lg">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
                                     </div>
                                  </div>
+                                    )
+                                 })()}
                               </div>
                            </div>
                            <div className="space-y-4">
