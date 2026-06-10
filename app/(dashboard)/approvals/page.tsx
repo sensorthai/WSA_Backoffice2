@@ -20,7 +20,8 @@ import {
   Bell,
   LayoutGrid,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Banknote
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -127,10 +128,14 @@ export default function ApprovalsPage() {
       }
       toast.error("ไม่สามารถดำเนินการได้: " + e.message)
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables: any) => {
       setSelectedItem(null)
       setRejectNote("")
-      toast.success("บันทึกการดำเนินการเรียบร้อยแล้ว!")
+      if (variables?.action === 'approve' && variables?.type === 'reimbursement' && variables?.itemStatus === 'approved') {
+        toast.success("ยืนยันการโอนเงินเรียบร้อยแล้ว!")
+      } else {
+        toast.success("บันทึกการดำเนินการเรียบร้อยแล้ว!")
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
@@ -390,13 +395,23 @@ export default function ApprovalsPage() {
                 >
                    <XCircle className="mr-2" /> ปฏิเสธ
                 </Button>
-                <Button 
-                   className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
-                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
-                   disabled={approveMutation.isPending}
-                >
-                   <CheckCircle2 className="mr-2" /> อนุมัติคำขอ
-                </Button>
+                {item.type === 'reimbursement' && item.status === 'approved' ? (
+                  <Button 
+                     className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-xl"
+                     onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
+                     disabled={approveMutation.isPending}
+                  >
+                     <Banknote className="mr-2" /> ยืนยันการโอนเงิน
+                  </Button>
+                ) : (
+                  <Button 
+                     className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
+                     onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
+                     disabled={approveMutation.isPending}
+                  >
+                     <CheckCircle2 className="mr-2" /> อนุมัติคำขอ
+                  </Button>
+                )}
              </div>
           </div>
         ) : (

@@ -52,12 +52,20 @@ export async function PUT(
 
     if (fetchError || !purchase) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    // 2. Security: Only owner can update and only if pending
-    if (purchase.user_id !== session.user.id) {
-      return NextResponse.json({ error: "คุณไม่มีสิทธิ์แก้ไขรายการนี้" }, { status: 403 })
-    }
-    if (purchase.status !== 'pending') {
-      return NextResponse.json({ error: "ไม่สามารถแก้ไขรายการที่ถูกดำเนินการไปแล้วได้" }, { status: 400 })
+    // 2. Security:
+    //    - admin/ceo สามารถแก้ไขได้ทุกรายการ ทุกสถานะ
+    //    - เจ้าของแก้ไขได้เฉพาะรายการที่ยังเป็น pending เท่านั้น
+    const userRole = (session.user as any).role
+    const isPrivileged = ['admin', 'ceo'].includes(userRole)
+    const isOwner = purchase.user_id === session.user.id
+
+    if (!isPrivileged) {
+      if (!isOwner) {
+        return NextResponse.json({ error: "คุณไม่มีสิทธิ์แก้ไขรายการนี้" }, { status: 403 })
+      }
+      if (purchase.status !== 'pending') {
+        return NextResponse.json({ error: "ไม่สามารถแก้ไขรายการที่ถูกดำเนินการไปแล้วได้" }, { status: 400 })
+      }
     }
 
     // 3. Recalculate Total if items changed
@@ -86,4 +94,48 @@ export async function PUT(
   } catch {
     return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 })
   }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const session = await auth()
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const supabase = createSupabaseServerClient()
+
+  // 1. Fetch current record
+  const { data: purchase, error: fetchError } = await supabase
+    .from('purchase_requests')
+    .select('id, user_id, status')
+    .eq('id', params.id)
+    .single()
+
+  if (fetchError || !purchase) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // 2. Security:
+  //    - admin/ceo สามารถลบได้ทุกรายการ
+  //    - เจ้าของลบได้เฉพาะรายการที่ยังเป็น pending เท่านั้น
+  const userRole = (session.user as any).role
+  const isPrivileged = ['admin', 'ceo'].includes(userRole)
+  const isOwner = purchase.user_id === session.user.id
+
+  if (!isPrivileged) {
+    if (!isOwner) {
+      return NextResponse.json({ error: "คุณไม่มีสิทธิ์ลบรายการนี้" }, { status: 403 })
+    }
+    if (purchase.status !== 'pending') {
+      return NextResponse.json({ error: "ไม่สามารถลบรายการที่ถูกดำเนินการไปแล้วได้" }, { status: 400 })
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from('purchase_requests')
+    .delete()
+    .eq('id', params.id)
+
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }

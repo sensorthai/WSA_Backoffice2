@@ -99,7 +99,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
         { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles: ["ceo", "admin"] },
         { label: t("sidebar.assets"), href: "/assets", icon: MonitorSmartphone, roles: ["ceo", "admin"] },
-        { label: t("sidebar.purchases"), href: "/reports?tab=purchase", icon: ShoppingBag, roles: ["admin", "ceo"] },
+        { label: t("sidebar.purchases_report"), href: "/reports?tab=purchase", icon: ShoppingBag, roles: ["admin", "ceo"] },
       ]
     },
     {

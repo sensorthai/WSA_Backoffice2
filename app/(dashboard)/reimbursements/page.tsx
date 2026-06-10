@@ -19,7 +19,8 @@ import {
   ArrowLeft,
   UploadCloud,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Banknote
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -118,6 +119,29 @@ export default function ReimbursementsPage() {
     },
     onError: (err: any) => {
         toast.error(err.message)
+    }
+  })
+
+  // Mutation to Confirm Payment (ฝ่ายบัญชียืนยันการโอนเงิน -> status: paid)
+  const payMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/reimbursements/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve", stage: "ceo" })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "ยืนยันการโอนเงินไม่สำเร็จ")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-reimbursements"] })
+      toast.success("ยืนยันการโอนเงินเรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      toast.error(err.message)
     }
   })
 
@@ -697,6 +721,23 @@ export default function ReimbursementsPage() {
                                <FileText size={16} /> ดูใบเสร็จ
                             </Button>
                           </a>
+                        )}
+                        {/* ฝ่ายบัญชี/Admin ยืนยันการโอนเงิน เมื่อสถานะเป็น approved */}
+                        {isAdmin && reimb.status === 'approved' && (
+                          <Button
+                            size="sm"
+                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"
+                            disabled={payMutation.isPending}
+                            onClick={() => {
+                              if (confirm(`ยืนยันการโอนเงินจำนวน ฿${Number(reimb.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} ให้กับ ${reimb.user?.full_name || 'พนักงาน'} ใช่หรือไม่?`)) {
+                                payMutation.mutate(reimb.id)
+                              }
+                            }}
+                          >
+                            {payMutation.isPending
+                              ? <Loader2 size={16} className="animate-spin" />
+                              : <Banknote size={16} />} ยืนยันการโอนเงิน
+                          </Button>
                         )}
                       </div>
                     </div>

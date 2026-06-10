@@ -25,7 +25,9 @@ import {
   Building2,
   Receipt,
   FileText,
-  Eye
+  Eye,
+  Pencil,
+  Trash2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -77,7 +79,7 @@ type ReportType = 'wfh' | 'leave' | 'purchase' | 'car'
 const reportConfigs = {
   wfh: { title: "รายงานการเข้างาน", icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
   leave: { title: "รายงานการลาหยุด", icon: Palmtree, color: "text-emerald-600", bg: "bg-emerald-50" },
-  purchase: { title: "รายงานการเบิกจ่าย", icon: ShoppingBag, color: "text-amber-600", bg: "bg-amber-50" },
+  purchase: { title: "รายงานค่าใช้จ่าย", icon: ShoppingBag, color: "text-amber-600", bg: "bg-amber-50" },
   car: { title: "รายงานการใช้รถบริษัท", icon: Car, color: "text-indigo-600", bg: "bg-indigo-50" }
 }
 
@@ -111,6 +113,22 @@ function ReportsContent() {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [selectedViewPurchase, setSelectedViewPurchase] = useState<any>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+
+  // Purchase Edit (admin) States
+  const [selectedEditPurchase, setSelectedEditPurchase] = useState<any>(null)
+  const [isEditPurchaseDialogOpen, setIsEditPurchaseDialogOpen] = useState(false)
+  const [isSavingPurchase, setIsSavingPurchase] = useState(false)
+  const [editPurchaseForm, setEditPurchaseForm] = useState({
+    title: "",
+    vendor: "",
+    document_number: "",
+    document_date: "",
+    payment_method: "petty_cash",
+    status: "approved",
+    amount_before_vat: 0,
+    vat_amount: 0,
+    total_amount: 0,
+  })
 
   // Leave Management States
   const [selectedViewLeave, setSelectedViewLeave] = useState<any>(null)
@@ -211,6 +229,74 @@ function ReportsContent() {
       role === 'ceo'
     return isAllowedRole && isAllowedDept
   }, [profile, userDept])
+
+  // เฉพาะ admin เท่านั้นที่แก้ไข / ลบรายการเบิกจ่ายได้
+  const isAdmin = profile?.role === 'admin'
+
+  const openEditPurchase = (purchase: any) => {
+    setSelectedEditPurchase(purchase)
+    const beforeVat = Number(purchase.amount_before_vat) || 0
+    const vat = Number(purchase.vat_amount) || 0
+    setEditPurchaseForm({
+      title: purchase.title || "",
+      vendor: purchase.vendor || purchase.vendor_name || "",
+      document_number: purchase.document_number || "",
+      document_date: purchase.document_date || "",
+      payment_method: purchase.payment_method || "petty_cash",
+      status: purchase.status || "approved",
+      amount_before_vat: beforeVat,
+      vat_amount: vat,
+      total_amount: Number(purchase.total_amount) || (beforeVat + vat),
+    })
+    setIsEditPurchaseDialogOpen(true)
+  }
+
+  const handleSaveEditPurchase = async () => {
+    if (!selectedEditPurchase) return
+    setIsSavingPurchase(true)
+    try {
+      const beforeVat = Number(editPurchaseForm.amount_before_vat) || 0
+      const vat = Number(editPurchaseForm.vat_amount) || 0
+      const res = await fetch(`/api/purchases/${selectedEditPurchase.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editPurchaseForm.title,
+          vendor: editPurchaseForm.vendor,
+          vendor_name: editPurchaseForm.vendor,
+          document_number: editPurchaseForm.document_number,
+          document_date: editPurchaseForm.document_date || null,
+          payment_method: editPurchaseForm.payment_method,
+          status: editPurchaseForm.status,
+          amount_before_vat: beforeVat,
+          vat_amount: vat,
+          total_amount: beforeVat + vat,
+        })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "เกิดข้อผิดพลาดในการแก้ไขรายการ")
+      toast.success("แก้ไขรายการเบิกจ่ายเรียบร้อยแล้ว!")
+      setIsEditPurchaseDialogOpen(false)
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setIsSavingPurchase(false)
+    }
+  }
+
+  const handleDeletePurchase = async (purchase: any) => {
+    if (!confirm(`คุณต้องการลบรายการเบิกจ่าย "${purchase.title || purchase.document_number || ''}" ใช่หรือไม่? (การดำเนินการนี้ไม่สามารถย้อนกลับได้)`)) return
+    try {
+      const res = await fetch(`/api/purchases/${purchase.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "เกิดข้อผิดพลาดในการลบรายการ")
+      toast.success("ลบรายการเบิกจ่ายเรียบร้อยแล้ว!")
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
 
   const printVoucher = (purchase: any) => {
     const printWindow = window.open('', '_blank')
@@ -681,6 +767,26 @@ function ReportsContent() {
                           >
                             <Printer size={12} /> พิมพ์เอกสาร
                           </Button>
+                          {isAdmin && row.source !== 'reimbursement' && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-lg font-bold text-xs gap-1 border-amber-200 text-amber-600 hover:bg-amber-50"
+                                onClick={() => openEditPurchase(row)}
+                              >
+                                <Pencil size={12} /> แก้ไข
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-lg font-bold text-xs gap-1 border-rose-200 text-rose-600 hover:bg-rose-50"
+                                onClick={() => handleDeletePurchase(row)}
+                              >
+                                <Trash2 size={12} /> ลบ
+                              </Button>
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -894,6 +1000,42 @@ function ReportsContent() {
                                   {row.purpose && <div><span className="font-bold text-slate-400">วัตถุประสงค์:</span> {row.purpose}</div>}
                                   {row.supervisor_note && <div><span className="font-bold text-amber-600">หัวหน้า:</span> {row.supervisor_note}</div>}
                                   {row.ceo_note && <div><span className="font-bold text-blue-600">CEO:</span> {row.ceo_note}</div>}
+                                </div>
+                              )}
+                              {/* Admin actions: edit / delete */}
+                              {isAdmin && row.source !== 'reimbursement' && (
+                                <div className="mt-3 flex flex-wrap items-center justify-end gap-2 no-print" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg font-bold text-xs gap-1 border-slate-200"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedViewPurchase(row); setIsViewDialogOpen(true) }}
+                                  >
+                                    <Eye size={12} /> ดู
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="h-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1"
+                                    onClick={(e) => { e.stopPropagation(); printVoucher(row) }}
+                                  >
+                                    <Printer size={12} /> พิมพ์เอกสาร
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg font-bold text-xs gap-1 border-amber-200 text-amber-600 hover:bg-amber-50"
+                                    onClick={(e) => { e.stopPropagation(); openEditPurchase(row) }}
+                                  >
+                                    <Pencil size={12} /> แก้ไข
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg font-bold text-xs gap-1 border-rose-200 text-rose-600 hover:bg-rose-50"
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePurchase(row) }}
+                                  >
+                                    <Trash2 size={12} /> ลบ
+                                  </Button>
                                 </div>
                               )}
                             </TableCell>
@@ -1142,6 +1284,112 @@ function ReportsContent() {
                )}
             </DialogFooter>
          </DialogContent>
+      </Dialog>
+
+      {/* Edit Purchase Dialog (Admin only) */}
+      <Dialog open={isEditPurchaseDialogOpen} onOpenChange={setIsEditPurchaseDialogOpen}>
+        <DialogContent className="max-w-xl rounded-[2.5rem] p-6 border-0 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <Pencil className="text-amber-600" />
+              แก้ไขรายการเบิกจ่าย
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto custom-scrollbar pr-1 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">ชื่อรายการ</label>
+              <Input
+                value={editPurchaseForm.title}
+                onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, title: e.target.value })}
+                className="h-11 rounded-xl border-slate-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">เลขที่เอกสาร</label>
+                <Input
+                  value={editPurchaseForm.document_number}
+                  onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, document_number: e.target.value })}
+                  className="h-11 rounded-xl border-slate-200"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">วันที่เอกสาร</label>
+                <Input
+                  type="date"
+                  value={editPurchaseForm.document_date || ""}
+                  onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, document_date: e.target.value })}
+                  className="h-11 rounded-xl border-slate-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">คู่ค้า (ผู้ขาย)</label>
+              <Input
+                value={editPurchaseForm.vendor}
+                onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, vendor: e.target.value })}
+                className="h-11 rounded-xl border-slate-200"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">วิธีชำระเงิน</label>
+                <Select value={editPurchaseForm.payment_method} onValueChange={(v) => setEditPurchaseForm({ ...editPurchaseForm, payment_method: v })}>
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="petty_cash">เงินสดย่อย</SelectItem>
+                    <SelectItem value="credit_card">ตัดบัตรเครดิต</SelectItem>
+                    <SelectItem value="k_biz">K BIZ (โอน)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">สถานะ</label>
+                <Select value={editPurchaseForm.status} onValueChange={(v) => setEditPurchaseForm({ ...editPurchaseForm, status: v })}>
+                  <SelectTrigger className="h-11 rounded-xl border-slate-200"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">รออนุมัติ</SelectItem>
+                    <SelectItem value="approved">อนุมัติแล้ว</SelectItem>
+                    <SelectItem value="paid">โอนเงินแล้ว</SelectItem>
+                    <SelectItem value="rejected">ถูกปฏิเสธ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">ยอดก่อน VAT</label>
+                <Input
+                  type="number"
+                  value={editPurchaseForm.amount_before_vat}
+                  onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, amount_before_vat: Number(e.target.value) })}
+                  className="h-11 rounded-xl border-slate-200 text-right"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">VAT</label>
+                <Input
+                  type="number"
+                  value={editPurchaseForm.vat_amount}
+                  onChange={(e) => setEditPurchaseForm({ ...editPurchaseForm, vat_amount: Number(e.target.value) })}
+                  className="h-11 rounded-xl border-slate-200 text-right"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between items-center px-4 py-3 bg-slate-900 text-white rounded-xl">
+              <span className="font-bold text-slate-400 text-sm">ยอดรวมหลัง VAT</span>
+              <span className="text-lg font-black">
+                {(Number(editPurchaseForm.amount_before_vat) + Number(editPurchaseForm.vat_amount)).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+              </span>
+            </div>
+          </div>
+          <DialogFooter className="border-t border-slate-100 pt-4 flex gap-2">
+            <Button variant="outline" className="rounded-xl font-bold h-11" onClick={() => setIsEditPurchaseDialogOpen(false)} disabled={isSavingPurchase}>ยกเลิก</Button>
+            <Button className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold h-11 gap-1.5" onClick={handleSaveEditPurchase} disabled={isSavingPurchase}>
+              {isSavingPurchase ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />} บันทึกการแก้ไข
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* View Leave Request Details Dialog */}
