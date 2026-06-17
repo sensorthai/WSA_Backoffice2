@@ -87,6 +87,11 @@ export default function ApprovalsPage() {
     }
   })
 
+  // รายการที่จ่ายเงินแล้ว (purchase / reimbursement สถานะ paid)
+  const paidItems = Array.isArray(historyItems)
+    ? historyItems.filter((it: any) => it.status === 'paid' && (it.type === 'purchase' || it.type === 'reimbursement'))
+    : []
+
   // --- Mutations ---
   const approveMutation = useMutation({
     mutationFn: async ({ id, type, action, note, itemStatus }: any) => {
@@ -277,10 +282,34 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                   <span className="text-slate-400 font-black uppercase tracking-widest text-xs">ยอดเงินรวมสุทธิ</span>
-                   <span className="text-3xl font-black text-blue-600">{Number(item.total_amount).toLocaleString()} ฿</span>
-                </div>
+                 {/* VAT Breakdown */}
+                 {(() => {
+                    const computedItemsTotal = (item.items || []).reduce(
+                       (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                       0
+                    )
+                    const beforeVat = Number(item.amount_before_vat) > 0
+                       ? Number(item.amount_before_vat)
+                       : computedItemsTotal
+                    const vat = Number(item.vat_amount) || 0
+                    const totalAfterVat = Number(item.total_amount) || (beforeVat + vat)
+                    return (
+                      <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3 shadow-sm">
+                         <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
+                            <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-400 font-bold">VAT 7%</span>
+                            <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                         </div>
+                         <div className="flex justify-between items-center pt-3 border-t border-dashed border-slate-200">
+                            <span className="font-black text-slate-900 text-sm">ยอดรวมหลัง VAT</span>
+                            <span className="font-black text-blue-600 text-2xl">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                         </div>
+                      </div>
+                    )
+                 })()}
 
                 {item.receipt_url && (() => {
                   const urls = getReceiptUrls(item.receipt_url);
@@ -501,6 +530,19 @@ export default function ApprovalsPage() {
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
               )}
             </button>
+            <button 
+              onClick={() => setActiveView("paid")}
+              className={cn(
+                "pb-3 text-base font-bold transition-all relative flex items-center gap-2",
+                activeView === "paid" ? "text-blue-600 font-extrabold" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <Banknote className="w-4 h-4" />
+              <span>การจ่ายเงิน</span>
+              {activeView === "paid" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
+            </button>
           </div>
 
           {activeView === "pending" && (
@@ -605,6 +647,69 @@ export default function ApprovalsPage() {
                              </TableCell>
                           </TableRow>
                         ))}
+                     </TableBody>
+                  </Table>
+                  </div>
+               </Card>
+            </div>
+          )}
+
+          {activeView === "paid" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                  <div className="overflow-x-auto custom-scrollbar">
+                  <Table className="min-w-[700px]">
+                     <TableHeader className="bg-slate-50/50">
+                        <TableRow className="border-slate-100 hover:bg-transparent">
+                           <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่จ่าย</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอเบิก</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายการ</TableHead>
+                           <TableHead className="text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">ยอดจ่าย</TableHead>
+                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะ</TableHead>
+                           <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">จัดการ</TableHead>
+                        </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                        {isHistoryLoading ? (
+                          <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
+                        ) : paidItems.length === 0 ? (
+                          <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ยังไม่มีรายการที่จ่ายเงินแล้ว</TableCell></TableRow>
+                        ) : paidItems.map((item: any) => {
+                          const amount = item.type === 'purchase' ? Number(item.total_amount || 0) : Number(item.amount || 0)
+                          const vendor = item.vendor_name || item.vendor || ""
+                          const paidDate = item.paid_at || item.updated_at || item.created_at
+                          return (
+                          <TableRow key={`${item.type}-${item.id}`} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
+                             <TableCell className="py-6 pl-10 font-bold text-slate-500 text-sm whitespace-nowrap">
+                                {format(new Date(paidDate), "d MMM yy", { locale: th })}
+                             </TableCell>
+                             <TableCell>
+                                <div className="flex items-center gap-3">
+                                   <Avatar className="h-8 w-8">
+                                      <AvatarImage src={item.user?.avatar_url} />
+                                      <AvatarFallback>{item.user?.full_name?.charAt(0)}</AvatarFallback>
+                                   </Avatar>
+                                   <span className="font-bold text-slate-900 whitespace-nowrap">{item.user?.full_name}</span>
+                                </div>
+                             </TableCell>
+                             <TableCell className="max-w-[280px]">
+                                <div className="font-bold text-slate-700 text-sm truncate">{item.title || item.description || item.document_type || "-"}</div>
+                                {vendor && <div className="text-xs text-slate-400 font-medium truncate">{vendor}</div>}
+                             </TableCell>
+                             <TableCell className="text-right font-black text-slate-900 text-sm tabular-nums whitespace-nowrap">
+                                {amount.toLocaleString('th-TH', { minimumFractionDigits: 0 })} ฿
+                             </TableCell>
+                             <TableCell>
+                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold">จ่ายเงินแล้ว</Badge>
+                             </TableCell>
+                             <TableCell className="pr-10 text-right">
+                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
+                                   <ChevronRight size={20} />
+                                </Button>
+                             </TableCell>
+                          </TableRow>
+                          )
+                        })}
                      </TableBody>
                   </Table>
                   </div>

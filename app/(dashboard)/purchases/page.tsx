@@ -28,7 +28,8 @@ import {
   FileText,
   Copy,
   Check,
-  Download
+  Download,
+  AlertTriangle
 } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -97,6 +98,7 @@ function PurchasesContent() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const userRole = (session?.user as any)?.role
+  const isCEOOrAdmin = userRole === 'ceo' || userRole === 'admin'
   const searchParams = useSearchParams()
   const tabParam = searchParams?.get("tab")
 
@@ -150,6 +152,7 @@ function PurchasesContent() {
     subtotal: 0,
     vat_amount: 0,
     vat_enabled: false,
+    vat_type: "exclusive", // "exclusive" or "inclusive"
     vendor: "",
     vendor_address: "",
     vendor_tax_id: "",
@@ -163,6 +166,10 @@ function PurchasesContent() {
   const [scanStatus, setScanStatus] = useState("")
   const [customCategory, setCustomCategory] = useState("")
   const [showCustomCategory, setShowCustomCategory] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editForm, setEditForm] = useState<any>(null)
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
 
   // --- Queries ---
   const { data: myPurchases, isLoading: isMyLoading } = useQuery({
@@ -207,6 +214,16 @@ function PurchasesContent() {
     return isCEOOrAdmin || isFinManager
   }, [session?.user, userProfile])
 
+  const canModifySelected = useMemo(() => {
+    if (!selectedPurchase || !session?.user) return false
+    const role = (session.user as any).role
+    const isCEOOrAdmin = role === 'ceo' || role === 'admin'
+    const isOwner = selectedPurchase.user_id === session.user.id
+    return isCEOOrAdmin || 
+           (isFinanceUser && selectedPurchase.status !== 'paid') ||
+           (isOwner && selectedPurchase.status === 'pending')
+  }, [selectedPurchase, session?.user, isFinanceUser])
+
   const { data: approvedPurchases, isLoading: isApprovedLoading } = useQuery({
     queryKey: ["approved-purchases"],
     queryFn: async () => {
@@ -238,6 +255,7 @@ function PurchasesContent() {
           document_date: payload.document_date,
           subtotal: parseFloat(payload.subtotal) || 0,
           vat_amount: parseFloat(payload.vat_amount) || 0,
+          total_amount: parseFloat(payload.total_amount) || 0,
           vendor_name: payload.vendor,
           vendor_address: payload.vendor_address,
           vendor_tax_id: payload.vendor_tax_id,
@@ -276,8 +294,7 @@ function PurchasesContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
-      setIsCreateModalOpen(false)
-      resetForm()
+      setIsSuccess(true)
       toast.success("ยื่นคำขอเบิกเงินเรียบร้อยแล้ว!")
     },
     onError: (err: any) => {
@@ -326,6 +343,105 @@ function PurchasesContent() {
     }
   })
 
+  const editMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const { id, ...body } = payload
+      const res = await fetch(`/api/purchases/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to edit request")
+      return res.json()
+    },
+    onSuccess: (updatedPurchase) => {
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
+      toast.success("บันทึกการแก้ไขเรียบร้อยแล้ว!")
+      setIsEditModalOpen(false)
+      setSelectedPurchase(updatedPurchase)
+    },
+    onError: (err: any) => {
+      toast.error("การแก้ไขล้มเหลว: " + err.message)
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/purchases/${id}`, {
+        method: "DELETE"
+      })
+      if (!res.ok) throw new Error((await res.json()).error || "Failed to delete request")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
+      toast.success("ลบรายการเรียบร้อยแล้ว!")
+      setIsDetailDrawerOpen(false)
+    },
+    onError: (err: any) => {
+      toast.error("การลบล้มเหลว: " + err.message)
+    }
+  })
+
+  const handleAddAttachment = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !selectedPurchase) return
+    setIsUploadingAttachment(true)
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach((file) => {
+        formData.append("file", file)
+      })
+      const res = await fetch(`/api/purchases/${selectedPurchase.id}/upload-receipt`, {
+        method: "POST",
+        body: formData
+      })
+      if (!res.ok) throw new Error("Failed to upload receipt")
+      
+      const getRes = await fetch(`/api/purchases/${selectedPurchase.id}`)
+      if (getRes.ok) {
+        const updated = await getRes.json()
+        setSelectedPurchase(updated)
+      }
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
+      toast.success("เพิ่มไฟล์แนบเรียบร้อยแล้ว!")
+    } catch (err: any) {
+      toast.error("การอัปโหลดล้มเหลว: " + err.message)
+    } finally {
+      setIsUploadingAttachment(false)
+    }
+  }
+
+  const handleDeleteAttachment = async (urlToDelete: string) => {
+    if (!selectedPurchase) return
+    if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบไฟล์แนบนี้?")) return
+    
+    try {
+      const urls = getReceiptUrls(selectedPurchase.receipt_url)
+      const updatedUrls = urls.filter(url => url !== urlToDelete)
+      
+      const res = await fetch(`/api/purchases/${selectedPurchase.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipt_url: JSON.stringify(updatedUrls) })
+      })
+      if (!res.ok) throw new Error("Failed to update attachments")
+      const updated = await res.json()
+      setSelectedPurchase(updated)
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["my-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-purchases"] })
+      toast.success("ลบไฟล์แนบเรียบร้อยแล้ว!")
+    } catch (err: any) {
+      toast.error("การลบล้มเหลว: " + err.message)
+    }
+  }
+
   // --- Helpers ---
   const resetForm = () => {
     setPurchaseForm({
@@ -345,6 +461,7 @@ function PurchasesContent() {
       subtotal: 0,
       vat_amount: 0,
       vat_enabled: false,
+      vat_type: "exclusive",
       vendor: "",
       vendor_address: "",
       vendor_tax_id: "",
@@ -358,36 +475,97 @@ function PurchasesContent() {
     setScanStatus("")
     setCustomCategory("")
     setShowCustomCategory(false)
+    setIsSuccess(false)
   }
 
-  // ยอดก่อน VAT = ผลรวมของทุกรายการ
+  // ผลรวมดิบของรายการทั้งหมด
   const itemsTotal = useMemo(() => {
     return purchaseForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
   }, [purchaseForm.items])
 
-  // VAT 7%: คำนวณจากยอดก่อน VAT เมื่อติ๊ก checkbox เท่านั้น
+  // คำนวณ VAT 7% ตามโหมด
   const vatAmount = useMemo(() => {
-    return (purchaseForm as any).vat_enabled ? itemsTotal * 0.07 : 0
-  }, [itemsTotal, (purchaseForm as any).vat_enabled])
+    if (!(purchaseForm as any).vat_enabled) return 0
+    if ((purchaseForm as any).vat_type === "inclusive") {
+      return itemsTotal * 0.07 / 1.07
+    } else {
+      return itemsTotal * 0.07
+    }
+  }, [itemsTotal, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
 
-  // ยอดรวมหลัง VAT = ยอดก่อน VAT + VAT
+  // คำนวณยอดก่อน VAT ตามโหมด
+  const beforeVatAmount = useMemo(() => {
+    if (!(purchaseForm as any).vat_enabled) return itemsTotal
+    if ((purchaseForm as any).vat_type === "inclusive") {
+      return itemsTotal - vatAmount
+    } else {
+      return itemsTotal
+    }
+  }, [itemsTotal, vatAmount, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
+
+  // คำนวณยอดรวมหลัง VAT ตามโหมด
   const grandTotal = useMemo(() => {
-    return itemsTotal + vatAmount
-  }, [itemsTotal, vatAmount])
+    if (!(purchaseForm as any).vat_enabled) return itemsTotal
+    if ((purchaseForm as any).vat_type === "inclusive") {
+      return itemsTotal
+    } else {
+      return itemsTotal + vatAmount
+    }
+  }, [itemsTotal, vatAmount, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
 
-  // sync subtotal / vat_amount เข้า form state สำหรับการบันทึก
+  // sync subtotal / vat_amount / total_amount เข้า form state
   useEffect(() => {
     setPurchaseForm((prev: any) => {
-      if (Number(prev.subtotal) === itemsTotal && Number(prev.vat_amount) === vatAmount) return prev
-      return { ...prev, subtotal: itemsTotal, vat_amount: vatAmount }
+      if (
+        Number(prev.subtotal) === beforeVatAmount && 
+        Number(prev.vat_amount) === vatAmount && 
+        Number(prev.total_amount) === grandTotal
+      ) return prev
+      return { 
+        ...prev, 
+        subtotal: beforeVatAmount, 
+        vat_amount: vatAmount,
+        total_amount: grandTotal
+      }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemsTotal, vatAmount])
+  }, [beforeVatAmount, vatAmount, grandTotal])
+
+  // sync subtotal / vat_amount / total_amount เข้า editForm state
+  useEffect(() => {
+    if (!editForm) return
+    const itemsTotalVal = editForm.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+    let vatVal = 0
+    if (editForm.vat_enabled) {
+      if (editForm.vat_type === "inclusive") {
+        vatVal = itemsTotalVal * 0.07 / 1.07
+      } else {
+        vatVal = itemsTotalVal * 0.07
+      }
+    }
+    const beforeVatVal = editForm.vat_enabled && editForm.vat_type === "inclusive" ? itemsTotalVal - vatVal : itemsTotalVal
+    const totalVal = editForm.vat_enabled && editForm.vat_type === "exclusive" ? itemsTotalVal + vatVal : itemsTotalVal
+
+    if (
+      Number(editForm.subtotal) === beforeVatVal && 
+      Number(editForm.vat_amount) === vatVal && 
+      Number(editForm.total_amount) === totalVal
+    ) return
+
+    setEditForm((prev: any) => {
+      if (!prev) return prev
+      return { 
+        ...prev, 
+        subtotal: beforeVatVal, 
+        vat_amount: vatVal,
+        total_amount: totalVal
+      }
+    })
+  }, [editForm?.items, editForm?.vat_enabled, editForm?.vat_type])
 
   const generateManifestText = (form: any, total: number) => {
     const todayStr = format(new Date(), "d MMMM yyyy HH:mm", { locale: th })
-    const employeeName = session?.user?.name || "พนักงาน"
-    const deptName = (session?.user as any)?.department || "สำนักงานใหญ่"
+    const employeeName = selectedPurchase?.user?.full_name || session?.user?.name || "พนักงาน"
+    const deptName = selectedPurchase?.user?.department || (session?.user as any)?.department || "สำนักงานใหญ่"
     const itemsList = form.items.map((item: any, idx: number) => {
       const lineTotal = (item.quantity * item.unit_price).toLocaleString('th-TH')
       return `  ${idx + 1}. [x${item.quantity}] ${item.name} - ${lineTotal} ฿`
@@ -423,7 +601,7 @@ ${itemsList}
 
 ยอดก่อน VAT: ${form.subtotal ? Number(form.subtotal).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
 VAT 7%: ${form.vat_amount ? Number(form.vat_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : '-'} บาท
-ยอดรวมหลัง VAT: ${form.subtotal && form.vat_amount ? (Number(form.subtotal) + Number(form.vat_amount)).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : total.toLocaleString('th-TH')} บาท
+ยอดรวมหลัง VAT: ${form.total_amount ? Number(form.total_amount).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : (form.subtotal && form.vat_amount ? (Number(form.subtotal) + Number(form.vat_amount)).toLocaleString('th-TH', { minimumFractionDigits: 2 }) : total.toLocaleString('th-TH'))} บาท
 
 --------------------------------------------------
 วัตถุประสงค์ในการเบิกจ่าย:
@@ -465,19 +643,25 @@ ${form.purpose || "-"}
       const finalCategory = data.category || "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน"
       const isPredefined = CATEGORIES.includes(finalCategory)
 
+      const tempItems = data.items && data.items.length > 0 ? data.items : [{ name: "", quantity: 1, unit_price: 0 }]
+      const tempItemsTotal = tempItems.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+      const detectedVatType = (Number(data.subtotal) > 0 && Math.abs(Number(data.subtotal) - tempItemsTotal) > 5) ? "inclusive" : "exclusive"
+
       const updatedForm = {
         ...purchaseForm,
         title: data.title || "ซื้อของ",
         category: finalCategory,
         payment_method: data.paymentMethod || "petty_cash",
         purpose: data.purpose || "",
-        items: data.items && data.items.length > 0 ? data.items : [{ name: "", quantity: 1, unit_price: 0 }],
+        items: tempItems,
         document_type: data.documentType || "ใบเสร็จรับเงิน",
         document_number: data.documentNumber || "",
         document_date: data.documentDate || format(new Date(), "yyyy-MM-dd"),
         subtotal: data.subtotal || 0,
         vat_amount: data.vatAmount || 0,
         vat_enabled: Number(data.vatAmount) > 0,
+        vat_type: detectedVatType,
+        total_amount: data.totalAmount || tempItemsTotal,
         vendor_address: data.vendorAddress || "",
         vendor_tax_id: data.vendorTaxId || "",
         vendor: data.vendor || "",
@@ -573,7 +757,6 @@ ${form.purpose || "-"}
     if (!printWindow) return;
 
     const docDate = selectedPurchase.document_date ? format(new Date(selectedPurchase.document_date), "d MMMM yyyy", { locale: th }) : "-";
-    const createdDate = selectedPurchase.created_at ? format(new Date(selectedPurchase.created_at), "d MMMM yyyy HH:mm", { locale: th }) : "-";
     
     const paymentLabels: Record<string, string> = { 
       petty_cash: 'เงินสดย่อย', 
@@ -582,42 +765,47 @@ ${form.purpose || "-"}
     };
 
     const items = selectedPurchase.items || [];
-    const itemsHtml = items.map((item: any, idx: number) => `
-      <tr>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${idx + 1}</td>
-        <td style="border: 1px solid #ccc; padding: 8px;">${item.name}</td>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${item.quantity}</td>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${(item.quantity * item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-      </tr>
-    `).join('');
-
     // คำนวณยอดสำหรับสรุป (fallback จากรายการ หากไม่มีค่าในฐานข้อมูล)
     const computedItemsTotal = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
     const printBeforeVat = Number(selectedPurchase.amount_before_vat) > 0 ? Number(selectedPurchase.amount_before_vat) : computedItemsTotal;
     const printVat = Number(selectedPurchase.vat_amount) || 0;
     const printTotal = Number(selectedPurchase.total_amount) || (printBeforeVat + printVat);
 
+    // Render minimum 5 rows to match physical form
+    const minRows = 5;
+    const rowsToRender = Math.max(items.length, minRows);
+    let rowsHtml = '';
+    for (let i = 0; i < rowsToRender; i++) {
+      const item = items[i];
+      if (item) {
+        rowsHtml += `
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px;">${docDate}</td>
+            <td style="border: 1px solid #000; padding: 10px; font-size: 14px;">${item.name} (จำนวน: ${item.quantity} x ${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿)</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: right; font-size: 14px;">${(item.quantity * item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px;">-</td>
+          </tr>
+        `;
+      } else {
+        rowsHtml += `
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+          </tr>
+        `;
+      }
+    }
+
     const html = `
       <html>
         <head>
-          <title>ใบขออนุมัติเบิกเงินจ่าย / ใบสำคัญจ่าย - ${selectedPurchase.document_number || 'TEMP'}</title>
+          <title>ใบรับรองแทนใบเสร็จรับเงิน - ${selectedPurchase.document_number || 'TEMP'}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-            body { font-family: 'Sarabun', sans-serif; color: #333; padding: 40px; line-height: 1.6; max-width: 900px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
-            .header p { margin: 5px 0 0 0; color: #666; font-size: 14px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 14px; }
-            .info-section { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
-            .info-section h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 5px; font-size: 14px; text-transform: uppercase; color: #555; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
-            th { background-color: #f5f5f5; border: 1px solid #ccc; padding: 10px; font-weight: bold; text-align: left; }
-            .totals { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 40px; font-size: 14px; }
-            .totals-row { display: flex; justify-content: space-between; width: 300px; padding: 5px 0; }
-            .totals-row.grand { font-weight: bold; font-size: 16px; border-top: 2px double #333; padding-top: 10px; }
-            .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; text-align: center; margin-top: 60px; font-size: 14px; }
-            .signature-box { border-top: 1px solid #ccc; padding-top: 10px; }
+            body { font-family: 'Sarabun', sans-serif; color: #000; padding: 40px; line-height: 1.6; max-width: 850px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 25px; }
             @media print {
               body { padding: 20px; }
               .no-print { display: none; }
@@ -629,75 +817,54 @@ ${form.purpose || "-"}
           <div class="no-print" style="text-align: right; margin-bottom: 20px;">
             <button onclick="window.print()" style="padding: 10px 20px; background-color: #0070f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Sarabun', sans-serif;">พิมพ์เอกสาร (Print)</button>
           </div>
-          <div class="header">
-            <h1>ใบขออนุมัติเบิกเงินจ่าย / ใบสำคัญจ่าย</h1>
-            <p>WSA</p>
+          <div class="header" style="margin-top: 20px;">
+            <h1 style="font-size: 22px; font-weight: bold; margin: 0;">ใบรับรองแทนใบเสร็จรับเงิน</h1>
           </div>
           
-          <div class="info-grid">
-            <div class="info-section">
-              <h3>ข้อมูลการสั่งจ่าย</h3>
-              <p><strong>ผู้ขอเบิก:</strong> ${selectedPurchase.user?.full_name || '-'}</p>
-              <p><strong>แผนก:</strong> ${selectedPurchase.user?.department || '-'}</p>
-              <p><strong>วันที่ยื่นคำขอ:</strong> ${createdDate}</p>
-              <p><strong>วิธีการชำระเงิน:</strong> ${paymentLabels[selectedPurchase.payment_method] || selectedPurchase.payment_method || '-'}</p>
-            </div>
-            <div class="info-section">
-              <h3>ข้อมูลเอกสารอ้างอิง</h3>
-              <p><strong>เลขที่เอกสาร:</strong> ${selectedPurchase.document_number || '-'}</p>
-              <p><strong>วันที่เอกสาร:</strong> ${docDate}</p>
-              <p><strong>ชื่อคู่ค้า (ผู้ขาย):</strong> ${selectedPurchase.vendor_name || selectedPurchase.vendor || '-'}</p>
-              <p><strong>ชื่องาน / โครงการ:</strong> ${selectedPurchase.project_name || '-'}</p>
-            </div>
+          <div style="display: flex; align-items: center; margin-bottom: 25px; font-size: 14px;">
+            <span style="white-space: nowrap;">บจ. / หจก.</span>
+            <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin: 0 10px; font-weight: bold; text-align: center; min-height: 20px;">${selectedPurchase.vendor_name || selectedPurchase.vendor || '-'}</span>
+            <span style="white-space: nowrap;">(ผู้ขาย / ผู้ให้บริการ)</span>
           </div>
 
-          <div style="margin-bottom: 20px; font-size: 14px;">
-            <strong>วัตถุประสงค์ในการเบิกจ่าย:</strong> ${selectedPurchase.purpose || '-'}
-          </div>
-
-          <table>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <thead>
               <tr>
-                <th style="width: 80px; text-align: center;">ลำดับ</th>
-                <th>รายการสินค้า / บริการ</th>
-                <th style="width: 100px; text-align: center;">จำนวน</th>
-                <th style="width: 150px; text-align: right;">ราคาต่อหน่วย</th>
-                <th style="width: 150px; text-align: right;">จำนวนเงิน</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">วัน เดือน ปี</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 55%; background-color: #f5f5f5;">รายละเอียดรายจ่าย</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">จำนวนเงิน</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>
-              ${itemsHtml}
+              ${rowsHtml}
             </tbody>
           </table>
 
-          <div class="totals">
-            <div class="totals-row">
-              <span>ยอดก่อน VAT:</span>
-              <span>${printBeforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+          <div style="display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 30px; gap: 20px;">
+            <div style="border: 1px solid #000; padding: 15px; font-size: 14px; font-weight: bold; width: 350px; display: flex; flex-direction: column; justify-content: center;">
+              วิธีการชำระเงิน: ${paymentLabels[selectedPurchase.payment_method] || selectedPurchase.payment_method || '-'}
             </div>
-            <div class="totals-row">
-              <span>VAT 7%:</span>
-              <span>${printVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
-            </div>
-            <div class="totals-row grand">
-              <span>ยอดรวมสุทธิ:</span>
-              <span>${printTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+            <div style="display: flex; align-items: center; font-size: 14px; font-weight: bold;">
+              <span style="margin-right: 15px; white-space: nowrap;">รวมเป็นเงิน</span>
+              <div style="border: 1px solid #000; padding: 12px 25px; min-width: 180px; text-align: right; background-color: #fafafa; font-size: 16px; font-weight: bold;">
+                ${printTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+              </div>
             </div>
           </div>
 
-          <div class="signatures">
-            <div class="signature-box">
-              <p style="margin-bottom: 50px;">....................................................</p>
-              <p>ผู้ขออนุมัติเบิกจ่าย</p>
-              <p style="font-size: 12px; color: #666;">(${selectedPurchase.user?.full_name || '-'})</p>
+          <div style="margin-top: 30px; font-size: 14px; line-height: 2.2;">
+            <div>ข้าพเจ้า <span style="border-bottom: 1px dotted #000; display: inline-block; width: 300px; text-align: center; font-weight: bold; padding: 0 5px;">${selectedPurchase.user?.full_name || '-'}</span> (ผู้สั่งจ่าย) ตำแหน่ง <span style="border-bottom: 1px dotted #000; display: inline-block; width: 250px; text-align: center; font-weight: bold; padding: 0 5px;">${selectedPurchase.user?.position || '-'}</span></div>
+            <div>ขอรับรองว่า รายจ่ายข้างต้นนี้ไม่อาจเรียกเก็บใบเสร็จรับเงินจากผู้รับได้ และได้จ่ายไปเพื่องานของ</div>
+            <div><strong>บริษัท ไวร์เลส โซลูชั่น เอเชีย จำกัด</strong> ตั้งแต่วันที่ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 150px; text-align: center; font-weight: bold; padding: 0 5px;">${docDate}</span> ถึงวันที่ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 150px; text-align: center; font-weight: bold; padding: 0 5px;">${docDate}</span></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 45px; gap: 20px; padding-right: 20px; font-size: 14px; line-height: 1.8;">
+            <div>
+              ลงชื่อ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 200px; margin: 0 10px;"></span> (ผู้จ่ายเงิน)
             </div>
-            <div class="signature-box">
-              <p style="margin-bottom: 50px;">....................................................</p>
-              <p>ผู้ตรวจสอบ / บัญชีและการเงิน</p>
-            </div>
-            <div class="signature-box">
-              <p style="margin-bottom: 50px;">....................................................</p>
-              <p>ผู้อนุมัติสั่งจ่าย (CEO / กรรมการ)</p>
+            <div>
+              ลงชื่อ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 200px; margin: 0 10px;"></span> (ผู้อนุมัติ)
             </div>
           </div>
 
@@ -770,7 +937,9 @@ ${form.purpose || "-"}
                     </div>
                  </div>
 
-                 <div className="p-6 md:p-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                 {!isSuccess ? (
+                    <>
+                      <div className="p-6 md:p-10 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     {currentStep === 1 && (
                       isScanning ? (
                         <div className="flex flex-col items-center justify-center min-h-[350px] p-8 text-center bg-slate-900 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
@@ -806,14 +975,11 @@ ${form.purpose || "-"}
                               <h2 className="text-xl font-black text-slate-900">อัปโหลดใบเสร็จเพื่อใช้ AI ช่วยกรอกข้อมูล</h2>
                               <p className="text-slate-500 font-medium text-sm">ระบบรองรับไฟล์ PDF, JPEG, PNG หรือถ่ายรูปจากกล้องมือถือได้ทันที</p>
                            </div>
-                           <div 
-                             className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-8 text-center hover:border-blue-200 hover:bg-blue-50/30 transition-all group cursor-pointer relative min-h-[250px] flex flex-col items-center justify-center"
-                             onClick={() => document.getElementById('receipt-upload')?.click()}
-                           >
+                           <div className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-8 md:p-12 text-center bg-white space-y-6 flex flex-col items-center justify-center min-h-[280px]">
                               <input 
-                                id="receipt-upload" 
+                                id="receipt-upload-camera" 
                                 type="file" 
-                                accept="image/*,application/pdf"
+                                accept="image/*"
                                 capture="environment"
                                 className="hidden" 
                                 onChange={(e) => {
@@ -823,12 +989,37 @@ ${form.purpose || "-"}
                                   }
                                 }} 
                               />
-                              <div className="flex flex-col items-center">
-                                 <div className="p-6 bg-slate-100 text-slate-400 rounded-[2rem] mb-4 group-hover:bg-blue-100 group-hover:text-blue-600 transition-all">
-                                    <UploadCloud size={48} />
-                                 </div>
-                                 <h3 className="text-lg font-black text-slate-900">คลิกที่นี่เพื่อเลือกไฟล์ หรือ ถ่ายภาพ</h3>
-                                 <p className="text-slate-400 text-sm mt-1">หากเข้าใช้งานผ่านมือถือจะเปิดกล้องออโต้</p>
+                              <input 
+                                id="receipt-upload-file" 
+                                type="file" 
+                                accept="image/*,application/pdf"
+                                className="hidden" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  if (file) {
+                                    handleAIAnalyze(file)
+                                  }
+                                }} 
+                              />
+                              <div className="p-6 bg-slate-50 text-slate-400 rounded-[2rem] mb-2">
+                                 <UploadCloud size={48} className="text-blue-500 animate-pulse" />
+                              </div>
+                              <h3 className="text-lg font-black text-slate-900">กรุณาเลือกวิธีการเพิ่มไฟล์ใบเสร็จ</h3>
+                              <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                                 <Button 
+                                    type="button"
+                                    className="flex-1 h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-lg shadow-blue-600/20 gap-2 border-0"
+                                    onClick={() => document.getElementById('receipt-upload-camera')?.click()}
+                                 >
+                                    📷 ถ่ายรูปใบเสร็จ
+                                 </Button>
+                                 <Button 
+                                    type="button"
+                                    className="flex-1 h-16 rounded-2xl bg-slate-900 hover:bg-black text-white font-black text-base shadow-lg gap-2 border-0"
+                                    onClick={() => document.getElementById('receipt-upload-file')?.click()}
+                                 >
+                                    📁 เลือกจากคลังภาพ / ไฟล์
+                                 </Button>
                               </div>
                            </div>
                            <div className="text-center pt-4">
@@ -842,6 +1033,85 @@ ${form.purpose || "-"}
 
                     {currentStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-right-4">
+                         {/* Prominent Category and Payment Method Confirmation Card */}
+                         <div className="p-6 bg-blue-50/40 rounded-3xl border border-blue-100 space-y-4">
+                            <div className="flex items-center gap-2 text-blue-800 font-extrabold text-sm">
+                               <AlertTriangle className="w-5 h-5 text-blue-500 animate-pulse" />
+                               <span>กรุณาตรวจสอบและยืนยันข้อมูลสำคัญ (Required Confirmation)</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                  <Label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">ประเภทการเบิก (Category)</Label>
+                                  <Select 
+                                    value={CATEGORIES.includes(purchaseForm.category) ? purchaseForm.category : "อื่นๆ"} 
+                                    onValueChange={(val) => {
+                                       const newForm = { ...purchaseForm }
+                                       if (val === "อื่นๆ") {
+                                          setShowCustomCategory(true)
+                                          newForm.category = customCategory || "อื่นๆ"
+                                       } else {
+                                          setShowCustomCategory(false)
+                                          setCustomCategory("")
+                                          newForm.category = val
+                                       }
+                                       const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                                       newForm.manifest_text = generateManifestText(newForm, total)
+                                       setPurchaseForm(newForm)
+                                    }}
+                                  >
+                                     <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold shadow-sm">
+                                        <SelectValue placeholder="เลือกประเภทการเบิก" />
+                                     </SelectTrigger>
+                                     <SelectContent className="rounded-2xl border-slate-100 shadow-2xl max-h-[300px]">
+                                        {CATEGORIES.map((cat) => (
+                                           <SelectItem key={cat} value={cat} className="font-bold py-3">
+                                              {cat}
+                                           </SelectItem>
+                                        ))}
+                                     </SelectContent>
+                                  </Select>
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน (Payment Method)</Label>
+                                  <Select 
+                                    value={purchaseForm.payment_method} 
+                                    onValueChange={(val) => {
+                                       const newForm = { ...purchaseForm, payment_method: val }
+                                       const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                                       newForm.manifest_text = generateManifestText(newForm, total)
+                                       setPurchaseForm(newForm)
+                                    }}
+                                  >
+                                     <SelectTrigger className="h-14 rounded-2xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold shadow-sm">
+                                        <SelectValue placeholder="เลือกวิธีการจ่ายเงิน" />
+                                     </SelectTrigger>
+                                     <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                        <SelectItem value="petty_cash" className="font-bold py-3">เงินสดย่อย (Petty Cash)</SelectItem>
+                                        <SelectItem value="credit_card" className="font-bold py-3">ตัดบัตรเครดิต (Credit Card)</SelectItem>
+                                        <SelectItem value="k_biz" className="font-bold py-3">K BIZ (โอนเงินเกิน 2,000 บาท)</SelectItem>
+                                     </SelectContent>
+                                  </Select>
+                               </div>
+                            </div>
+                            {showCustomCategory && (
+                               <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                  <Label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">ระบุประเภทการเบิกอื่น ๆ</Label>
+                                  <Input 
+                                     placeholder="พิมพ์ประเภทการเบิก..."
+                                     className="h-14 rounded-2xl border-slate-200 bg-white focus:ring-blue-600/20 font-bold shadow-sm"
+                                     value={customCategory}
+                                     onChange={(e) => {
+                                        setCustomCategory(e.target.value)
+                                        const newForm = { ...purchaseForm, category: e.target.value || "อื่นๆ" }
+                                        const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                                        newForm.manifest_text = generateManifestText(newForm, total)
+                                        setPurchaseForm(newForm)
+                                     }}
+                                  />
+                               </div>
+                            )}
+                         </div>
+
                          {purchaseForm.document_type && (
                            <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -950,105 +1220,36 @@ ${form.purpose || "-"}
                             </div>
                          </div>
                          
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อรายการเบิก</Label>
-                               <Input 
-                                  placeholder="เช่น ค่าเดินทางไปพบลูกค้า, ค่าวัสดุอุปกรณ์..."
-                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
-                                  value={purchaseForm.title}
-                                  onChange={(e) => {
-                                     const newForm = { ...purchaseForm, title: e.target.value }
-                                     const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
-                                     newForm.manifest_text = generateManifestText(newForm, total)
-                                     setPurchaseForm(newForm)
-                                  }}
-                               />
-                            </div>
-                            <div className="space-y-2">
-                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการเบิก</Label>
-                               <Select 
-                                 value={CATEGORIES.includes(purchaseForm.category) ? purchaseForm.category : "อื่นๆ"} 
-                                 onValueChange={(val) => {
-                                    const newForm = { ...purchaseForm }
-                                    if (val === "อื่นๆ") {
-                                       setShowCustomCategory(true)
-                                       newForm.category = customCategory || "อื่นๆ"
-                                    } else {
-                                       setShowCustomCategory(false)
-                                       setCustomCategory("")
-                                       newForm.category = val
-                                    }
-                                    const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
-                                    newForm.manifest_text = generateManifestText(newForm, total)
-                                    setPurchaseForm(newForm)
-                                 }}
-                               >
-                                  <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
-                                     <SelectValue placeholder="เลือกประเภทการเบิก" />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl max-h-[300px]">
-                                     {CATEGORIES.map((cat) => (
-                                        <SelectItem key={cat} value={cat} className="font-bold py-3">
-                                           {cat}
-                                        </SelectItem>
-                                     ))}
-                                  </SelectContent>
-                               </Select>
-                            </div>
-                            {showCustomCategory && (
-                               <div className="space-y-2 md:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                                  <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ระบุประเภทการเบิกอื่น ๆ</Label>
-                                  <Input 
-                                     placeholder="พิมพ์ประเภทการเบิก..."
-                                     className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
-                                     value={customCategory}
-                                     onChange={(e) => {
-                                        setCustomCategory(e.target.value)
-                                        const newForm = { ...purchaseForm, category: e.target.value || "อื่นๆ" }
-                                        const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
-                                        newForm.manifest_text = generateManifestText(newForm, total)
-                                        setPurchaseForm(newForm)
-                                     }}
-                                  />
-                               </div>
-                            )}
-                            <div className="space-y-2">
-                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน</Label>
-                               <Select 
-                                 value={purchaseForm.payment_method} 
-                                 onValueChange={(val) => {
-                                    const newForm = { ...purchaseForm, payment_method: val }
-                                    const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
-                                    newForm.manifest_text = generateManifestText(newForm, total)
-                                    setPurchaseForm(newForm)
-                                 }}
-                               >
-                                  <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
-                                     <SelectValue placeholder="เลือกวิธีการจ่ายเงิน" />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
-                                     <SelectItem value="petty_cash" className="font-bold py-3">เงินสดย่อย (Petty Cash)</SelectItem>
-                                     <SelectItem value="credit_card" className="font-bold py-3">ตัดบัตรเครดิต (Credit Card)</SelectItem>
-                                     <SelectItem value="k_biz" className="font-bold py-3">K BIZ (โอนเงินเกิน 2,000 บาท)</SelectItem>
-                                  </SelectContent>
-                               </Select>
-                            </div>
-                            <div className="space-y-2">
-                               <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">จุดประสงค์ / รายละเอียดเพิ่มเติม</Label>
-                               <Input 
-                                  placeholder="ระบุวัตถุประสงค์ในการเบิกจ่าย..."
-                                  className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
-                                  value={purchaseForm.purpose}
-                                  onChange={(e) => {
-                                     const newForm = { ...purchaseForm, purpose: e.target.value }
-                                     const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
-                                     newForm.manifest_text = generateManifestText(newForm, total)
-                                     setPurchaseForm(newForm)
-                                  }}
-                               />
-                            </div>
-                         </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div className="space-y-2">
+                                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อรายการเบิก</Label>
+                                <Input 
+                                   placeholder="เช่น ค่าเดินทางไปพบลูกค้า, ค่าวัสดุอุปกรณ์..."
+                                   className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                   value={purchaseForm.title}
+                                   onChange={(e) => {
+                                      const newForm = { ...purchaseForm, title: e.target.value }
+                                      const total = newForm.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+                                      newForm.manifest_text = generateManifestText(newForm, total)
+                                      setPurchaseForm(newForm)
+                                   }}
+                                />
+                             </div>
+                             <div className="space-y-2">
+                                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">จุดประสงค์ / รายละเอียดเพิ่มเติม</Label>
+                                <Input 
+                                   placeholder="ระบุวัตถุประสงค์ในการเบิกจ่าย..."
+                                   className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                   value={purchaseForm.purpose}
+                                   onChange={(e) => {
+                                      const newForm = { ...purchaseForm, purpose: e.target.value }
+                                      const total = newForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                                      newForm.manifest_text = generateManifestText(newForm, total)
+                                      setPurchaseForm(newForm)
+                                   }}
+                                />
+                             </div>
+                          </div>
 
                          <div className="space-y-4">
                             <div className="flex items-center justify-between">
@@ -1111,27 +1312,57 @@ ${form.purpose || "-"}
                                <div className="flex justify-between items-center px-6 py-4 bg-slate-50">
                                   <span className="font-bold text-slate-500 text-sm">ยอดก่อน VAT</span>
                                   <span className="font-black text-slate-700 text-sm tabular-nums">
-                                     {itemsTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                     {beforeVatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
                                   </span>
-                               </div>
-                               {/* VAT 7% เป็น checkbox: ถ้าติ๊ก คำนวณ ยอดก่อน VAT * 7% */}
-                               <div className="flex justify-between items-center px-6 py-4 bg-slate-50 border-t border-slate-200">
-                                  <label className="flex items-center gap-3 cursor-pointer select-none">
-                                     <input
-                                        type="checkbox"
-                                        className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600/30 cursor-pointer accent-blue-600"
-                                        checked={!!(purchaseForm as any).vat_enabled}
-                                        onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_enabled: e.target.checked } as any)}
-                                     />
-                                     <span className="font-bold text-slate-500 text-sm">VAT 7%</span>
-                                  </label>
-                                  <span className={cn(
-                                     "font-black text-sm tabular-nums",
-                                     (purchaseForm as any).vat_enabled ? "text-slate-700" : "text-slate-300"
-                                  )}>
-                                     {vatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
-                                  </span>
-                               </div>
+                                </div>
+                                {/* VAT 7% เป็น checkbox */}
+                                <div className="flex flex-col gap-2 px-6 py-4 bg-slate-50 border-t border-slate-200">
+                                   <div className="flex justify-between items-center">
+                                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                                         <input
+                                            type="checkbox"
+                                            className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600/30 cursor-pointer accent-blue-600"
+                                            checked={!!(purchaseForm as any).vat_enabled}
+                                            onChange={(e) => setPurchaseForm({ ...purchaseForm, vat_enabled: e.target.checked } as any)}
+                                         />
+                                         <span className="font-bold text-slate-500 text-sm">VAT 7%</span>
+                                      </label>
+                                      <span className={cn(
+                                         "font-black text-sm tabular-nums",
+                                         (purchaseForm as any).vat_enabled ? "text-slate-700" : "text-slate-300"
+                                      )}>
+                                         {vatAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                      </span>
+                                   </div>
+                                   {!!(purchaseForm as any).vat_enabled && (
+                                      <div className="flex justify-end gap-3 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                         <button
+                                            type="button"
+                                            onClick={() => setPurchaseForm({ ...purchaseForm, vat_type: "exclusive" } as any)}
+                                            className={cn(
+                                               "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200",
+                                               (purchaseForm as any).vat_type === "exclusive"
+                                                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/10"
+                                                  : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
+                                            )}
+                                         >
+                                            แยกนอก (Exclusive)
+                                         </button>
+                                         <button
+                                            type="button"
+                                            onClick={() => setPurchaseForm({ ...purchaseForm, vat_type: "inclusive" } as any)}
+                                            className={cn(
+                                               "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200",
+                                               (purchaseForm as any).vat_type === "inclusive"
+                                                  ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/10"
+                                                  : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
+                                            )}
+                                         >
+                                            รวมใน (Inclusive)
+                                         </button>
+                                      </div>
+                                   )}
+                                </div>
                                <div className="flex justify-between items-center px-6 py-5 bg-slate-900 text-white">
                                   <span className="font-bold text-slate-400">ยอดรวมหลัง VAT</span>
                                   <span className="text-2xl font-black">{grandTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
@@ -1355,6 +1586,49 @@ ${form.purpose || "-"}
                       </Button>
                     )}
                  </DialogFooter>
+                    </>
+                  ) : (
+                     <div className="p-8 md:p-12 bg-white flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in-95 duration-300 flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 shadow-lg border border-emerald-100 animate-bounce mx-auto">
+                           <CheckCircle2 size={48} />
+                        </div>
+                        <div>
+                           <h3 className="text-2xl font-black text-slate-900">ส่งคำขอเบิกเงินสำเร็จ!</h3>
+                           <p className="text-slate-400 font-bold mt-2">คำขอเบิกเงินของคุณได้รับการส่งเข้าสู่ระบบ และรอหัวหน้างานอนุมัติเรียบร้อยแล้ว</p>
+                        </div>
+                        
+                        <div className="w-full max-w-md bg-slate-50 border border-slate-100 rounded-3xl p-6 text-left space-y-4 shadow-inner">
+                           <div>
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ชื่อรายการ</Label>
+                              <div className="text-lg font-black text-slate-900">{purchaseForm.title}</div>
+                              <Badge className="mt-1 bg-blue-50 text-blue-600 border-blue-100">{purchaseForm.category}</Badge>
+                           </div>
+                           <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                 <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">วิธีการจ่ายเงิน</Label>
+                                 <div className="text-sm font-bold text-slate-700">{getPaymentMethodLabel(purchaseForm.payment_method)}</div>
+                              </div>
+                              <div>
+                                 <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดรวมสุทธิ</Label>
+                                 <div className="text-sm font-bold text-blue-600">{Number(purchaseForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0) + Number(purchaseForm.vat_amount || 0)).toLocaleString()} ฿</div>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="w-full max-w-sm pt-4">
+                           <Button 
+                             size="lg" 
+                             className="bg-slate-900 hover:bg-black text-white rounded-2xl h-14 font-black shadow-xl w-full border-0"
+                             onClick={() => {
+                               setIsCreateModalOpen(false)
+                               resetForm()
+                             }}
+                           >
+                             ตกลง (ปิดหน้าต่าง)
+                           </Button>
+                        </div>
+                     </div>
+                  )}
               </DialogContent>
             </Dialog>
          </div>
@@ -2289,6 +2563,15 @@ ${form.purpose || "-"}
                                           <Button className="bg-white text-slate-900 rounded-2xl font-bold" onClick={() => window.open(url, '_blank')}>
                                              <Eye className="mr-2" size={16} /> ดูไฟล์ขนาดใหญ่
                                           </Button>
+                                          {canModifySelected && (
+                                            <Button 
+                                              variant="destructive"
+                                              className="bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-bold gap-1 mt-1 border-0"
+                                              onClick={() => handleDeleteAttachment(url)}
+                                            >
+                                               <Trash2 size={16} /> ลบไฟล์แนบ
+                                            </Button>
+                                          )}
                                        </div>
                                     </div>
                                   ))}
@@ -2300,23 +2583,30 @@ ${form.purpose || "-"}
                                  <p className="font-bold mt-4">ไม่มีไฟล์ใบเสร็จ</p>
                               </div>
                             )}
-                            {false ? (
-                             <div className="relative group overflow-hidden rounded-3xl border border-slate-100 shadow-sm aspect-square bg-slate-50">
-                                <img 
-                                  src={selectedPurchase.receipt_url} 
-                                  alt="Receipt" 
-                                  className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                   <Button className="bg-white text-slate-900 rounded-2xl font-bold" onClick={() => window.open(selectedPurchase.receipt_url, '_blank')}>
-                                      <Eye className="mr-2" /> ดูรูปขนาดใหญ่
-                                   </Button>
-                                </div>
-                             </div>
-                           ) : (
-                             <div className="aspect-square rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-slate-300">
-                                <Receipt size={64} />
-                                <p className="font-bold mt-4">ไม่มีไฟล์ใบเสร็จ</p>
+
+                           {canModifySelected && (
+                             <div className="pt-2">
+                               <input 
+                                 id="detail-receipt-upload" 
+                                 type="file" 
+                                 multiple 
+                                 accept="image/*,application/pdf"
+                                 className="hidden" 
+                                 onChange={(e) => handleAddAttachment(e.target.files)} 
+                               />
+                               <Button 
+                                 type="button" 
+                                 variant="outline"
+                                 className="w-full h-14 rounded-2xl font-bold border-dashed border-2 hover:bg-slate-50 gap-2 border-slate-200"
+                                 disabled={isUploadingAttachment}
+                                 onClick={() => document.getElementById('detail-receipt-upload')?.click()}
+                                >
+                                 {isUploadingAttachment ? (
+                                   <Loader2 className="animate-spin text-slate-400" size={18} />
+                                 ) : (
+                                   <>+ เพิ่มไฟล์แนบ (Add Attachment)</>
+                                 )}
+                               </Button>
                              </div>
                            )}
                         </div>
@@ -2409,6 +2699,54 @@ ${form.purpose || "-"}
                   </div>
                   
                   <DialogFooter className="p-10 pt-0 bg-white no-print gap-4">
+                            {canModifySelected && (
+                       <>
+                         <Button 
+                           variant="outline" 
+                           className="h-14 rounded-2xl font-bold text-blue-600 border-blue-200 hover:bg-blue-50 gap-2 mr-auto"
+                           onClick={() => {
+                              setEditForm({
+                                 id: selectedPurchase.id,
+                                 title: selectedPurchase.title,
+                                 category: selectedPurchase.category,
+                                 purpose: selectedPurchase.purpose,
+                                 items: selectedPurchase.items || [{ name: "", quantity: 1, unit_price: 0 }],
+                                 payment_method: selectedPurchase.payment_method,
+                                 document_type: selectedPurchase.document_type || "",
+                                 document_number: selectedPurchase.document_number || "",
+                                 document_date: selectedPurchase.document_date || "",
+                                 subtotal: selectedPurchase.subtotal || 0,
+                                 vat_amount: selectedPurchase.vat_amount || 0,
+                                 vat_enabled: Number(selectedPurchase.vat_amount) > 0,
+                                 vat_type: (Number(selectedPurchase.amount_before_vat) > 0 && Math.abs(Number(selectedPurchase.amount_before_vat) - (selectedPurchase.items || []).reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.unit_price), 0)) > 5) ? "inclusive" : "exclusive",
+                                 total_amount: selectedPurchase.total_amount || 0,
+                                 vendor_name: selectedPurchase.vendor_name || "",
+                                 vendor_address: selectedPurchase.vendor_address || "",
+                                 vendor_tax_id: selectedPurchase.vendor_tax_id || "",
+                                 customer_name: selectedPurchase.customer_name || "",
+                                 customer_tax_id: selectedPurchase.customer_tax_id || "",
+                                 customer_address: selectedPurchase.customer_address || "",
+                                 project_name: selectedPurchase.project_name || "",
+                              })
+                              setIsEditModalOpen(true)
+                           }}
+                         >
+                            แก้ไขข้อมูล
+                         </Button>
+                         <Button 
+                           variant="destructive" 
+                           className="h-14 rounded-2xl font-bold text-white bg-rose-600 hover:bg-rose-700 gap-2 border-0"
+                           disabled={deleteMutation.isPending}
+                           onClick={() => {
+                              if (window.confirm("คุณแน่ใจหรือไม่ที่จะลบคำขอเบิกเงินนี้ถาวร?")) {
+                                 deleteMutation.mutate(selectedPurchase.id)
+                              }
+                           }}
+                         >
+                            <Trash2 size={18} /> ลบรายการ
+                         </Button>
+                       </>
+                     )}
                      <Button variant="outline" className="h-14 rounded-2xl font-bold text-slate-600 gap-2 border-slate-200" onClick={handlePrint}>
                         <Printer size={18} /> ปริ้นท์เอกสารเบิก
                      </Button>
@@ -2416,6 +2754,328 @@ ${form.purpose || "-"}
                         ปิดหน้าต่าง
                      </Button>
                    </DialogFooter>
+               </div>
+            )}
+         </DialogContent>
+      </Dialog>
+
+      {/* Edit Purchase Request Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+         <DialogContent className="max-w-4xl rounded-[3rem] p-0 border-0 shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+            {editForm && (
+               <div className="flex flex-col h-full overflow-hidden">
+                  <div className="bg-slate-900 p-6 md:p-10 text-white shrink-0">
+                     <DialogHeader>
+                        <DialogTitle className="text-3xl font-black text-white">แก้ไขใบเบิกเงิน</DialogTitle>
+                        <p className="text-slate-400 font-medium text-sm mt-1">แก้ไขรายละเอียดของคำขอเบิกเงิน</p>
+                     </DialogHeader>
+                  </div>
+
+                  <div className="p-6 md:p-10 space-y-8 bg-white flex-1 overflow-y-auto custom-scrollbar">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อรายการเบิก</Label>
+                           <Input 
+                              placeholder="เช่น ค่าเดินทางไปพบลูกค้า, ค่าวัสดุอุปกรณ์..."
+                              className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                              value={editForm.title}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ประเภทการเบิก</Label>
+                           <Select 
+                             value={CATEGORIES.includes(editForm.category) ? editForm.category : "อื่นๆ"} 
+                             onValueChange={(val) => {
+                                if (val === "อื่นๆ") {
+                                   setEditForm({ ...editForm, category: "อื่นๆ" })
+                                } else {
+                                   setEditForm({ ...editForm, category: val })
+                                }
+                             }}
+                           >
+                              <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
+                                 <SelectValue placeholder="เลือกประเภทการเบิก" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-2xl border-slate-100 shadow-2xl max-h-[300px]">
+                                 {CATEGORIES.map((cat) => (
+                                    <SelectItem key={cat} value={cat} className="font-bold py-3">
+                                       {cat}
+                                    </SelectItem>
+                                 ))}
+                                 <SelectItem value="อื่นๆ" className="font-bold py-3">อื่นๆ</SelectItem>
+                              </SelectContent>
+                           </Select>
+                        </div>
+
+                        {editForm.category === "อื่นๆ" && (
+                           <div className="space-y-2 md:col-span-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ระบุประเภทการเบิกอื่น ๆ</Label>
+                              <Input 
+                                 placeholder="พิมพ์ประเภทการเบิก..."
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.customCategory || ""}
+                                 onChange={(e) => setEditForm({ ...editForm, customCategory: e.target.value })}
+                              />
+                           </div>
+                        )}
+
+                        <div className="space-y-2">
+                           <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วิธีการจ่ายเงิน</Label>
+                           <Select 
+                             value={editForm.payment_method} 
+                             onValueChange={(val) => setEditForm({ ...editForm, payment_method: val })}
+                           >
+                              <SelectTrigger className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold">
+                                 <SelectValue placeholder="เลือกวิธีการจ่ายเงิน" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                 <SelectItem value="petty_cash" className="font-bold py-3">เงินสดย่อย (Petty Cash)</SelectItem>
+                                 <SelectItem value="credit_card" className="font-bold py-3">ตัดบัตรเครดิต (Credit Card)</SelectItem>
+                                 <SelectItem value="k_biz" className="font-bold py-3">K BIZ (โอนเงินเกิน 2,000 บาท)</SelectItem>
+                              </SelectContent>
+                           </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                           <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">จุดประสงค์ / รายละเอียดเพิ่มเติม</Label>
+                           <Input 
+                              placeholder="ระบุวัตถุประสงค์ในการเบิกจ่าย..."
+                              className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                              value={editForm.purpose}
+                              onChange={(e) => setEditForm({ ...editForm, purpose: e.target.value })}
+                           />
+                        </div>
+                     </div>
+
+                     {/* Document number & Vendor Details */}
+                     <div className="border-t border-slate-100 pt-6 space-y-6">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">ข้อมูลคู่ค้าและเอกสาร (ไม่บังคับ)</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">เลขที่เอกสาร</Label>
+                              <Input 
+                                 placeholder="ระบุเลขที่เอกสาร/ใบเสร็จ..."
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.document_number}
+                                 onChange={(e) => setEditForm({ ...editForm, document_number: e.target.value })}
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">วันที่เอกสาร</Label>
+                              <Input 
+                                 type="date"
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.document_date}
+                                 onChange={(e) => setEditForm({ ...editForm, document_date: e.target.value })}
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ชื่อร้านค้า / คู่ค้า</Label>
+                              <Input 
+                                 placeholder="ชื่อผู้ขาย/ผู้ให้บริการ..."
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.vendor_name}
+                                 onChange={(e) => setEditForm({ ...editForm, vendor_name: e.target.value })}
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Tax ID ร้านค้า</Label>
+                              <Input 
+                                 placeholder="เลขประจำตัวผู้เสียภาษี..."
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.vendor_tax_id}
+                                 onChange={(e) => setEditForm({ ...editForm, vendor_tax_id: e.target.value })}
+                              />
+                           </div>
+                           <div className="space-y-2 md:col-span-2">
+                              <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">ที่อยู่ร้านค้า</Label>
+                              <Input 
+                                 placeholder="ที่อยู่ร้านค้าคู่ค้า..."
+                                 className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:ring-blue-600/20 font-bold"
+                                 value={editForm.vendor_address}
+                                 onChange={(e) => setEditForm({ ...editForm, vendor_address: e.target.value })}
+                              />
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* Items Section */}
+                     <div className="border-t border-slate-100 pt-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                           <Label className="text-xs font-black text-slate-400 uppercase tracking-widest">รายการสินค้า/บริการ</Label>
+                           <Button 
+                             type="button" 
+                             variant="outline" 
+                             size="sm"
+                             className="rounded-xl font-bold text-xs border-slate-200"
+                             onClick={() => {
+                                const items = [...editForm.items, { name: "", quantity: 1, unit_price: 0 }]
+                                setEditForm({ ...editForm, items })
+                             }}
+                           >
+                              + เพิ่มแถวรายการ
+                           </Button>
+                        </div>
+                        <div className="space-y-3">
+                           {editForm.items.map((item: any, index: number) => (
+                              <div key={index} className="flex gap-3 items-center">
+                                 <div className="flex-[4]">
+                                    <Input 
+                                      placeholder="ชื่อรายการ เช่น ชานมไข่มุก" 
+                                      className="h-12 rounded-xl border-slate-100 bg-slate-50 font-bold text-sm"
+                                      value={item.name}
+                                      onChange={(e) => {
+                                         const items = [...editForm.items]
+                                         items[index].name = e.target.value
+                                         setEditForm({ ...editForm, items })
+                                      }}
+                                    />
+                                 </div>
+                                 <div className="flex-[1]">
+                                    <Input 
+                                      type="number"
+                                      placeholder="จำนวน" 
+                                      className="h-12 rounded-xl border-slate-100 bg-slate-50 font-bold text-sm"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                         const items = [...editForm.items]
+                                         items[index].quantity = parseInt(e.target.value) || 0
+                                         setEditForm({ ...editForm, items })
+                                      }}
+                                    />
+                                 </div>
+                                 <div className="flex-[2]">
+                                    <Input 
+                                      type="number"
+                                      placeholder="ราคาต่อหน่วย" 
+                                      className="h-12 rounded-xl border-slate-100 bg-slate-50 font-bold text-sm"
+                                      value={item.unit_price}
+                                      onChange={(e) => {
+                                         const items = [...editForm.items]
+                                         items[index].unit_price = parseFloat(e.target.value) || 0
+                                         setEditForm({ ...editForm, items })
+                                      }}
+                                    />
+                                 </div>
+                                 {editForm.items.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="text-rose-500 hover:text-rose-700 p-2"
+                                      onClick={() => {
+                                         const items = editForm.items.filter((_: any, i: number) => i !== index)
+                                         setEditForm({ ...editForm, items })
+                                      }}
+                                    >
+                                       <Trash2 size={16} />
+                                    </Button>
+                                 )}
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* VAT Section */}
+                     <div className="border-t border-slate-100 pt-6 space-y-4">
+                        <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                           <div className="flex justify-between items-center">
+                              <label className="flex items-center gap-3 cursor-pointer select-none">
+                                 <input
+                                    type="checkbox"
+                                    className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-600/30 cursor-pointer accent-blue-600"
+                                    checked={!!editForm.vat_enabled}
+                                    onChange={(e) => setEditForm({ ...editForm, vat_enabled: e.target.checked })}
+                                 />
+                                 <Label className="text-xs font-black text-slate-800 cursor-pointer">ภาษีมูลค่าเพิ่ม (VAT 7%)</Label>
+                              </label>
+                              <span className={cn(
+                                 "font-black text-sm tabular-nums",
+                                 editForm.vat_enabled ? "text-slate-700" : "text-slate-300"
+                              )}>
+                                 {(editForm.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                              </span>
+                           </div>
+                           {!!editForm.vat_enabled && (
+                              <div className="flex justify-end gap-3 mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                 <button
+                                    type="button"
+                                    onClick={() => setEditForm({ ...editForm, vat_type: "exclusive" })}
+                                    className={cn(
+                                       "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200",
+                                       editForm.vat_type === "exclusive"
+                                          ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/10"
+                                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
+                                    )}
+                                 >
+                                    แยกนอก (Exclusive)
+                                 </button>
+                                 <button
+                                    type="button"
+                                    onClick={() => setEditForm({ ...editForm, vat_type: "inclusive" })}
+                                    className={cn(
+                                       "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200",
+                                       editForm.vat_type === "inclusive"
+                                          ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/10"
+                                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
+                                     )}
+                                  >
+                                     รวมใน (Inclusive)
+                                  </button>
+                               </div>
+                            )}
+                         </div>
+
+                         {/* Computed Summary inside Edit Dialog */}
+                         <div className="rounded-2xl overflow-hidden border border-slate-200 text-sm">
+                            <div className="flex justify-between items-center px-4 py-3 bg-slate-50">
+                               <span className="font-bold text-slate-500 text-xs">ยอดก่อน VAT</span>
+                               <span className="font-bold text-slate-700 tabular-nums">
+                                  {(editForm.subtotal || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                               </span>
+                            </div>
+                            <div className="flex justify-between items-center px-4 py-3 bg-slate-50 border-t border-slate-200">
+                               <span className="font-bold text-slate-500 text-xs">VAT 7%</span>
+                               <span className="font-bold text-slate-700 tabular-nums">
+                                  {(editForm.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                               </span>
+                            </div>
+                            <div className="flex justify-between items-center px-4 py-4 bg-slate-900 text-white">
+                               <span className="font-bold text-slate-400 text-xs">ยอดรวมหลัง VAT</span>
+                               <span className="text-base font-black">{(editForm.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                            </div>
+                         </div>
+                      </div>
+                  </div>
+
+                  <DialogFooter className="p-10 pt-4 bg-white border-t border-slate-100 gap-4">
+                     <Button 
+                       variant="outline" 
+                       className="h-14 rounded-2xl font-bold text-slate-500 border-slate-200"
+                       onClick={() => setIsEditModalOpen(false)}
+                     >
+                        ยกเลิก
+                     </Button>
+                     <Button 
+                       className="h-14 rounded-2xl font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 border-0"
+                       disabled={editMutation.isPending}
+                       onClick={() => {
+                          const payload = { ...editForm }
+                          if (payload.category === "อื่นๆ" && payload.customCategory) {
+                             payload.category = payload.customCategory
+                          }
+                          delete payload.customCategory
+
+                          // Regenerate manifest text with updated values!
+                          const total = payload.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                          payload.manifest_text = generateManifestText(payload, total)
+
+                          editMutation.mutate(payload)
+                       }}
+                     >
+                        {editMutation.isPending ? <Loader2 className="animate-spin" /> : "บันทึกการแก้ไข"}
+                     </Button>
+                  </DialogFooter>
                </div>
             )}
          </DialogContent>

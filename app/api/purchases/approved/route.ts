@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   // 2. Build query
   let query = supabase
     .from('purchase_requests')
-    .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name))')
+    .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name), positions(name))')
     .order('updated_at', { ascending: false })
 
   if (statusFilter === 'all') {
@@ -50,7 +50,8 @@ export async function GET(req: Request) {
     user: {
       full_name: item.users?.full_name,
       avatar_url: item.users?.avatar_url,
-      department: (item.users?.departments as any)?.name
+      department: (item.users?.departments as any)?.name,
+      position: (item.users?.positions as any)?.name
     }
   }))
 

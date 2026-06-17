@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const supabase = createSupabaseServerClient()
   let query = supabase
     .from('purchase_requests')
-    .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name))')
+    .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name), positions(name))')
     .eq('user_id', session.user.id)
     .order('created_at', { ascending: false })
 
@@ -27,7 +27,8 @@ export async function GET(req: Request) {
     user: {
       full_name: item.users?.full_name,
       avatar_url: item.users?.avatar_url,
-      department: (item.users?.departments as any)?.name
+      department: (item.users?.departments as any)?.name,
+      position: (item.users?.positions as any)?.name
     }
   }))
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const { title, category, items, purpose, receipt_url, payment_method, document_type, manifest_text, document_number, document_date, subtotal, vat_amount, vendor_address, vendor_tax_id, customer_name, customer_tax_id, customer_address, project_name } = body
+    const { title, category, items, purpose, receipt_url, payment_method, document_type, manifest_text, document_number, document_date, subtotal, vat_amount, vendor_address, vendor_tax_id, customer_name, customer_tax_id, customer_address, project_name, total_amount } = body
     const vendor_name = body.vendor_name || body.vendor || null
 
     if (!title || !items || !Array.isArray(items) || items.length === 0) {
@@ -51,8 +52,8 @@ export async function POST(req: Request) {
     const itemsTotal = items.reduce((acc: number, item: any) => {
       return acc + (Number(item.quantity) * Number(item.unit_price))
     }, 0)
-    // Grand total: items total + vat_amount
-    const grandTotal = itemsTotal + Number(vat_amount || 0)
+    // Grand total: use total_amount if passed, otherwise items total + vat_amount
+    const grandTotal = total_amount !== undefined ? Number(total_amount) : (itemsTotal + Number(vat_amount || 0))
 
     const supabase = createSupabaseServerClient()
 

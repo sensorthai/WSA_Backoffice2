@@ -35,6 +35,8 @@ The category must be strictly one of: 'ค่าเดินทาง', 'ค่�
 The payment method must be strictly one of: 'petty_cash', 'credit_card', 'k_biz'.
 The documentDate should be in YYYY-MM-DD format.
 
+IMPORTANT: Ensure that 'unit_price' for each item in the 'items' array is the price per single unit (not the subtotal/total of that line). The sum of 'quantity * unit_price' for all items must mathematically sum up to 'subtotal' (before VAT).
+
 Your output must be a single JSON object matching this schema:
 {
   "documentType": "STRING",
@@ -122,7 +124,9 @@ Extract: vendor name, vendor address, vendor tax ID, customer name (buyer), cust
 The category must be strictly one of: 'ค่าเดินทาง', 'ค่าอาหาร/รับรองลูกค้า', 'อุปกรณ์สำนักงาน', 'ค่าซ่อมบำรุง', 'ค่าอินเทอร์เน็ต/โทรศัพท์', 'อื่นๆ'.
 The payment method must be strictly one of: 'petty_cash', 'credit_card', 'k_biz'.
 The documentDate should be in YYYY-MM-DD format.
-Return the response in strict JSON format matching the required schema.`
+Return the response in strict JSON format matching the required schema.
+
+IMPORTANT: Ensure that 'unit_price' for each item in the 'items' array is the price per single unit (not the subtotal/total of that line). The sum of 'quantity * unit_price' for all items must mathematically sum up to 'subtotal' (before VAT).`
 
         const requestBody = {
           contents: [

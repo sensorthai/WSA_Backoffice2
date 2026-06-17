@@ -30,7 +30,7 @@ export async function GET(_req: Request) {
   // 2. Fetch Purchases
   let purchaseQuery = supabase
     .from('purchase_requests')
-    .select('id, user_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, user:users!user_id!inner(full_name, avatar_url)')
+    .select('id, user_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, amount_before_vat, vat_amount, user:users!user_id!inner(full_name, avatar_url)')
   
   if (userRole === 'supervisor') {
     purchaseQuery = purchaseQuery.eq('supervisor_id', session.user.id).eq('status', 'pending')

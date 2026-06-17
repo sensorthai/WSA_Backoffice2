@@ -101,14 +101,14 @@ export async function GET(req: Request) {
   // --- Type 3: Purchase Report (Full Accounting) ---
   else if (type === 'purchase') {
     const { data: purchases } = await supabase.from('purchase_requests')
-      .select('*, user:users!user_id(full_name, role, email)')
+      .select('*, user:users!user_id(full_name, role, email, department:departments(name), position:positions(name))')
       .gte('created_at', startDateStr)
       .lte('created_at', endDateStr + 'T23:59:59.999Z')
       .order('created_at', { ascending: true })
 
     // Also fetch reimbursements for the same period
     const { data: reimbursements } = await supabase.from('reimbursements')
-      .select('*, user:users!user_id(full_name, role, email)')
+      .select('*, user:users!user_id(full_name, role, email, department:departments(name), position:positions(name))')
       .gte('created_at', startDateStr)
       .lte('created_at', endDateStr + 'T23:59:59.999Z')
       .order('created_at', { ascending: true })
