@@ -39,6 +39,11 @@ export function AssignmentsTable() {
   const [editingAssignment, setEditingAssignment] = useState<any>(null)
   const [statusFilter, setStatusFilter] = useState<string>("active")
   const [newDate, setNewDate] = useState("")
+  const [teacherFilter, setTeacherFilter] = useState("all")
+  const [schoolFilter, setSchoolFilter] = useState("all")
+  const [subjectFilter, setSubjectFilter] = useState("all")
+  const [classLevelFilter, setClassLevelFilter] = useState("all")
+  const [academicYearFilter, setAcademicYearFilter] = useState("all")
 
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["admin-assignments", statusFilter],
@@ -99,6 +104,35 @@ export function AssignmentsTable() {
   })
 
   const watchSchool = form.watch("school_id")
+
+  // Get unique class levels present in assignments for filtering
+  const classLevels = useMemo(() => {
+    if (!assignments) return []
+    const levels = new Set<string>()
+    assignments.forEach((a: any) => { if (a.class_level) levels.add(a.class_level) })
+    return Array.from(levels).sort()
+  }, [assignments])
+
+  // Get unique academic years present in assignments for filtering
+  const academicYears = useMemo(() => {
+    if (!assignments) return []
+    const years = new Set<string>()
+    assignments.forEach((a: any) => { if (a.academic_year) years.add(a.academic_year) })
+    return Array.from(years).sort().reverse()
+  }, [assignments])
+
+  // Get filtered assignments based on filter states
+  const filteredAssignments = useMemo(() => {
+    if (!assignments) return []
+    return assignments.filter((a: any) => {
+      const matchTeacher = teacherFilter === "all" || a.teacher_id === teacherFilter
+      const matchSchool = schoolFilter === "all" || a.school_id === schoolFilter
+      const matchSubject = subjectFilter === "all" || a.subject_id === subjectFilter
+      const matchClassLevel = classLevelFilter === "all" || a.class_level === classLevelFilter
+      const matchAcademicYear = academicYearFilter === "all" || a.academic_year === academicYearFilter
+      return matchTeacher && matchSchool && matchSubject && matchClassLevel && matchAcademicYear
+    })
+  }, [assignments, teacherFilter, schoolFilter, subjectFilter, classLevelFilter, academicYearFilter])
 
   // Get unique class levels for selected school from students
   const classLevelsForSchool = useMemo(() => {
@@ -199,7 +233,7 @@ export function AssignmentsTable() {
           <h2 className="text-xl font-semibold text-slate-800">มอบหมายงานสอน</h2>
           <div className="flex gap-1 ml-4">
             {["active", "completed", "cancelled", ""].map(s => (
-              <Button key={s || "all"} variant={statusFilter === s ? "default" : "outline"} size="sm" className="text-xs h-7" onClick={() => setStatusFilter(s)}>
+              <Button key={s || "all"} variant={statusFilter === s ? "default" : "outline"} size="sm" className="text-xs h-7" onClick={() => { setStatusFilter(s); setTeacherFilter("all"); setSchoolFilter("all"); setSubjectFilter("all"); setClassLevelFilter("all"); setAcademicYearFilter("all"); }}>
                 {s ? statusLabels[s] : "ทั้งหมด"}
               </Button>
             ))}
@@ -384,6 +418,89 @@ export function AssignmentsTable() {
         </Dialog>
       </div>
 
+      {/* Filters Container */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+        <span className="text-xs font-semibold text-slate-500 mr-2">ตัวกรอง:</span>
+
+        {/* Teacher filter */}
+        <Select value={teacherFilter} onValueChange={setTeacherFilter}>
+          <SelectTrigger className="w-[160px] h-8 text-xs bg-white">
+            <SelectValue placeholder="ครูผู้สอนทุกคน" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ครูผู้สอนทุกคน</SelectItem>
+            {teachers?.map((t: any) => (
+              <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* School filter */}
+        <Select value={schoolFilter} onValueChange={setSchoolFilter}>
+          <SelectTrigger className="w-[160px] h-8 text-xs bg-white">
+            <SelectValue placeholder="ทุกโรงเรียน" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกโรงเรียน</SelectItem>
+            {schools?.map((s: any) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Subject filter */}
+        <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+          <SelectTrigger className="w-[180px] h-8 text-xs bg-white">
+            <SelectValue placeholder="ทุกวิชา" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกวิชา</SelectItem>
+            {subjects?.map((sub: any) => (
+              <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Class Level filter */}
+        <Select value={classLevelFilter} onValueChange={setClassLevelFilter}>
+          <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+            <SelectValue placeholder="ทุกระดับชั้น" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+            {classLevels.map((lvl: any) => (
+              <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Academic Year filter */}
+        <Select value={academicYearFilter} onValueChange={setAcademicYearFilter}>
+          <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+            <SelectValue placeholder="ทุกปีการศึกษา" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ทุกปีการศึกษา</SelectItem>
+            {academicYears.map((yr: any) => (
+              <SelectItem key={yr} value={yr}>{yr}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {(teacherFilter !== "all" || schoolFilter !== "all" || subjectFilter !== "all" || classLevelFilter !== "all" || academicYearFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-500 hover:text-slate-800 gap-1"
+            onClick={() => {
+              setTeacherFilter("all");
+              setSchoolFilter("all");
+              setSubjectFilter("all");
+              setClassLevelFilter("all");
+              setAcademicYearFilter("all");
+            }}>
+            <X className="h-3 w-3" /> ล้างตัวกรอง
+          </Button>
+        )}
+      </div>
+
       {/* Table */}
       <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
         <Table>
@@ -404,9 +521,9 @@ export function AssignmentsTable() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={10} className="text-center py-8">กำลังโหลด...</TableCell></TableRow>
-            ) : assignments?.length === 0 ? (
+            ) : filteredAssignments.length === 0 ? (
               <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">ไม่มีงานมอบหมาย</TableCell></TableRow>
-            ) : assignments?.map((a: any) => {
+            ) : filteredAssignments.map((a: any) => {
               const dates = a.schedule_dates || []
               const upcomingDates = dates.filter((d: string) => d >= new Date().toISOString().split('T')[0]).slice(0, 3)
               const pastCount = dates.filter((d: string) => d < new Date().toISOString().split('T')[0]).length

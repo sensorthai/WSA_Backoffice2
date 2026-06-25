@@ -93,7 +93,7 @@ export function ReportsIncome() {
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Banknote className="h-5 w-5 text-emerald-500" /> รายงานรายได้ครู
           </h2>
-          <p className="text-sm text-slate-500 mt-1">สรุปรายได้ค่าสอนตามคาบสอนที่ส่งรายงานแล้ว</p>
+          <p className="text-sm text-slate-500 mt-1">สรุปรายได้ค่าสอนตามคาบสอนที่ตรวจอนุมัติแล้ว</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setMonthOffset(m => m - 1)}>

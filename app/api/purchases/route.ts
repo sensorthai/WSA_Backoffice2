@@ -35,6 +35,40 @@ export async function GET(req: Request) {
   return NextResponse.json(transformed)
 }
 
+function parseCleanDate(dateStr: any): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null
+  const trimmed = dateStr.trim()
+  if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'unknown' || trimmed.toLowerCase() === 'ไม่ระบุ') {
+    return null
+  }
+  
+  const parsedTimestamp = Date.parse(trimmed)
+  if (!isNaN(parsedTimestamp)) {
+    const dateObj = new Date(parsedTimestamp)
+    const yyyy = dateObj.getFullYear()
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const dd = String(dateObj.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+  
+  const dmyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
+  const match = trimmed.match(dmyRegex)
+  if (match) {
+    const day = parseInt(match[1], 10)
+    const month = parseInt(match[2], 10) - 1
+    const year = parseInt(match[3], 10)
+    const dateObj = new Date(year, month, day)
+    if (!isNaN(dateObj.getTime())) {
+      const yyyy = dateObj.getFullYear()
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const dd = String(dateObj.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  return null
+}
+
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -52,8 +86,14 @@ export async function POST(req: Request) {
     const itemsTotal = items.reduce((acc: number, item: any) => {
       return acc + (Number(item.quantity) * Number(item.unit_price))
     }, 0)
-    // Grand total: use total_amount if passed, otherwise items total + vat_amount
-    const grandTotal = total_amount !== undefined ? Number(total_amount) : (itemsTotal + Number(vat_amount || 0))
+    
+    // Server-side recalculation of subtotal/VAT/total to avoid client-side race condition bugs
+    const vat = Number(vat_amount || 0)
+    const isVatEnabled = body.vat_enabled !== undefined ? body.vat_enabled : (vat > 0)
+    const isVatType = body.vat_type || "exclusive"
+
+    const beforeVat = isVatEnabled && isVatType === "inclusive" ? itemsTotal - vat : itemsTotal
+    const grandTotal = total_amount !== undefined ? Number(total_amount) : (isVatEnabled && isVatType === "exclusive" ? itemsTotal + vat : itemsTotal)
 
     const supabase = createSupabaseServerClient()
 
@@ -77,6 +117,7 @@ export async function POST(req: Request) {
         category: category || 'อื่นๆ',
         items,
         total_amount: grandTotal,
+        total_after_vat: grandTotal,
         purpose,
         receipt_url,
         payment_method: payment_method || 'petty_cash',
@@ -85,9 +126,9 @@ export async function POST(req: Request) {
         document_type: document_type || null,
         manifest_text: manifest_text || null,
         document_number: document_number || null,
-        document_date: document_date || null,
-        amount_before_vat: subtotal || 0,
-        vat_amount: vat_amount || 0,
+        document_date: parseCleanDate(document_date),
+        amount_before_vat: beforeVat,
+        vat_amount: vat,
         vendor_name: vendor_name || null,
         vendor_address: vendor_address || null,
         vendor_tax_id: vendor_tax_id || null,
@@ -130,7 +171,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(purchase, { status: 201 })
-  } catch {
-    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 })
+  } catch (error: any) {
+    console.error("CREATE PURCHASE ERROR:", error)
+    return NextResponse.json({ error: error.message || "ข้อมูลไม่ถูกต้อง" }, { status: 400 })
   }
 }

@@ -43,6 +43,21 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useUser } from "@/hooks/useUser"
+import { supabase } from "@/lib/supabase"
+import { useMemo } from "react"
+
+const getReceiptUrls = (receiptUrl: string | null | undefined): string[] => {
+  if (!receiptUrl) return []
+  const trimmed = receiptUrl.trim()
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return [receiptUrl]
+    }
+  }
+  return [receiptUrl]
+}
 
 export default function ReimbursementsPage() {
   const queryClient = useQueryClient()
@@ -66,6 +81,79 @@ export default function ReimbursementsPage() {
   const [attachment, setAttachment] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState("")
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState<string | null>(null)
+
+  // Fetch current user details with department and position names
+  const { data: userProfile } = useQuery({
+    queryKey: ["currentUserProfile", profile?.email],
+    queryFn: async () => {
+      if (!profile?.email) return null
+      const { data, error } = await supabase
+        .from('users')
+        .select('*, department:departments(name), position:positions(name)')
+        .eq('email', profile.email)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!profile?.email
+  })
+
+  const isFinanceUser = useMemo(() => {
+    if (!profile) return false
+    const role = profile.role
+    const isCEOOrAdmin = role === 'ceo' || role === 'admin'
+    const isFinManager = (userProfile as any)?.department?.name === 'ฝ่ายบัญชีและการเงิน' && (userProfile as any)?.position?.name === 'ผู้จัดการ'
+    return isCEOOrAdmin || isFinManager
+  }, [profile, userProfile])
+
+  const handleAddAttachment = async (reimbId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setIsUploadingAttachment(reimbId)
+    try {
+      const formData = new FormData()
+      Array.from(files).forEach((file) => {
+        formData.append("file", file)
+      })
+      const res = await fetch(`/api/reimbursements/${reimbId}/upload-receipt`, {
+        method: "POST",
+        body: formData
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to upload receipt")
+      }
+      queryClient.invalidateQueries({ queryKey: ["my-reimbursements"] })
+      toast.success("เพิ่มไฟล์แนบเรียบร้อยแล้ว!")
+    } catch (err: any) {
+      toast.error("การอัปโหลดล้มเหลว: " + err.message)
+    } finally {
+      setIsUploadingAttachment(null)
+    }
+  }
+
+  const handleDeleteAttachment = async (reimb: any, urlToDelete: string) => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ที่จะลบไฟล์แนบนี้?")) return
+    
+    try {
+      const urls = getReceiptUrls(reimb.receipt_url)
+      const updatedUrls = urls.filter(url => url !== urlToDelete)
+      
+      const res = await fetch(`/api/reimbursements/${reimb.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipt_url: updatedUrls.length > 0 ? JSON.stringify(updatedUrls) : null })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update attachments")
+      }
+      queryClient.invalidateQueries({ queryKey: ["my-reimbursements"] })
+      toast.success("ลบไฟล์แนบเรียบร้อยแล้ว!")
+    } catch (err: any) {
+      toast.error("การลบล้มเหลว: " + err.message)
+    }
+  }
 
   // Fetch User's Reimbursements
   const { data, isLoading } = useQuery({
@@ -700,45 +788,99 @@ export default function ReimbursementsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        {!isAdmin && reimb.status === 'pending' && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                            onClick={() => {
-                              if (confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำขอนี้?")) {
-                                deleteMutation.mutate(reimb.id)
-                              }
-                            }}
-                          >
-                            <Trash2 size={20} />
-                          </Button>
-                        )}
-                        {reimb.receipt_url && (
-                          <a href={reimb.receipt_url} target="_blank" rel="noopener noreferrer">
-                            <Button variant="outline" size="sm" className="rounded-xl text-blue-600 border-blue-200 hover:bg-blue-50 gap-2 font-bold">
-                               <FileText size={16} /> ดูใบเสร็จ
+                      <div className="flex flex-col items-end gap-3 min-w-[200px]">
+                        {/* Attachments list */}
+                        {reimb.receipt_url && (() => {
+                          const urls = getReceiptUrls(reimb.receipt_url);
+                          const canModify = isFinanceUser && reimb.status !== 'paid' && reimb.status !== 'rejected' ||
+                                            (reimb.user_id === profile?.id && (reimb.status === 'pending' || reimb.status === 'approved'));
+                          return (
+                            <div className="flex flex-wrap gap-2 justify-end w-full">
+                              {urls.map((url: string, i: number) => (
+                                <div key={i} className="flex items-center gap-1 bg-blue-50 border border-blue-100 rounded-xl px-3 py-1">
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1.5">
+                                    <FileText size={14} /> ใบเสร็จ {urls.length > 1 ? `#${i + 1}` : ''}
+                                  </a>
+                                  {canModify && (
+                                    <button 
+                                      className="text-rose-500 hover:text-rose-700 p-0.5" 
+                                      onClick={() => handleDeleteAttachment(reimb, url)}
+                                      title="ลบไฟล์แนบ"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        <div className="flex items-center gap-3">
+                          {/* Cancel request button */}
+                          {!isAdmin && reimb.status === 'pending' && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                              onClick={() => {
+                                if (confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำขอนี้?")) {
+                                  deleteMutation.mutate(reimb.id)
+                                }
+                              }}
+                            >
+                              <Trash2 size={20} />
                             </Button>
-                          </a>
-                        )}
-                        {/* ฝ่ายบัญชี/Admin ยืนยันการโอนเงิน เมื่อสถานะเป็น approved */}
-                        {isAdmin && reimb.status === 'approved' && (
-                          <Button
-                            size="sm"
-                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"
-                            disabled={payMutation.isPending}
-                            onClick={() => {
-                              if (confirm(`ยืนยันการโอนเงินจำนวน ฿${Number(reimb.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} ให้กับ ${reimb.user?.full_name || 'พนักงาน'} ใช่หรือไม่?`)) {
-                                payMutation.mutate(reimb.id)
-                              }
-                            }}
-                          >
-                            {payMutation.isPending
-                              ? <Loader2 size={16} className="animate-spin" />
-                              : <Banknote size={16} />} ยืนยันการโอนเงิน
-                          </Button>
-                        )}
+                          )}
+
+                          {/* Add Attachment Button */}
+                          {(() => {
+                            const canModify = isFinanceUser && reimb.status !== 'paid' && reimb.status !== 'rejected' ||
+                                              (reimb.user_id === profile?.id && (reimb.status === 'pending' || reimb.status === 'approved'));
+                            if (!canModify) return null;
+                            const isUploading = isUploadingAttachment === reimb.id;
+                            return (
+                              <div className="relative">
+                                <input
+                                  type="file"
+                                  id={`reimb-attach-upload-${reimb.id}`}
+                                  className="hidden"
+                                  accept="image/*,application/pdf"
+                                  multiple
+                                  onChange={(e) => handleAddAttachment(reimb.id, e.target.files)}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-xl text-blue-600 border-blue-200 hover:bg-blue-50 gap-2 font-bold"
+                                  disabled={isUploading}
+                                  onClick={() => document.getElementById(`reimb-attach-upload-${reimb.id}`)?.click()}
+                                >
+                                  {isUploading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />} 
+                                  แนบสลิป/ใบเสร็จ
+                                </Button>
+                              </div>
+                            );
+                          })()}
+
+                          {/* ฝ่ายบัญชี/Admin ยืนยันการโอนเงิน เมื่อสถานะเป็น approved */}
+                          {isAdmin && reimb.status === 'approved' && (
+                            <Button
+                              size="sm"
+                              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"
+                              disabled={payMutation.isPending}
+                              onClick={() => {
+                                if (confirm(`ยืนยันการโอนเงินจำนวน ฿${Number(reimb.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} ให้กับ ${reimb.user?.full_name || 'พนักงาน'} ใช่หรือไม่?`)) {
+                                  payMutation.mutate(reimb.id)
+                                }
+                              }}
+                            >
+                              {payMutation.isPending
+                                ? <Loader2 size={16} className="animate-spin" />
+                                : <Banknote size={16} />} ยืนยันการโอนเงิน
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

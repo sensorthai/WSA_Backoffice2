@@ -30,6 +30,9 @@ export function TeachingLogsReview() {
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [dateFilter, setDateFilter] = useState("")
   const [schoolFilter, setSchoolFilter] = useState("all")
+  const [teacherFilter, setTeacherFilter] = useState("all")
+  const [subjectFilter, setSubjectFilter] = useState("all")
+  const [classLevelFilter, setClassLevelFilter] = useState("all")
   const [page, setPage] = useState(1)
   const limit = 20
   const [isEditing, setIsEditing] = useState(false)
@@ -47,13 +50,43 @@ export function TeachingLogsReview() {
     }
   })
 
+  const { data: teachers } = useQuery({
+    queryKey: ["admin-teachers-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users")
+      const data = res.ok ? await res.json() : []
+      return data.filter((u: any) => u.role === 'outsource' || u.is_teacher === true)
+    }
+  })
+
+  const { data: subjects } = useQuery({
+    queryKey: ["admin-subjects-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/subjects")
+      return res.ok ? res.json() : []
+    }
+  })
+
+  const { data: classLevels } = useQuery({
+    queryKey: ["admin-class-levels-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/assignments")
+      const data = res.ok ? await res.json() : []
+      const levels = Array.from(new Set(data.map((a: any) => a.class_level).filter(Boolean)))
+      return levels.sort()
+    }
+  })
+
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ["teaching-logs-review", statusFilter, dateFilter, schoolFilter, page],
+    queryKey: ["teaching-logs-review", statusFilter, dateFilter, schoolFilter, teacherFilter, subjectFilter, classLevelFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
       if (dateFilter) params.set('date', dateFilter)
       if (schoolFilter !== "all") params.set('school_id', schoolFilter)
+      if (teacherFilter !== "all") params.set('teacher_id', teacherFilter)
+      if (subjectFilter !== "all") params.set('subject_id', subjectFilter)
+      if (classLevelFilter !== "all") params.set('class_level', classLevelFilter)
       params.set('page', String(page))
       params.set('limit', String(limit))
       const res = await fetch(`/api/teaching-logs?${params.toString()}`)
@@ -244,19 +277,28 @@ export function TeachingLogsReview() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-xl font-semibold text-slate-800">ตรวจรายงานการสอน</h2>
-          <div className="flex gap-1 ml-4">
-            {["submitted", "reviewed", "pending", "draft", ""].map(s => (
-              <Button key={s || "all"} variant={statusFilter === s ? "default" : "outline"}
-                size="sm" className="text-xs h-7" onClick={() => { setStatusFilter(s); setPage(1); }}>
-                {s ? statusLabels[s] : "ทั้งหมด"}
-              </Button>
-            ))}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-semibold text-slate-800">ตรวจรายงานการสอน</h2>
+            <div className="flex gap-1 ml-4">
+              {["submitted", "reviewed", "pending", "draft", ""].map(s => (
+                <Button key={s || "all"} variant={statusFilter === s ? "default" : "outline"}
+                  size="sm" className="text-xs h-7" onClick={() => { setStatusFilter(s); setPage(1); }}>
+                  {s ? statusLabels[s] : "ทั้งหมด"}
+                </Button>
+              ))}
+            </div>
           </div>
+          <Input type="date" value={dateFilter} onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
+            className="w-[180px] h-8 text-sm" placeholder="กรองตามวันที่" />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+          <span className="text-xs font-semibold text-slate-500 mr-2">ตัวกรอง:</span>
+          
           <Select value={schoolFilter} onValueChange={(v) => { setSchoolFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[180px] h-8 ml-2 text-xs">
+            <SelectTrigger className="w-[160px] h-8 text-xs bg-white">
               <SelectValue placeholder="ทุกโรงเรียน" />
             </SelectTrigger>
             <SelectContent>
@@ -266,9 +308,57 @@ export function TeachingLogsReview() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={teacherFilter} onValueChange={(v) => { setTeacherFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[160px] h-8 text-xs bg-white">
+              <SelectValue placeholder="ครูทั้งหมด" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ครูทั้งหมด</SelectItem>
+              {(teachers || []).map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={subjectFilter} onValueChange={(v) => { setSubjectFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-white">
+              <SelectValue placeholder="ทุกวิชา" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกวิชา</SelectItem>
+              {(subjects || []).map((sub: any) => (
+                <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={classLevelFilter} onValueChange={(v) => { setClassLevelFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[120px] h-8 text-xs bg-white">
+              <SelectValue placeholder="ทุกระดับชั้น" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+              {(classLevels || []).map((lvl: any) => (
+                <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(schoolFilter !== "all" || teacherFilter !== "all" || subjectFilter !== "all" || classLevelFilter !== "all" || dateFilter !== "") && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-500 hover:text-slate-800 gap-1"
+              onClick={() => {
+                setSchoolFilter("all");
+                setTeacherFilter("all");
+                setSubjectFilter("all");
+                setClassLevelFilter("all");
+                setDateFilter("");
+                setPage(1);
+              }}>
+              <X className="h-3 w-3" /> ล้างตัวกรอง
+            </Button>
+          )}
         </div>
-        <Input type="date" value={dateFilter} onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-          className="w-[180px] h-8 text-sm" placeholder="กรองตามวันที่" />
       </div>
 
       <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">

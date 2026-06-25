@@ -39,13 +39,13 @@ export async function GET(req: NextRequest) {
 
   const { data: assignments } = await assignQuery
 
-  // 2. Teaching logs (submitted/reviewed) for this month
+  // 2. Teaching logs (reviewed only) for this month
   let logQuery = supabase
     .from("teaching_logs")
     .select("id, teacher_id, school_id, assignment_id, teach_date, status")
     .gte("teach_date", startStr)
     .lte("teach_date", endStr)
-    .in("status", ["submitted", "reviewed"])
+    .eq("status", "reviewed")
   if (filterTeacher) logQuery = logQuery.eq("teacher_id", filterTeacher)
   if (filterSchool) logQuery = logQuery.eq("school_id", filterSchool)
 

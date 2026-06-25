@@ -54,6 +54,40 @@ export async function GET(
   return NextResponse.json(transformed)
 }
 
+function parseCleanDate(dateStr: any): string | null {
+  if (!dateStr || typeof dateStr !== 'string') return null
+  const trimmed = dateStr.trim()
+  if (!trimmed || trimmed.toLowerCase() === 'n/a' || trimmed.toLowerCase() === 'unknown' || trimmed.toLowerCase() === 'ไม่ระบุ') {
+    return null
+  }
+  
+  const parsedTimestamp = Date.parse(trimmed)
+  if (!isNaN(parsedTimestamp)) {
+    const dateObj = new Date(parsedTimestamp)
+    const yyyy = dateObj.getFullYear()
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const dd = String(dateObj.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+  
+  const dmyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
+  const match = trimmed.match(dmyRegex)
+  if (match) {
+    const day = parseInt(match[1], 10)
+    const month = parseInt(match[2], 10) - 1
+    const year = parseInt(match[3], 10)
+    const dateObj = new Date(year, month, day)
+    if (!isNaN(dateObj.getTime())) {
+      const yyyy = dateObj.getFullYear()
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const dd = String(dateObj.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  return null
+}
+
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
@@ -106,22 +140,86 @@ export async function PUT(
       return NextResponse.json({ error: "คุณไม่มีสิทธิ์แก้ไขรายการนี้" }, { status: 403 })
     }
 
-    // 3. Recalculate Total if items changed and total_amount was not explicitly passed
-    if (body.items && body.total_amount === undefined) {
-      const itemsTotal = body.items.reduce((acc: number, item: any) => {
-        return acc + (Number(item.quantity) * Number(item.unit_price))
-      }, 0)
-      const vat = Number(body.vat_amount !== undefined ? body.vat_amount : (purchase.vat_amount || 0))
-      body.total_amount = itemsTotal + vat
+    const {
+      title,
+      category,
+      items,
+      purpose,
+      receipt_url,
+      payment_method,
+      document_type,
+      manifest_text,
+      document_number,
+      document_date,
+      subtotal,
+      vat_amount,
+      vendor_name,
+      vendor_address,
+      vendor_tax_id,
+      customer_name,
+      customer_tax_id,
+      customer_address,
+      project_name,
+      total_amount,
+      vat_enabled,
+      vat_type
+    } = body
+
+    const updatePayload: any = {
+      updated_at: new Date().toISOString()
+    }
+    if (title !== undefined) updatePayload.title = title
+    if (category !== undefined) updatePayload.category = category
+    if (items !== undefined) updatePayload.items = items
+    if (purpose !== undefined) updatePayload.purpose = purpose
+    if (receipt_url !== undefined) updatePayload.receipt_url = receipt_url
+    if (payment_method !== undefined) updatePayload.payment_method = payment_method
+    if (document_type !== undefined) updatePayload.document_type = document_type
+    if (manifest_text !== undefined) updatePayload.manifest_text = manifest_text
+    if (document_number !== undefined) updatePayload.document_number = document_number
+    if (document_date !== undefined) updatePayload.document_date = parseCleanDate(document_date)
+    if (vendor_name !== undefined) updatePayload.vendor_name = vendor_name
+    if (vendor_address !== undefined) updatePayload.vendor_address = vendor_address
+    if (vendor_tax_id !== undefined) updatePayload.vendor_tax_id = vendor_tax_id
+    if (customer_name !== undefined) updatePayload.customer_name = customer_name
+    if (customer_tax_id !== undefined) updatePayload.customer_tax_id = customer_tax_id
+    if (customer_address !== undefined) updatePayload.customer_address = customer_address
+    if (project_name !== undefined) updatePayload.project_name = project_name
+
+    // Recalculate totals on backend to avoid any async state lag issues from frontend
+    const itemsTotal = items ? items.reduce((acc: number, item: any) => {
+      return acc + (Number(item.quantity) * Number(item.unit_price))
+    }, 0) : null
+
+    if (items !== undefined) {
+      const vat = vat_amount !== undefined ? Number(vat_amount) : (purchase.vat_amount || 0)
+      const isVatEnabled = vat_enabled !== undefined ? vat_enabled : (vat > 0)
+      const isVatType = vat_type !== undefined ? vat_type : (purchase.amount_before_vat && Math.abs(Number(purchase.amount_before_vat) - itemsTotal) > 5 ? "inclusive" : "exclusive")
+
+      const beforeVat = isVatEnabled && isVatType === "inclusive" ? itemsTotal - vat : itemsTotal
+      const grandTotal = total_amount !== undefined ? Number(total_amount) : (isVatEnabled && isVatType === "exclusive" ? itemsTotal + vat : itemsTotal)
+
+      updatePayload.amount_before_vat = beforeVat
+      updatePayload.vat_amount = vat
+      updatePayload.total_amount = grandTotal
+      updatePayload.total_after_vat = grandTotal
+    } else {
+      if (subtotal !== undefined) {
+        updatePayload.amount_before_vat = subtotal
+      }
+      if (vat_amount !== undefined) {
+        updatePayload.vat_amount = Number(vat_amount)
+      }
+      if (total_amount !== undefined) {
+        updatePayload.total_amount = Number(total_amount)
+        updatePayload.total_after_vat = Number(total_amount)
+      }
     }
 
     // 4. Update
     const { data: updated, error: updateError } = await supabase
       .from('purchase_requests')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', params.id)
       .select()
       .single()

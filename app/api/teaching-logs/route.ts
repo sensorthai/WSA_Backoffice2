@@ -43,12 +43,12 @@ export async function GET(req: NextRequest) {
     .from('teaching_logs')
     .select(`
       *,
-      assignment:assignment_id (
+      assignment:assignment_id!inner (
         id,
         schedule_time_start,
         schedule_time_end,
         class_level,
-        subject:subject_id (id, name, code)
+        subject:subject_id!inner (id, name, code)
       ),
       teacher:teacher_id (id, full_name, email),
       school:school_id (id, name, district),
@@ -79,6 +79,12 @@ export async function GET(req: NextRequest) {
 
   const schoolId = req.nextUrl.searchParams.get('school_id')
   if (schoolId) query = query.eq('school_id', schoolId)
+
+  const subjectId = req.nextUrl.searchParams.get('subject_id')
+  if (subjectId) query = query.eq('assignment.subject_id', subjectId)
+
+  const classLevel = req.nextUrl.searchParams.get('class_level')
+  if (classLevel) query = query.eq('class_level', classLevel)
 
   if (isPaginated) {
     const offset = (page - 1) * limit

@@ -23,7 +23,8 @@ export async function GET() {
     return NextResponse.json({ error: "ยังไม่ได้เข้าสู่ระบบ" }, { status: 401 })
   }
 
-  if ((session.user as any).role !== 'admin') {
+  const role = (session.user as any).role
+  if (!['admin', 'employee', 'supervisor', 'ceo'].includes(role)) {
     return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงข้อมูลนี้" }, { status: 403 })
   }
 
