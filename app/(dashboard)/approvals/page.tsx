@@ -268,8 +268,8 @@ export default function ApprovalsPage() {
                             <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/20">
                               <TableCell className="font-semibold text-slate-700 py-3 pl-6">{prod.name}</TableCell>
                               <TableCell className="text-center text-slate-600 py-3">{prod.quantity}</TableCell>
-                              <TableCell className="text-right text-slate-600 py-3">{Number(prod.unit_price || 0).toLocaleString()} ฿</TableCell>
-                              <TableCell className="text-right font-bold text-slate-900 py-3 pr-6">{Number((prod.quantity || 0) * (prod.unit_price || 0)).toLocaleString()} ฿</TableCell>
+                              <TableCell className="text-right text-slate-600 py-3">{Number(prod.unit_price || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</TableCell>
+                              <TableCell className="text-right font-bold text-slate-900 py-3 pr-6">{(Math.round((Number(prod.quantity) || 0) * (Number(prod.unit_price) || 0) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</TableCell>
                             </TableRow>
                           ))
                         ) : (
@@ -285,7 +285,7 @@ export default function ApprovalsPage() {
                  {/* VAT Breakdown */}
                  {(() => {
                     const computedItemsTotal = (item.items || []).reduce(
-                       (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                       (sum: number, it: any) => sum + Math.round((Number(it.quantity) || 0) * (Number(it.unit_price) || 0) * 100) / 100,
                        0
                     )
                     const beforeVat = Number(item.amount_before_vat) > 0
@@ -297,15 +297,15 @@ export default function ApprovalsPage() {
                       <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-3 shadow-sm">
                          <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
-                            <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                            <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                          </div>
                          <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-400 font-bold">VAT 7%</span>
-                            <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                            <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                          </div>
                          <div className="flex justify-between items-center pt-3 border-t border-dashed border-slate-200">
                             <span className="font-black text-slate-900 text-sm">ยอดรวมหลัง VAT</span>
-                            <span className="font-black text-blue-600 text-2xl">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                            <span className="font-black text-blue-600 text-2xl">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                          </div>
                       </div>
                     )

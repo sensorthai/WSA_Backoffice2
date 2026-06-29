@@ -314,7 +314,7 @@ function PurchasesContent() {
           purpose: payload.purpose,
           items: payload.items.map((item: any) => ({
             ...item,
-            quantity: parseInt(item.quantity) || 0,
+            quantity: parseFloat(item.quantity) || 0,
             unit_price: parseFloat(item.unit_price) || 0
           })),
           payment_method: payload.payment_method,
@@ -552,37 +552,43 @@ function PurchasesContent() {
 
   // ผลรวมดิบของรายการทั้งหมด
   const itemsTotal = useMemo(() => {
-    return purchaseForm.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+    return purchaseForm.items.reduce((sum, item) => sum + Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100, 0)
   }, [purchaseForm.items])
 
   // คำนวณ VAT 7% ตามโหมด
   const vatAmount = useMemo(() => {
     if (!(purchaseForm as any).vat_enabled) return 0
+    let amount = 0
     if ((purchaseForm as any).vat_type === "inclusive") {
-      return itemsTotal * 0.07 / 1.07
+      amount = itemsTotal * 0.07 / 1.07
     } else {
-      return itemsTotal * 0.07
+      amount = itemsTotal * 0.07
     }
+    return Math.round(amount * 100) / 100
   }, [itemsTotal, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
 
   // คำนวณยอดก่อน VAT ตามโหมด
   const beforeVatAmount = useMemo(() => {
-    if (!(purchaseForm as any).vat_enabled) return itemsTotal
+    if (!(purchaseForm as any).vat_enabled) return Math.round(itemsTotal * 100) / 100
+    let amount = 0
     if ((purchaseForm as any).vat_type === "inclusive") {
-      return itemsTotal - vatAmount
+      amount = itemsTotal - vatAmount
     } else {
-      return itemsTotal
+      amount = itemsTotal
     }
+    return Math.round(amount * 100) / 100
   }, [itemsTotal, vatAmount, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
 
   // คำนวณยอดรวมหลัง VAT ตามโหมด
   const grandTotal = useMemo(() => {
-    if (!(purchaseForm as any).vat_enabled) return itemsTotal
+    if (!(purchaseForm as any).vat_enabled) return Math.round(itemsTotal * 100) / 100
+    let amount = 0
     if ((purchaseForm as any).vat_type === "inclusive") {
-      return itemsTotal
+      amount = itemsTotal
     } else {
-      return itemsTotal + vatAmount
+      amount = itemsTotal + vatAmount
     }
+    return Math.round(amount * 100) / 100
   }, [itemsTotal, vatAmount, (purchaseForm as any).vat_enabled, (purchaseForm as any).vat_type])
 
   // sync subtotal / vat_amount / total_amount เข้า form state
@@ -605,17 +611,17 @@ function PurchasesContent() {
   // sync subtotal / vat_amount / total_amount เข้า editForm state
   useEffect(() => {
     if (!editForm) return
-    const itemsTotalVal = editForm.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+    const itemsTotalVal = editForm.items.reduce((sum: number, item: any) => sum + Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100, 0)
     let vatVal = 0
     if (editForm.vat_enabled) {
       if (editForm.vat_type === "inclusive") {
-        vatVal = itemsTotalVal * 0.07 / 1.07
+        vatVal = Math.round((itemsTotalVal * 0.07 / 1.07) * 100) / 100
       } else {
-        vatVal = itemsTotalVal * 0.07
+        vatVal = Math.round((itemsTotalVal * 0.07) * 100) / 100
       }
     }
-    const beforeVatVal = editForm.vat_enabled && editForm.vat_type === "inclusive" ? itemsTotalVal - vatVal : itemsTotalVal
-    const totalVal = editForm.vat_enabled && editForm.vat_type === "exclusive" ? itemsTotalVal + vatVal : itemsTotalVal
+    const beforeVatVal = Math.round((editForm.vat_enabled && editForm.vat_type === "inclusive" ? itemsTotalVal - vatVal : itemsTotalVal) * 100) / 100
+    const totalVal = Math.round((editForm.vat_enabled && editForm.vat_type === "exclusive" ? itemsTotalVal + vatVal : itemsTotalVal) * 100) / 100
 
     if (
       Number(editForm.subtotal) === beforeVatVal && 
@@ -1360,7 +1366,7 @@ ${form.purpose || "-"}
                                         <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 md:hidden">จำนวน</Label>
                                         <Input 
                                            type="number" 
-                                           placeholder="จำนวน" 
+                                           step="0.01" placeholder="จำนวน" 
                                            className="h-11 rounded-xl border-slate-100 bg-white"
                                            value={item.quantity}
                                            onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
@@ -1378,7 +1384,7 @@ ${form.purpose || "-"}
                                      </div>
                                      <div className="md:col-span-1 flex items-end justify-between gap-2">
                                        <div className="text-xs font-bold text-emerald-600 whitespace-nowrap pb-2.5 md:hidden">
-                                         = {(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿
+                                         = {(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
                                        </div>
                                        {purchaseForm.items.length > 1 && (
                                          <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-rose-500 rounded-xl h-11 w-11">
@@ -1387,7 +1393,7 @@ ${form.purpose || "-"}
                                        )}
                                      </div>
                                      <div className="hidden md:flex md:col-span-12 justify-end -mt-2 mb-1 pr-1">
-                                       <span className="text-xs font-bold text-emerald-600">ยอดรวม: {(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
+                                       <span className="text-xs font-bold text-emerald-600">ยอดรวม: {(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                      </div>
                                   </div>
                                ))}
@@ -1936,12 +1942,12 @@ ${form.purpose || "-"}
                                                 <span className="text-slate-400 shrink-0">x{item.quantity}</span>
                                                 <span className="line-clamp-2">{item.name}</span>
                                              </div>
-                                             <div className="text-slate-900 shrink-0">{(item.quantity * item.unit_price).toLocaleString('th-TH')} <span className="text-xs text-slate-400">฿</span></div>
+                                             <div className="text-slate-900 shrink-0">{(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></div>
                                           </div>
                                        ))}
                                        {(() => {
                                           const computedItemsTotal = (p.items || []).reduce(
-                                             (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                                             (sum: number, it: any) => sum + Math.round((Number(it.quantity) || 0) * (Number(it.unit_price) || 0) * 100) / 100,
                                              0
                                           )
                                           const beforeVat = Number(p.amount_before_vat) > 0 ? Number(p.amount_before_vat) : computedItemsTotal
@@ -1951,15 +1957,15 @@ ${form.purpose || "-"}
                                           <div className="pt-4 border-t border-slate-200 space-y-2">
                                              <div className="flex justify-between items-center text-sm font-bold text-slate-500">
                                                 <span>ยอดก่อน VAT</span>
-                                                <span>{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
+                                                <span>{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
                                              </div>
                                              <div className="flex justify-between items-center text-sm font-bold text-slate-500">
                                                 <span>VAT 7%</span>
-                                                <span>{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
+                                                <span>{vat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-slate-400">฿</span></span>
                                              </div>
                                              <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center font-black text-lg md:text-xl text-slate-900">
                                                 <span>ยอดรวมหลัง VAT</span>
-                                                <span className="text-blue-600">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} <span className="text-sm">฿</span></span>
+                                                <span className="text-blue-600">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm">฿</span></span>
                                              </div>
                                           </div>
                                           )
@@ -2677,13 +2683,13 @@ ${form.purpose || "-"}
                                  {selectedPurchase.items.map((item: any, idx: number) => (
                                     <div key={idx} className="flex justify-between items-center">
                                        <span className="font-bold text-slate-600">x{item.quantity} {item.name}</span>
-                                       <span className="font-black text-slate-900">{(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
+                                       <span className="font-black text-slate-900">{(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                     </div>
                                  ))}
                                  {/* VAT Breakdown */}
                                  {(() => {
                                     const computedItemsTotal = (selectedPurchase.items || []).reduce(
-                                       (sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+                                       (sum: number, it: any) => sum + Math.round((Number(it.quantity) || 0) * (Number(it.unit_price) || 0) * 100) / 100,
                                        0
                                     )
                                     const beforeVat = Number(selectedPurchase.amount_before_vat) > 0
@@ -2695,15 +2701,15 @@ ${form.purpose || "-"}
                                  <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
                                     <div className="flex justify-between items-center text-sm">
                                        <span className="text-slate-400 font-bold">ยอดก่อน VAT</span>
-                                       <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                       <span className="font-bold text-slate-600">{beforeVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
                                        <span className="text-slate-400 font-bold">VAT 7%</span>
-                                       <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                       <span className="font-bold text-slate-600">{vat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                     </div>
                                     <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-200">
                                        <span className="font-black text-slate-900 text-sm">ยอดรวมหลัง VAT</span>
-                                       <span className="font-black text-slate-900 text-lg">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                                       <span className="font-black text-slate-900 text-lg">{totalAfterVat.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                     </div>
                                  </div>
                                     )
@@ -3123,12 +3129,12 @@ ${form.purpose || "-"}
                                  <div className="flex-[1]">
                                     <Input 
                                       type="number"
-                                      placeholder="จำนวน" 
+                                      step="0.01" placeholder="จำนวน" 
                                       className="h-12 rounded-xl border-slate-100 bg-slate-50 font-bold text-sm"
                                       value={item.quantity}
                                       onChange={(e) => {
                                          const items = [...editForm.items]
-                                         items[index].quantity = parseInt(e.target.value) || 0
+                                         items[index].quantity = parseFloat(e.target.value) || 0
                                          setEditForm({ ...editForm, items })
                                       }}
                                     />
@@ -3219,18 +3225,18 @@ ${form.purpose || "-"}
                             <div className="flex justify-between items-center px-4 py-3 bg-slate-50">
                                <span className="font-bold text-slate-500 text-xs">ยอดก่อน VAT</span>
                                <span className="font-bold text-slate-700 tabular-nums">
-                                  {(editForm.subtotal || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                  {(editForm.subtotal || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
                                </span>
                             </div>
                             <div className="flex justify-between items-center px-4 py-3 bg-slate-50 border-t border-slate-200">
                                <span className="font-bold text-slate-500 text-xs">VAT 7%</span>
                                <span className="font-bold text-slate-700 tabular-nums">
-                                  {(editForm.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+                                  {(editForm.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿
                                </span>
                             </div>
                             <div className="flex justify-between items-center px-4 py-4 bg-slate-900 text-white">
                                <span className="font-bold text-slate-400 text-xs">ยอดรวมหลัง VAT</span>
-                               <span className="text-base font-black">{(editForm.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</span>
+                               <span className="text-base font-black">{(editForm.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                             </div>
                          </div>
                       </div>
@@ -3255,7 +3261,7 @@ ${form.purpose || "-"}
                           delete payload.customCategory
 
                           // Regenerate manifest text with updated values!
-                          const total = payload.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+                          const total = payload.items.reduce((sum: number, item: any) => sum + Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100, 0)
                           payload.manifest_text = generateManifestText(payload, total)
 
                           editMutation.mutate(payload)

@@ -319,8 +319,8 @@ function ReportsContent() {
         <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${idx + 1}</td>
         <td style="border: 1px solid #ccc; padding: 8px;">${item.name}</td>
         <td style="border: 1px solid #ccc; padding: 8px; text-align: center;">${item.quantity}</td>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${(item.quantity * item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td style="border: 1px solid #ccc; padding: 8px; text-align: right;">${(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>
     `).join('')
 
@@ -990,7 +990,7 @@ function ReportsContent() {
                                   {(row.items || []).map((item: any, i: number) => (
                                     <div key={i} className="flex justify-between text-xs">
                                       <span className="text-slate-600">{i+1}. {item.name} x{item.quantity}</span>
-                                      <span className="font-bold text-slate-900 tabular-nums">{(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
+                                      <span className="font-bold text-slate-900 tabular-nums">{(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1229,14 +1229,14 @@ function ReportsContent() {
                         {(selectedViewPurchase.items || []).map((item: any, i: number) => (
                            <div key={i} className="flex justify-between py-2 text-xs">
                               <span className="text-slate-600">{i+1}. {item.name} x{item.quantity}</span>
-                              <span className="font-bold text-slate-900">{(item.quantity * item.unit_price).toLocaleString('th-TH')} ฿</span>
+                              <span className="font-bold text-slate-900">{(Math.round((Number(item.quantity) * Number(item.unit_price)) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</span>
                            </div>
                         ))}
                      </div>
                      <div className="border-t border-slate-100 pt-3 mt-2 space-y-1.5 text-right font-bold">
-                        <div className="text-xs text-slate-500">ยอดก่อน VAT: {Number(selectedViewPurchase.amount_before_vat || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</div>
-                        <div className="text-xs text-amber-600">VAT 7%: {Number(selectedViewPurchase.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</div>
-                        <div className="text-base text-blue-600 font-black">ยอดรวมสุทธิ: {Number(selectedViewPurchase.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</div>
+                        <div className="text-xs text-slate-500">ยอดก่อน VAT: {Number(selectedViewPurchase.amount_before_vat || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</div>
+                        <div className="text-xs text-amber-600">VAT 7%: {Number(selectedViewPurchase.vat_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</div>
+                        <div className="text-base text-blue-600 font-black">ยอดรวมสุทธิ: {Number(selectedViewPurchase.total_amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ฿</div>
                      </div>
                   </div>
 
