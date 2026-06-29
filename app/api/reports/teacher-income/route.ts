@@ -23,26 +23,26 @@ export async function GET(req: NextRequest) {
   const startStr = format(start, "yyyy-MM-dd")
   const endStr = format(end, "yyyy-MM-dd")
 
-  // 1. Active assignments with fee info
-  let assignQuery = supabase
-    .from("teaching_assignments")
-    .select(`
-      id, school_id, teacher_id, subject_id, class_level,
-      periods_per_day, teaching_fee, status,
-      school:school_id (id, name),
-      subject:subject_id (id, name),
-      teacher:teacher_id (id, full_name)
-    `)
-    .eq("status", "active")
-  if (filterTeacher) assignQuery = assignQuery.eq("teacher_id", filterTeacher)
-  if (filterSchool) assignQuery = assignQuery.eq("school_id", filterSchool)
-
-  const { data: assignments } = await assignQuery
-
-  // 2. Teaching logs (reviewed only) for this month
+  // 1. Teaching logs (reviewed only) for this month with teacher, school, and assignment details
   let logQuery = supabase
     .from("teaching_logs")
-    .select("id, teacher_id, school_id, assignment_id, teach_date, status")
+    .select(`
+      id,
+      teacher_id,
+      school_id,
+      assignment_id,
+      teach_date,
+      status,
+      teacher:teacher_id (id, full_name),
+      school:school_id (id, name),
+      assignment:assignment_id (
+        id,
+        class_level,
+        periods_per_day,
+        teaching_fee,
+        subject:subject_id (id, name)
+      )
+    `)
     .gte("teach_date", startStr)
     .lte("teach_date", endStr)
     .eq("status", "reviewed")
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
   const { data: logs } = await logQuery
 
-  // 3. Teachers list for filter dropdown (outsource + employees with is_teacher=true)
+  // 2. Teachers list for filter dropdown (outsource + employees with is_teacher=true)
   const { data: teachers } = await supabase
     .from("users")
     .select("id, full_name, role, is_teacher")
@@ -59,13 +59,13 @@ export async function GET(req: NextRequest) {
     .eq("is_active", true)
     .order("full_name")
 
-  // 4. Schools list for filter dropdown
+  // 3. Schools list for filter dropdown
   const { data: schools } = await supabase
     .from("schools")
     .select("id, name")
     .order("name")
 
-  // Build per-assignment income rows
+  // Build per-teacher/assignment income rows
   type IncomeRow = {
     teacher_id: string
     teacher_name: string
@@ -80,45 +80,66 @@ export async function GET(req: NextRequest) {
     teach_dates_str: string
   }
 
-  const rows: IncomeRow[] = []
-  const assignMap = new Map<string, any>()
-  for (const a of (assignments || [])) {
-    assignMap.set(a.id, a)
-  }
+  const rowsMap = new Map<string, {
+    teacher_id: string
+    teacher_name: string
+    school_name: string
+    subject_name: string
+    class_level: string
+    teaching_fee: number
+    periods_per_day: number
+    dates: Set<string>
+  }>()
 
-  // Count teach days per assignment
-  const daysByAssignment: Record<string, Set<string>> = {}
   for (const log of (logs || [])) {
-    const aid = log.assignment_id
-    if (!aid) continue
-    if (!daysByAssignment[aid]) daysByAssignment[aid] = new Set()
-    daysByAssignment[aid].add(log.teach_date)
+    const teacherId = log.teacher_id
+    const assignmentId = log.assignment_id
+    if (!teacherId || !assignmentId) continue
+
+    const key = `${teacherId}-${assignmentId}`
+    if (!rowsMap.has(key)) {
+      const teacherName = (log as any).teacher?.full_name || "?"
+      const schoolName = (log as any).school?.name || "?"
+      const subjectName = (log as any).assignment?.subject?.name || "?"
+      const classLevel = (log as any).assignment?.class_level || "-"
+      const fee = (log as any).assignment?.teaching_fee || 0
+      const ppd = (log as any).assignment?.periods_per_day || 1
+
+      rowsMap.set(key, {
+        teacher_id: teacherId,
+        teacher_name: teacherName,
+        school_name: schoolName,
+        subject_name: subjectName,
+        class_level: classLevel,
+        teaching_fee: fee,
+        periods_per_day: ppd,
+        dates: new Set<string>()
+      })
+    }
+
+    rowsMap.get(key)!.dates.add(log.teach_date)
   }
 
-  for (const a of (assignments || [])) {
-    const datesSet = daysByAssignment[a.id] || new Set<string>()
-    const teachDays = datesSet.size
-    if (teachDays === 0) continue
-
-    const sortedDates = Array.from(datesSet).sort()
+  const rows: IncomeRow[] = []
+  for (const [key, val] of rowsMap.entries()) {
+    const teachDays = val.dates.size
+    const sortedDates = Array.from(val.dates).sort()
     const teach_dates_str = sortedDates.map(d => {
       const [, mm, dd] = d.split("-")
       return `${dd}/${mm}`
     }).join(", ")
 
-    const fee = a.teaching_fee || 0
-    const ppd = a.periods_per_day || 1
-    const totalPeriods = ppd * teachDays
-    const income = fee * totalPeriods
+    const totalPeriods = val.periods_per_day * teachDays
+    const income = val.teaching_fee * totalPeriods
 
     rows.push({
-      teacher_id: a.teacher_id,
-      teacher_name: (a as any).teacher?.full_name || "?",
-      school_name: (a as any).school?.name || "?",
-      subject_name: (a as any).subject?.name || "?",
-      class_level: a.class_level || "-",
-      teaching_fee: fee,
-      periods_per_day: ppd,
+      teacher_id: val.teacher_id,
+      teacher_name: val.teacher_name,
+      school_name: val.school_name,
+      subject_name: val.subject_name,
+      class_level: val.class_level,
+      teaching_fee: val.teaching_fee,
+      periods_per_day: val.periods_per_day,
       teach_days: teachDays,
       total_periods: totalPeriods,
       income,
