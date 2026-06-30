@@ -29,8 +29,16 @@ export async function GET(req: Request) {
 
   // --- Type 1: WFH Report ---
   if (type === 'wfh') {
-    const { data: users } = await supabase.from('users').select('id, full_name, role').eq('is_active', true)
-    const { data: checkins } = await supabase.from('wfh_checkins').select('*').gte('check_date', startDateStr).lte('check_date', endDateStr)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name, role')
+      .eq('is_active', true)
+      .neq('role', 'outsource')
+    const { data: checkins } = await supabase
+      .from('wfh_checkins')
+      .select('*')
+      .gte('check_date', startDateStr)
+      .lte('check_date', endDateStr)
 
     const workingDays = eachDayOfInterval({ start, end }).filter(d => !isWeekend(d)).length
 
@@ -46,7 +54,8 @@ export async function GET(req: Request) {
         wfh_days: home, 
         onsite_days: onsite,
         absent_days: absent > 0 ? absent : 0,
-        total_working_days: workingDays
+        total_working_days: workingDays,
+        checkins: uCheckins.sort((a, b) => a.check_date.localeCompare(b.check_date))
       }
     })
     csvHeaders = ['Name', 'Office Days', 'WFH Days', 'Onsite Days', 'Absent Days', 'Total Working Days']

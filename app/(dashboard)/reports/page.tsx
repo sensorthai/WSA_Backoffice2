@@ -27,7 +27,9 @@ import {
   FileText,
   Eye,
   Pencil,
-  Trash2
+  Trash2,
+  Clock,
+  MapPin
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -903,19 +905,22 @@ function ReportsContent() {
                     filteredData.map((row: any, idx: number) => (
                       <Fragment key={idx}>
                         <TableRow 
-                           className={`border-slate-50 hover:bg-slate-50/30 ${(reportType === 'purchase' || reportType === 'leave') ? 'cursor-pointer' : ''}`}
-                           role={(reportType === 'purchase' || reportType === 'leave') ? 'button' : undefined}
-                           tabIndex={(reportType === 'purchase' || reportType === 'leave') ? 0 : undefined}
-                           onClick={() => (reportType === 'purchase' || reportType === 'leave') && toggleRow(idx)}
+                           className={`border-slate-50 hover:bg-slate-50/30 ${(reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') ? 'cursor-pointer' : ''}`}
+                           role={(reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') ? 'button' : undefined}
+                           tabIndex={(reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') ? 0 : undefined}
+                           onClick={() => (reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') && toggleRow(idx)}
                            onKeyDown={(e) => {
-                             if ((reportType === 'purchase' || reportType === 'leave') && (e.key === 'Enter' || e.key === ' ')) {
+                             if ((reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') && (e.key === 'Enter' || e.key === ' ')) {
                                toggleRow(idx)
                              }
                            }}
                         >
                           {reportType === 'wfh' && (
                             <>
-                              <TableCell className="pl-10 py-6 font-bold text-slate-900">{row.name}</TableCell>
+                              <TableCell className="pl-10 py-6 font-bold text-slate-900 flex items-center gap-2">
+                                {expandedRows.has(idx) ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400 print:hidden" />}
+                                {row.name}
+                              </TableCell>
                               <TableCell className="font-medium text-slate-600">{row.office_days}</TableCell>
                               <TableCell className="font-medium text-slate-600">{row.wfh_days}</TableCell>
                               <TableCell className="font-medium text-slate-600">{row.onsite_days}</TableCell>
@@ -1116,6 +1121,61 @@ function ReportsContent() {
                                         ))}
                                       </TableBody>
                                     </Table>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {/* Expanded Detail Row for WFH */}
+                        {reportType === 'wfh' && expandedRows.has(idx) && (
+                          <TableRow className="bg-slate-50/50 print:bg-white border-slate-100">
+                            <TableCell colSpan={6} className="px-10 py-6">
+                              <div className="space-y-4">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">ประวัติการเช็คอินของ {row.name} ประจำเดือนนี้</h4>
+                                {(!row.checkins || row.checkins.length === 0) ? (
+                                  <div className="text-sm font-bold text-slate-400 py-4">ไม่มีประวัติการเช็คอินในเดือนนี้</div>
+                                ) : (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    {row.checkins.map((checkin: any, cIdx: number) => {
+                                      const statusLabels: Record<string, { label: string, color: string }> = {
+                                        office: { label: "ออฟฟิศ", color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+                                        home: { label: "WFH", color: "bg-blue-50 text-blue-700 border-blue-100" },
+                                        onsite: { label: "Onsite", color: "bg-amber-50 text-amber-700 border-amber-100" }
+                                      }
+                                      const labelInfo = statusLabels[checkin.status] || { label: checkin.status, color: "bg-slate-50 text-slate-700" }
+                                      
+                                      const checkTime = checkin.created_at ? format(new Date(checkin.created_at), "HH:mm น.") : "-"
+                                      const checkDateStr = format(new Date(checkin.check_date), "d MMM yyyy", { locale: th })
+
+                                      return (
+                                        <div key={cIdx} className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-2" onClick={(e) => e.stopPropagation()}>
+                                          <div className="flex items-center justify-between">
+                                            <span className="font-bold text-slate-700 text-sm">{checkDateStr}</span>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${labelInfo.color}`}>{labelInfo.label}</span>
+                                          </div>
+                                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                                            <Clock size={12} className="shrink-0" />
+                                            <span>เวลาเช็คอิน: {checkTime}</span>
+                                          </div>
+                                          {checkin.note && (
+                                            <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg flex items-start gap-1">
+                                              <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                                              <div>
+                                                <span className="font-semibold text-slate-400 block text-[9px] uppercase tracking-wider mb-0.5">หมายเหตุ / สถานที่</span>
+                                                {checkin.note}
+                                              </div>
+                                            </div>
+                                          )}
+                                          {checkin.work_done && (
+                                            <div className="text-xs text-slate-700 bg-indigo-50/30 p-2 rounded-lg border border-indigo-50/50">
+                                              <span className="font-semibold text-indigo-500 block text-[9px] uppercase tracking-wider mb-0.5">เนื้องานที่ปฏิบัติสำเร็จ</span>
+                                              {checkin.work_done}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
                                   </div>
                                 )}
                               </div>
