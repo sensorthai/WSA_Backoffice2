@@ -916,7 +916,7 @@ ${form.purpose || "-"}
           <div style="display: flex; align-items: center; margin-bottom: 25px; font-size: 14px;">
             <span style="white-space: nowrap;">บจ. / หจก.</span>
             <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin: 0 10px; font-weight: bold; text-align: center; min-height: 20px;">${selectedPurchase.vendor_name || selectedPurchase.vendor || '-'}</span>
-            <span style="white-space: nowrap;">(ผู้ขาย / ผู้ให้บริการ)</span>
+            <span style="white-space: nowrap;">(ผู้ซื้อ / ผู้ใช้บริการ)</span>
           </div>
 
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
