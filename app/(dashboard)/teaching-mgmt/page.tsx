@@ -37,7 +37,6 @@ const tabs = [
   { id: "reports-school", label: "รายงานโรงเรียน", icon: FileBarChart },
   { id: "reports-teacher", label: "ผลงานครู", icon: Users },
   { id: "reports-income", label: "รายได้", icon: BarChart3 },
-  { id: "reports-monthly", label: "รายงานรายเดือน", icon: FileBarChart },
 ] as const
 
 const tabDescriptions: Record<string, string> = {
@@ -51,7 +50,6 @@ const tabDescriptions: Record<string, string> = {
   "reports-school": "สร้างรายงานสรุปการสอนเพื่อส่งให้โรงเรียนลูกค้า",
   "reports-teacher": "สรุปผลงานครู ความตรงเวลา การส่งรายงาน และคะแนนประเมินรายเดือน",
   "reports-income": "สรุปรายได้ค่าสอนครู Outsource ตามคาบสอนที่ตรวจอนุมัติแล้ว",
-  "reports-monthly": "สรุปภาพรวมคาบสอน การเข้าเรียน ความคืบหน้า และแนวโน้มรายเดือน",
 }
 
 export default function TeachingMgmtPage() {
@@ -77,7 +75,6 @@ function TeachingMgmtContent() {
       case "reports-school": return <ReportsSchool />
       case "reports-teacher": return <ReportsTeacher />
       case "reports-income": return <ReportsIncome />
-      case "reports-monthly": return <ReportsMonthly />
       default: return <DailySummary />
     }
   }
