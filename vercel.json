@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/work-done-request",
       "schedule": "0 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/teaching-report-reminder",
+      "schedule": "0 1 * * *"
     }
   ]
 }
