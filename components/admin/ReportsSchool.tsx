@@ -290,10 +290,17 @@ export function ReportsSchool() {
         <p style="font-size:13px;color:#555;margin:8px 0 0">${periodLabel}${viewMode === 'week' && rpt.week_number ? ` | สัปดาห์ที่ ${rpt.week_number}` : ''}</p>
       </div>
       <hr style="border:none;border-top:2px solid #e5e7eb;margin:16px 0"/>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:16px"><tr><td style="background:#eff6ff;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.total_days}</div><div style="font-size:11px;color:#666">วันสอน</div></td><td style="width:4px"></td><td style="background:#fefce8;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.total_periods}</div><div style="font-size:11px;color:#666">คาบรวม</div></td><td style="width:4px"></td><td style="background:#ecfdf5;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.attendance.rate}%</div><div style="font-size:11px;color:#666">อัตราเข้าเรียน</div></td><td style="width:4px"></td><td style="background:#f0f9ff;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.teachers.length}</div><div style="font-size:11px;color:#666">ครูผู้สอน</div></td></tr></table>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+        <tr>
+          <td style="background:#eff6ff;border-radius:6px;padding:12px;text-align:center;width:33.3%"><div style="font-size:24px;font-weight:800">${rpt.summary.total_days}</div><div style="font-size:11px;color:#666">วันสอน</div></td>
+          <td style="width:4px"></td>
+          <td style="background:#ecfdf5;border-radius:6px;padding:12px;text-align:center;width:33.3%"><div style="font-size:24px;font-weight:800">${rpt.attendance.rate}%</div><div style="font-size:11px;color:#666">อัตราเข้าเรียน</div></td>
+          <td style="width:4px"></td>
+          <td style="background:#f0f9ff;border-radius:6px;padding:12px;text-align:center;width:33.3%"><div style="font-size:24px;font-weight:800">${rpt.summary.teachers.length}</div><div style="font-size:11px;color:#666">ครูผู้สอน</div></td>
+        </tr>
+      </table>
       <p style="font-size:12px;color:#666;margin:0 0 4px">เข้าเรียน: <b style="color:#059669">${rpt.attendance.present}</b> | ขาด: <b style="color:#dc2626">${rpt.attendance.absent}</b> | สาย: <b style="color:#d97706">${rpt.attendance.late}</b> | ลา: <b style="color:#2563eb">${rpt.attendance.leave}</b></p>
       <p style="font-size:12px;color:#666;margin:0 0 16px">ครูผู้สอน: ${rpt.summary.teachers.join(', ')}</p>
-      ${(rpt.attendance_by_classroom||[]).length > 0 ? `<h3 style="font-size:15px;margin:16px 0 8px">📋 การเข้าเรียนรายห้อง</h3><table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px"><thead><tr style="background:#f3f4f6"><th style="padding:6px 8px;border:1px solid #ddd;text-align:left">ห้อง</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">มา</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">ขาด</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">สาย</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">ลา</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">รวม</th><th style="padding:6px 8px;border:1px solid #ddd;text-align:center">อัตรา</th></tr></thead><tbody>${rpt.attendance_by_classroom.map((c:any)=>`<tr><td style="padding:4px 8px;border:1px solid #ddd;font-weight:bold">${c.class_level}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;color:#059669;font-weight:bold">${c.present}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;color:#dc2626;font-weight:bold">${c.absent}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;color:#d97706;font-weight:bold">${c.late}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;color:#2563eb;font-weight:bold">${c.leave}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center">${c.total}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${c.rate>=80?'#059669':c.rate>=60?'#d97706':'#dc2626'}">${c.rate}%</td></tr>`).join('')}</tbody></table>` : ''}
       <hr style="border:none;border-top:2px solid #e5e7eb;margin:16px 0"/>
       <h3 style="font-size:16px;margin:0 0 12px">📖 รายละเอียดการสอนรายวัน</h3>
       ${logsHtml||'<p style="color:#999">ไม่มีข้อมูล</p>'}${concern}
@@ -429,9 +436,8 @@ export function ReportsSchool() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SummaryCard icon={CalendarDays} label="วันสอน" value={filteredSummary.total_days} color="blue" />
-            <SummaryCard icon={BookOpen} label="คาบรวม" value={filteredSummary.total_periods} color="amber" />
             <SummaryCard icon={Users} label="ครูผู้สอน" value={filteredSummary.teachers.length} color="cyan" />
             <SummaryCard icon={CheckCircle2} label="รายงานส่งแล้ว" value={`${filteredSummary.submitted_reports}/${filteredSummary.total_periods}`} color="emerald" />
           </div>
@@ -455,45 +461,6 @@ export function ReportsSchool() {
               <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลา {filteredAttendance.leave}</Badge>
             </div>
           </div>
-
-          {/* Attendance by Classroom */}
-          {filteredAttendanceByClassroom.length > 0 && (
-            <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
-              <div className="px-5 py-4 border-b bg-slate-50">
-                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-emerald-500" /> การเข้าเรียนรายห้อง
-                </h3>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead>ห้องเรียน</TableHead>
-                    <TableHead className="text-center">มา</TableHead>
-                    <TableHead className="text-center">ขาด</TableHead>
-                    <TableHead className="text-center">สาย</TableHead>
-                    <TableHead className="text-center">ลา</TableHead>
-                    <TableHead className="text-center">รวม</TableHead>
-                    <TableHead className="text-center">อัตรา</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAttendanceByClassroom.map((c: any) => (
-                    <TableRow key={c.class_level}>
-                      <TableCell><Badge variant="outline" className="font-bold">{c.class_level}</Badge></TableCell>
-                      <TableCell className="text-center font-bold text-emerald-600">{c.present}</TableCell>
-                      <TableCell className="text-center font-bold text-red-600">{c.absent}</TableCell>
-                      <TableCell className="text-center font-bold text-amber-600">{c.late}</TableCell>
-                      <TableCell className="text-center font-bold text-blue-600">{c.leave}</TableCell>
-                      <TableCell className="text-center text-slate-500">{c.total}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={`${c.rate >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : c.rate >= 60 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'} font-bold`}>{c.rate}%</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
 
           {/* Subject Details */}
           <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
