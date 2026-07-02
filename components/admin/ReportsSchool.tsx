@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -70,6 +70,12 @@ export function ReportsSchool() {
   const [generating] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"))
   const [selectedWeek, setSelectedWeek] = useState(0)
+  const [selectedClassroom, setSelectedClassroom] = useState("all")
+
+  // Reset classroom when filters change
+  useEffect(() => {
+    setSelectedClassroom("all")
+  }, [selectedSchool, selectedMonth, selectedWeek, viewMode])
 
   const weeks = useMemo(() => {
     return getWeeksOfMonth(selectedMonth)
@@ -127,6 +133,118 @@ export function ReportsSchool() {
     },
     enabled: !!selectedSchool,
   })
+
+  // Extract unique classrooms
+  const classroomOptions = useMemo(() => {
+    if (!report?.attendance_by_classroom) return []
+    return report.attendance_by_classroom.map((c: any) => c.class_level).filter(Boolean)
+  }, [report])
+
+  // Filtered Logs
+  const filteredLogs = useMemo(() => {
+    if (!report?.logs) return []
+    if (selectedClassroom === "all") return report.logs
+    return report.logs.filter((l: any) => l.class_level === selectedClassroom)
+  }, [report, selectedClassroom])
+
+  // Filtered Attendance By Classroom
+  const filteredAttendanceByClassroom = useMemo(() => {
+    if (!report?.attendance_by_classroom) return []
+    if (selectedClassroom === "all") return report.attendance_by_classroom
+    return report.attendance_by_classroom.filter((c: any) => c.class_level === selectedClassroom)
+  }, [report, selectedClassroom])
+
+  // Filtered Subjects and Topics covered
+  const filteredSubjects = useMemo(() => {
+    if (!report) return []
+    const logs = selectedClassroom === 'all' 
+      ? report.logs 
+      : report.logs.filter((l: any) => l.class_level === selectedClassroom)
+      
+    const subjectMap: Record<string, { name: string; logs: any[] }> = {}
+    for (const l of logs) {
+      const subName = l.assignment?.subject?.name || '?'
+      const subId = l.assignment?.subject?.id || 'unknown'
+      if (!subjectMap[subId]) subjectMap[subId] = { name: subName, logs: [] }
+      subjectMap[subId].logs.push(l)
+    }
+    
+    return Object.values(subjectMap).map((s: any) => ({
+      name: s.name,
+      total_periods: s.logs.length,
+      topics: s.logs.filter((l: any) => l.topics_covered).map((l: any) => ({
+        date: l.teach_date,
+        topics: l.topics_covered,
+        homework: l.homework_assigned,
+        behavior: l.student_behavior,
+        method: l.teaching_method,
+        notes: l.report_notes,
+      })),
+    }))
+  }, [report, selectedClassroom])
+
+  // Filtered Overall Attendance Stats
+  const filteredAttendance = useMemo(() => {
+    if (!report) return { total: 0, present: 0, absent: 0, late: 0, leave: 0, rate: 0 }
+    
+    const logs = selectedClassroom === 'all' 
+      ? report.logs 
+      : report.logs.filter((l: any) => l.class_level === selectedClassroom)
+      
+    let total = 0, present = 0, absent = 0, late = 0, leave = 0
+    
+    for (const log of logs) {
+      const list = report.attendance_by_log?.[log.id] || []
+      for (const a of list) {
+        total++
+        if (a.status === 'present') present++
+        else if (a.status === 'absent') absent++
+        else if (a.status === 'late') late++
+        else if (a.status === 'leave') leave++
+      }
+    }
+    
+    const rate = total > 0 ? Math.round(present / total * 100) : 0
+    return { total, present, absent, late, leave, rate }
+  }, [report, selectedClassroom])
+
+  // Filtered Teacher Remarks
+  const filteredRemarks = useMemo(() => {
+    if (!report) return []
+    const logs = selectedClassroom === 'all' 
+      ? report.logs 
+      : report.logs.filter((l: any) => l.class_level === selectedClassroom)
+      
+    return (logs || [])
+      .filter((l: any) => l.report_notes)
+      .map((l: any) => ({
+        date: l.teach_date,
+        teacher: l.teacher?.full_name || '-',
+        subject: l.assignment?.subject?.name || '-',
+        notes: l.report_notes,
+      }))
+  }, [report, selectedClassroom])
+
+  // Filtered Summary counts
+  const filteredSummary = useMemo(() => {
+    if (!report) return { total_days: 0, total_periods: 0, teachers: [] as string[], submitted_reports: 0 }
+    
+    const logs = selectedClassroom === 'all' 
+      ? report.logs 
+      : report.logs.filter((l: any) => l.class_level === selectedClassroom)
+      
+    const totalDays = new Set(logs.map((l: any) => l.teach_date)).size
+    const totalPeriods = logs.length
+    const teachersSet = new Set(logs.map((l: any) => l.teacher?.full_name).filter(Boolean))
+    const submitted = logs.filter((l: any) => l.status === 'submitted' || l.status === 'reviewed').length
+    
+    return {
+      total_days: totalDays,
+      total_periods: totalPeriods,
+      teachers: Array.from(teachersSet) as string[],
+      submitted_reports: submitted
+    }
+  }, [report, selectedClassroom])
 
   const behaviorMap: Record<string, string> = {
     excellent: "ดีมาก", good: "ดี", fair: "พอใช้", needs_improvement: "ต้องปรับปรุง"
@@ -253,30 +371,69 @@ export function ReportsSchool() {
         <div className="space-y-6" id="school-report-print">
           {/* Report Header */}
           <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
                   <School className="h-5 w-5 text-blue-500" /> {report.school?.name}
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">{report.school?.address}</p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">{label}</Badge>
                   {viewMode === 'week' && report.week_number && <Badge className="bg-violet-50 text-violet-700 border-violet-200">สัปดาห์ที่ {report.week_number}</Badge>}
+                  {selectedClassroom !== 'all' && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">กรองห้อง: {selectedClassroom}</Badge>}
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => generatePDF(report, label)} disabled={generating} className="print:hidden">
-                {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                {generating ? 'กำลังสร้าง...' : 'ดาวน์โหลด PDF'}
-              </Button>
+              
+              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+                {/* Classroom Filter Select */}
+                {classroomOptions.length > 0 && (
+                  <Select value={selectedClassroom} onValueChange={setSelectedClassroom}>
+                    <SelectTrigger className="w-[150px] h-9 text-xs font-semibold border-slate-200 bg-white">
+                      <SelectValue placeholder="ทุกห้องเรียน" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">ทุกห้องเรียน (All)</SelectItem>
+                      {classroomOptions.map((cls: string) => (
+                        <SelectItem key={cls} value={cls} className="text-xs">ห้อง {cls}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    const filteredRpt = {
+                      ...report,
+                      logs: filteredLogs,
+                      attendance_by_classroom: filteredAttendanceByClassroom,
+                      summary: filteredSummary,
+                      attendance: filteredAttendance,
+                      concern_students: report.concern_students.filter((s: any) => selectedClassroom === 'all' || s.class_level === selectedClassroom),
+                      teacher_remarks: filteredRemarks
+                    }
+                    const printLabel = selectedClassroom === 'all'
+                      ? label
+                      : `${label} | ห้อง ${selectedClassroom}`
+                    generatePDF(filteredRpt, printLabel)
+                  }} 
+                  disabled={generating} 
+                  className="h-9 font-bold text-xs"
+                >
+                  {generating ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                  {generating ? 'กำลังสร้าง...' : 'ดาวน์โหลด PDF'}
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <SummaryCard icon={CalendarDays} label="วันสอน" value={report.summary.total_days} color="blue" />
-            <SummaryCard icon={BookOpen} label="คาบรวม" value={report.summary.total_periods} color="amber" />
-            <SummaryCard icon={Users} label="ครูผู้สอน" value={report.summary.teachers.length} color="cyan" />
-            <SummaryCard icon={CheckCircle2} label="รายงานส่งแล้ว" value={`${report.summary.submitted_reports}/${report.summary.total_periods}`} color="emerald" />
+            <SummaryCard icon={CalendarDays} label="วันสอน" value={filteredSummary.total_days} color="blue" />
+            <SummaryCard icon={BookOpen} label="คาบรวม" value={filteredSummary.total_periods} color="amber" />
+            <SummaryCard icon={Users} label="ครูผู้สอน" value={filteredSummary.teachers.length} color="cyan" />
+            <SummaryCard icon={CheckCircle2} label="รายงานส่งแล้ว" value={`${filteredSummary.submitted_reports}/${filteredSummary.total_periods}`} color="emerald" />
           </div>
 
           {/* Attendance Rate */}
@@ -287,20 +444,20 @@ export function ReportsSchool() {
             <div className="flex items-center gap-4 mb-3">
               <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-700"
-                  style={{ width: `${report.attendance.rate}%` }} />
+                  style={{ width: `${filteredAttendance.rate}%` }} />
               </div>
-              <span className="text-lg font-black text-emerald-600">{report.attendance.rate}%</span>
+              <span className="text-lg font-black text-emerald-600">{filteredAttendance.rate}%</span>
             </div>
             <div className="flex gap-3 text-xs">
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">มา {report.attendance.present}</Badge>
-              <Badge className="bg-red-50 text-red-700 border-red-200">ขาด {report.attendance.absent}</Badge>
-              <Badge className="bg-amber-50 text-amber-700 border-amber-200">สาย {report.attendance.late}</Badge>
-              <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลา {report.attendance.leave}</Badge>
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">มา {filteredAttendance.present}</Badge>
+              <Badge className="bg-red-50 text-red-700 border-red-200">ขาด {filteredAttendance.absent}</Badge>
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200">สาย {filteredAttendance.late}</Badge>
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลา {filteredAttendance.leave}</Badge>
             </div>
           </div>
 
           {/* Attendance by Classroom */}
-          {(report.attendance_by_classroom || []).length > 0 && (
+          {filteredAttendanceByClassroom.length > 0 && (
             <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
               <div className="px-5 py-4 border-b bg-slate-50">
                 <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -320,7 +477,7 @@ export function ReportsSchool() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {report.attendance_by_classroom.map((c: any) => (
+                  {filteredAttendanceByClassroom.map((c: any) => (
                     <TableRow key={c.class_level}>
                       <TableCell><Badge variant="outline" className="font-bold">{c.class_level}</Badge></TableCell>
                       <TableCell className="text-center font-bold text-emerald-600">{c.present}</TableCell>
@@ -346,9 +503,9 @@ export function ReportsSchool() {
               </h3>
             </div>
             <div className="divide-y">
-              {report.subjects.length === 0 ? (
+              {filteredSubjects.length === 0 ? (
                 <div className="p-6 text-center text-slate-400">ไม่มีข้อมูลรายวิชา</div>
-              ) : report.subjects.map((sub: any, i: number) => (
+              ) : filteredSubjects.map((sub: any, i: number) => (
                 <div key={i}>
                   <button className="w-full px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors"
                     onClick={() => setExpandedSubject(expandedSubject === sub.name ? null : sub.name)}>
@@ -401,7 +558,7 @@ export function ReportsSchool() {
           </div>
 
           {/* Concern Students */}
-          {report.concern_students.length > 0 && (
+          {report.concern_students.filter((s: any) => selectedClassroom === 'all' || s.class_level === selectedClassroom).length > 0 && (
             <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto border-red-200">
               <div className="px-5 py-4 border-b bg-red-50">
                 <h3 className="text-sm font-bold text-red-700 flex items-center gap-2">
@@ -420,7 +577,7 @@ export function ReportsSchool() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {report.concern_students.map((s: any) => (
+                  {report.concern_students.filter((s: any) => selectedClassroom === 'all' || s.class_level === selectedClassroom).map((s: any) => (
                     <TableRow key={s.id}>
                       <TableCell className="text-sm text-slate-400">{s.student_number}</TableCell>
                       <TableCell className="font-medium">{s.prefix}{s.first_name} {s.last_name}</TableCell>
@@ -442,7 +599,7 @@ export function ReportsSchool() {
           )}
 
           {/* Teacher Remarks */}
-          {(report.teacher_remarks || []).length > 0 && (
+          {filteredRemarks.length > 0 && (
             <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto border-amber-200">
               <div className="px-5 py-4 border-b bg-amber-50">
                 <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
@@ -450,7 +607,7 @@ export function ReportsSchool() {
                 </h3>
               </div>
               <div className="p-4 space-y-2">
-                {report.teacher_remarks.map((r: any, i: number) => (
+                {filteredRemarks.map((r: any, i: number) => (
                   <div key={i} className="bg-amber-50/50 rounded-lg px-4 py-3 border border-amber-100">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-mono text-slate-400">{fmtDate(r.date)}</span>
