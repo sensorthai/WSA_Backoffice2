@@ -13,6 +13,13 @@ import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Download
 } from "lucide-react"
 
+const formatLocalDate = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 const getWeeksOfMonth = (monthStr: string) => {
   const [year, month] = monthStr.split('-').map(Number)
   const date = new Date(year, month - 1, 1)
@@ -38,8 +45,8 @@ const getWeeksOfMonth = (monthStr: string) => {
     const endYear = fri.getFullYear()
     
     if ((startMonth === month && startYear === year) || (endMonth === month && endYear === year)) {
-      const startStr = mon.toISOString().split("T")[0]
-      const endStr = fri.toISOString().split("T")[0]
+      const startStr = formatLocalDate(mon)
+      const endStr = formatLocalDate(fri)
       
       const monLabel = mon.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
       const friLabel = fri.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
@@ -86,16 +93,16 @@ export function ReportsSchool() {
       const fri = new Date(mon)
       fri.setDate(mon.getDate() + 4)
       return {
-        startDate: mon.toISOString().split("T")[0],
-        endDate: fri.toISOString().split("T")[0],
+        startDate: formatLocalDate(mon),
+        endDate: formatLocalDate(fri),
         label: `สัปดาห์นี้ (${mon.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} - ${fri.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })})`,
       }
     } else {
       const first = new Date(year, month - 1, 1)
       const last = new Date(year, month, 0)
       return {
-        startDate: first.toISOString().split("T")[0],
-        endDate: last.toISOString().split("T")[0],
+        startDate: formatLocalDate(first),
+        endDate: formatLocalDate(last),
         label: first.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }),
       }
     }
@@ -158,7 +165,12 @@ export function ReportsSchool() {
     const w = window.open('', '_blank')
     if (!w) { alert('กรุณาอนุญาต popup'); return }
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>รายงาน - ${rpt.school?.name}</title><style>@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Sarabun',sans-serif;color:#1e293b;padding:20px 30px;font-size:14px;line-height:1.5}@media print{body{padding:10px 15px}@page{size:A4;margin:12mm}}</style></head><body>
-      <div style="text-align:center;margin-bottom:20px"><h1 style="font-size:22px;margin:0">รายงานสรุปการสอนรายสัปดาห์</h1><h2 style="font-size:18px;color:#4f46e5;margin:4px 0 0">${rpt.school?.name||''}</h2><p style="color:#666;font-size:12px;margin:2px 0 0">${rpt.school?.address||''}</p><p style="font-size:13px;color:#555;margin:8px 0 0">${periodLabel}${rpt.week_number ? ` | สัปดาห์ที่ ${rpt.week_number}` : ''}</p></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <h1 style="font-size:22px;margin:0">${viewMode === 'month' ? 'รายงานสรุปการสอนรายเดือน' : 'รายงานสรุปการสอนรายสัปดาห์'}</h1>
+        <h2 style="font-size:18px;color:#4f46e5;margin:4px 0 0">${rpt.school?.name||''}</h2>
+        <p style="color:#666;font-size:12px;margin:2px 0 0">${rpt.school?.address||''}</p>
+        <p style="font-size:13px;color:#555;margin:8px 0 0">${periodLabel}${viewMode === 'week' && rpt.week_number ? ` | สัปดาห์ที่ ${rpt.week_number}` : ''}</p>
+      </div>
       <hr style="border:none;border-top:2px solid #e5e7eb;margin:16px 0"/>
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px"><tr><td style="background:#eff6ff;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.total_days}</div><div style="font-size:11px;color:#666">วันสอน</div></td><td style="width:4px"></td><td style="background:#fefce8;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.total_periods}</div><div style="font-size:11px;color:#666">คาบรวม</div></td><td style="width:4px"></td><td style="background:#ecfdf5;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.attendance.rate}%</div><div style="font-size:11px;color:#666">อัตราเข้าเรียน</div></td><td style="width:4px"></td><td style="background:#f0f9ff;border-radius:6px;padding:12px;text-align:center;width:25%"><div style="font-size:24px;font-weight:800">${rpt.summary.teachers.length}</div><div style="font-size:11px;color:#666">ครูผู้สอน</div></td></tr></table>
       <p style="font-size:12px;color:#666;margin:0 0 4px">เข้าเรียน: <b style="color:#059669">${rpt.attendance.present}</b> | ขาด: <b style="color:#dc2626">${rpt.attendance.absent}</b> | สาย: <b style="color:#d97706">${rpt.attendance.late}</b> | ลา: <b style="color:#2563eb">${rpt.attendance.leave}</b></p>
@@ -172,7 +184,7 @@ export function ReportsSchool() {
     </body></html>`)
     w.document.close()
     setTimeout(() => w.print(), 600)
-  }, [behaviorMap, statusTh])
+  }, [behaviorMap, statusTh, viewMode])
 
   return (
     <div className="space-y-6">
