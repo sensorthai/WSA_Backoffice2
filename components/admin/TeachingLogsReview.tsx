@@ -41,6 +41,8 @@ export function TeachingLogsReview() {
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [editAttendance, setEditAttendance] = useState<Record<string, string>>({})
   const [classLevelChanged, setClassLevelChanged] = useState(false)
+  const [isReturning, setIsReturning] = useState(false)
+  const [returnFeedback, setReturnFeedback] = useState("")
 
   const { data: schools } = useQuery({
     queryKey: ["admin-schools-list"],
@@ -125,6 +127,32 @@ export function TeachingLogsReview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teaching-logs-review"] })
       setSelectedLog(null)
+    },
+    onError: (err: any) => alert(err.message)
+  })
+
+  const returnMutation = useMutation({
+    mutationFn: async ({ logId, feedback }: { logId: string; feedback: string }) => {
+      const res = await fetch(`/api/teaching-logs/${logId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "pending",
+          report_notes: feedback || null,
+          reviewed_by: null,
+          reviewed_at: null,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error")
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teaching-logs-review"] })
+      setSelectedLog(null)
+      setIsReturning(false)
+      setReturnFeedback("")
+      alert("ส่งกลับให้ครูแก้ไขเรียบร้อยแล้ว")
     },
     onError: (err: any) => alert(err.message)
   })
@@ -456,7 +484,7 @@ export function TeachingLogsReview() {
       )}
 
       {/* Detail / Review / Edit Modal */}
-      <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) { setSelectedLog(null); setIsEditing(false) } }}>
+      <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) { setSelectedLog(null); setIsEditing(false); setIsReturning(false); setReturnFeedback(""); } }}>
         <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -771,24 +799,65 @@ export function TeachingLogsReview() {
                     </div>
                   )}
 
+                  {isReturning && (
+                    <div className="space-y-3 bg-amber-50/50 p-4 rounded-xl border border-amber-100 mb-2">
+                      <Label className="text-xs font-bold text-amber-800">ระบุคำแนะนำในการแก้ไข (จะแสดงในช่องหมายเหตุถึงครู)</Label>
+                      <Textarea
+                        value={returnFeedback}
+                        onChange={e => setReturnFeedback(e.target.value)}
+                        placeholder="ระบุสิ่งที่ต้องแก้ไข เช่น 'กรุณาอัปเดตวิธีกิจกรรมการสอนและจำนวนนักเรียนให้ถูกต้องครับ'..."
+                        className="bg-white text-sm min-h-[80px]"
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          className="flex-1 bg-amber-600 hover:bg-amber-700 font-bold gap-2 text-white"
+                          onClick={() => returnMutation.mutate({ logId: selectedLog.id, feedback: returnFeedback })}
+                          disabled={returnMutation.isPending}
+                        >
+                          {returnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          ยืนยันส่งกลับแก้ไข
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => setIsReturning(false)}
+                          disabled={returnMutation.isPending}
+                        >
+                          ยกเลิก
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-2">
-                    {selectedLog.status === "submitted" && (
-                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-medium"
-                        onClick={() => reviewMutation.mutate(selectedLog.id)} disabled={reviewMutation.isPending || deleteMutation.isPending}>
-                        {reviewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                        ตรวจรายงานเรียบร้อย
-                      </Button>
+                    {selectedLog.status === "submitted" && !isReturning && (
+                      <>
+                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-medium"
+                          onClick={() => reviewMutation.mutate(selectedLog.id)} disabled={reviewMutation.isPending || deleteMutation.isPending}>
+                          {reviewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                          ตรวจรายงานเรียบร้อย
+                        </Button>
+
+                        <Button variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50 font-medium"
+                          onClick={() => {
+                            setIsReturning(true)
+                            setReturnFeedback(selectedLog.report_notes || "")
+                          }} disabled={reviewMutation.isPending || deleteMutation.isPending}>
+                          ส่งกลับแก้ไข
+                        </Button>
+                      </>
                     )}
 
-                    <Button variant="destructive" className={selectedLog.status === "submitted" ? "px-4" : "w-full font-medium"}
-                      onClick={() => {
-                        if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายงานการสอนนี้? ข้อมูลการเช็คชื่อของนักเรียนในคาบนี้จะถูกลบไปด้วยและไม่สามารถกู้คืนได้")) {
-                          deleteMutation.mutate(selectedLog.id)
-                        }
-                      }} disabled={reviewMutation.isPending || deleteMutation.isPending}>
-                      {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                      ลบรายงาน
-                    </Button>
+                    {!isReturning && (
+                      <Button variant="destructive" className={selectedLog.status === "submitted" ? "px-4" : "w-full font-medium"}
+                        onClick={() => {
+                          if (confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายงานการสอนนี้? ข้อมูลการเช็คชื่อของนักเรียนในคาบนี้จะถูกลบไปด้วยและไม่สามารถกู้คืนได้")) {
+                            deleteMutation.mutate(selectedLog.id)
+                          }
+                        }} disabled={reviewMutation.isPending || deleteMutation.isPending}>
+                        {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                        ลบรายงาน
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
