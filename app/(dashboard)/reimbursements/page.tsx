@@ -112,7 +112,10 @@ export default function ReimbursementsPage() {
     setIsUploadingAttachment(reimbId)
     try {
       const formData = new FormData()
-      Array.from(files).forEach((file) => {
+      const processedFiles = await Promise.all(
+        Array.from(files).map(compressImageIfNeeded)
+      )
+      processedFiles.forEach((file) => {
         formData.append("file", file)
       })
       const res = await fetch(`/api/reimbursements/${reimbId}/upload-receipt`, {
@@ -246,6 +249,68 @@ export default function ReimbursementsPage() {
     setIsScanning(false)
     setScanStatus("")
     setAiAnalyzed(false)
+  }
+
+  const compressImageIfNeeded = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith("image/") || file.size <= 1 * 1024 * 1024) {
+        resolve(file)
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement("canvas")
+          let width = img.width
+          let height = img.height
+
+          const MAX_DIM = 1600
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width)
+              width = MAX_DIM
+            } else {
+              width = Math.round((width * MAX_DIM) / height)
+              height = MAX_DIM
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext("2d")
+          if (!ctx) {
+            resolve(file)
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now()
+                })
+                console.log(`Compressed ${file.name} from ${(file.size / 1024 / 1024).toFixed(2)}MB to ${(compressedFile.size / 1024).toFixed(0)}KB`)
+                resolve(compressedFile)
+              } else {
+                resolve(file)
+              }
+            },
+            "image/jpeg",
+            0.8
+          )
+        }
+        img.onerror = () => resolve(file)
+        img.src = event.target?.result as string
+      }
+      reader.onerror = () => resolve(file)
+      reader.readAsDataURL(file)
+    })
   }
 
   const handleFileUpload = async (file: File) => {
@@ -465,10 +530,11 @@ export default function ReimbursementsPage() {
                           accept="image/*,application/pdf"
                           capture="environment"
                           className="hidden" 
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0] || null;
                             if (file) {
-                              handleAIAnalyze(file)
+                              const processed = await compressImageIfNeeded(file);
+                              handleAIAnalyze(processed)
                             }
                           }} 
                         />
@@ -591,11 +657,17 @@ export default function ReimbursementsPage() {
                           type="file" 
                           accept="image/*,.pdf"
                           className="rounded-2xl h-12 border-slate-100 bg-blue-50/30 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0] || null
-                            setAttachment(file)
-                            if (file && file.type.startsWith('image/')) {
-                              setPreviewUrl(URL.createObjectURL(file))
+                            if (file) {
+                              const processed = await compressImageIfNeeded(file)
+                              setAttachment(processed)
+                              if (processed.type.startsWith('image/')) {
+                                setPreviewUrl(URL.createObjectURL(processed))
+                              }
+                            } else {
+                              setAttachment(null)
+                              setPreviewUrl("")
                             }
                           }}
                         />
