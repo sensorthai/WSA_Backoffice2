@@ -114,6 +114,17 @@ export function Sidebar({ onClose }: SidebarProps) {
       ]
     },
     {
+      label: "ระบบตั๋วส่งงาน (Tickets)",
+      href: "/tickets",
+      icon: ClipboardList,
+      roles: ["admin", "employee", "supervisor", "ceo", "partner", "customer", "outsource"],
+      subItems: [
+        { label: "รายการตั๋วทั้งหมด", href: "/tickets", icon: ClipboardList },
+        { label: "เปิดตั๋วส่งงานใหม่", href: "/tickets/new", icon: Settings },
+        { label: "สรุปงานรายเดือน", href: "/tickets/summary", icon: FileBarChart, roles: ["admin", "supervisor", "ceo"] },
+      ]
+    },
+    {
       label: t("sidebar.group_academic"),
       href: "/teaching",
       icon: ClipboardList,
