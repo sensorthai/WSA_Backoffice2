@@ -25,11 +25,12 @@ export async function GET(req: NextRequest) {
     .eq('school_id', schoolId)
     .eq('status', 'active')
 
-  // 3. Teaching logs in date range
+  // 3. Teaching logs in date range (only reviewed logs)
   const { data: logs } = await supabase
     .from('teaching_logs')
     .select(`*, teacher:teacher_id(id, full_name), assignment:assignment_id(id, subject:subject_id(id, name))`)
     .eq('school_id', schoolId)
+    .eq('status', 'reviewed')
     .gte('teach_date', startDate)
     .lte('teach_date', endDate)
     .order('teach_date')
