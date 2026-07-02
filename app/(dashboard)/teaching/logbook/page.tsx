@@ -16,6 +16,7 @@ import {
   Edit2, Save, FilePlus, UserCheck
 } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 export default function LogbookPage() {
   return (
@@ -356,10 +357,10 @@ function LogbookContent() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={st.color}>{st.label}</Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge className={cn(st.color, "shrink-0")}>{st.label}</Badge>
                       {canEdit && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditLog(log)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEditLog(log)}>
                           <Edit2 className="h-4 w-4 text-indigo-500" />
                         </Button>
                       )}
@@ -407,6 +408,19 @@ function LogbookContent() {
                       <span className="text-slate-400 truncate max-w-[200px]">💬 {log.report_notes}</span>
                     )}
                   </div>
+
+                  {canEdit && (
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 gap-1.5 h-9"
+                        onClick={() => openEditLog(log)}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> แก้ไขและส่งรายงาน
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )
             })}
