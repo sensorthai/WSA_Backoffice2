@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   BookOpenCheck, Loader2, CalendarDays, School, BookOpen,
   Clock, Send, ChevronLeft, ChevronRight, Users,
-  Edit2, Save, FilePlus, UserCheck
+  Edit2, Save, FilePlus, UserCheck, Eye
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -100,6 +100,8 @@ function LogbookContent() {
   const [attendanceMap, setAttendanceMap] = useState<Record<string, { status: string; reason: string }>>({})
   const [reportSchoolId, setReportSchoolId] = useState<string | null>(null)
   const [reportClassLevel, setReportClassLevel] = useState<string>("")
+  
+  const isReadOnly = !!editingLog && (editingLog.status === "submitted" || editingLog.status === "reviewed")
 
   // Fetch students for attendance
   const { data: classStudents } = useQuery({
@@ -203,7 +205,16 @@ function LogbookContent() {
     })
     setReportSchoolId(log.school_id || null)
     setReportClassLevel(log.class_level || "")
-    setAttendanceMap({})
+    
+    // Load existing attendance if any
+    const existingAtt = allAttendance?.[log.id] || []
+    const map: Record<string, { status: string; reason: string }> = {}
+    existingAtt.forEach((a: any) => {
+      if (a.student_id) {
+        map[a.student_id] = { status: a.status, reason: a.reason || "" }
+      }
+    })
+    setAttendanceMap(map)
     setIsModalOpen(true)
   }
 
@@ -359,9 +370,13 @@ function LogbookContent() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge className={cn(st.color, "shrink-0")}>{st.label}</Badge>
-                      {canEdit && (
+                      {canEdit ? (
                         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEditLog(log)}>
                           <Edit2 className="h-4 w-4 text-indigo-500" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEditLog(log)}>
+                          <Eye className="h-4 w-4 text-slate-500" />
                         </Button>
                       )}
                     </div>
@@ -409,7 +424,7 @@ function LogbookContent() {
                     )}
                   </div>
 
-                  {canEdit && (
+                  {canEdit ? (
                     <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
                       <Button
                         variant="outline"
@@ -418,6 +433,17 @@ function LogbookContent() {
                         onClick={() => openEditLog(log)}
                       >
                         <Edit2 className="h-3.5 w-3.5" /> แก้ไขและส่งรายงาน
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs font-bold text-slate-600 border-slate-200 hover:bg-slate-50 gap-1.5 h-9"
+                        onClick={() => openEditLog(log)}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> ดูรายละเอียดรายงาน
                       </Button>
                     </div>
                   )}
@@ -433,7 +459,13 @@ function LogbookContent() {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {editingLog ? <><Edit2 className="h-5 w-5 text-indigo-500" /> แก้ไขบันทึกการสอน</> : <><FilePlus className="h-5 w-5 text-indigo-500" /> สร้างบันทึกใหม่</>}
+              {isReadOnly ? (
+                <><Eye className="h-5 w-5 text-slate-500" /> รายละเอียดบันทึกการสอน</>
+              ) : editingLog ? (
+                <><Edit2 className="h-5 w-5 text-indigo-500" /> แก้ไขบันทึกการสอน</>
+              ) : (
+                <><FilePlus className="h-5 w-5 text-indigo-500" /> สร้างบันทึกใหม่</>
+              )}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
@@ -467,14 +499,14 @@ function LogbookContent() {
             {/* Topics */}
             <div>
               <label className="text-sm font-medium text-slate-700 block mb-1.5">📖 เนื้อหาที่สอน</label>
-              <Textarea rows={3} placeholder="บทที่ 3 การเขียนโปรแกรมเบื้องต้น..." value={formData.topics_covered}
+              <Textarea rows={3} placeholder="บทที่ 3 การเขียนโปรแกรมเบื้องต้น..." value={formData.topics_covered} disabled={isReadOnly}
                 onChange={e => setFormData(f => ({ ...f, topics_covered: e.target.value }))} />
             </div>
 
             {/* Homework */}
             <div>
               <label className="text-sm font-medium text-slate-700 block mb-1.5">📝 ภาระงาน / การบ้าน</label>
-              <Textarea rows={2} placeholder="แบบฝึกหัดท้ายบท..." value={formData.homework_assigned}
+              <Textarea rows={2} placeholder="แบบฝึกหัดท้ายบท..." value={formData.homework_assigned} disabled={isReadOnly}
                 onChange={e => setFormData(f => ({ ...f, homework_assigned: e.target.value }))} />
             </div>
 
@@ -482,7 +514,7 @@ function LogbookContent() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">😊 พฤติกรรมนักเรียน</label>
-                <Select value={formData.student_behavior} onValueChange={v => setFormData(f => ({ ...f, student_behavior: v }))}>
+                <Select value={formData.student_behavior} disabled={isReadOnly} onValueChange={v => setFormData(f => ({ ...f, student_behavior: v }))}>
                   <SelectTrigger><SelectValue placeholder="เลือก..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="excellent">ดีมาก</SelectItem>
@@ -494,7 +526,7 @@ function LogbookContent() {
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">🎯 วิธีการสอน</label>
-                <Input placeholder="บรรยาย, กิจกรรม, Workshop..." value={formData.teaching_method}
+                <Input placeholder="บรรยาย, กิจกรรม, Workshop..." value={formData.teaching_method} disabled={isReadOnly}
                   onChange={e => setFormData(f => ({ ...f, teaching_method: e.target.value }))} />
               </div>
             </div>
@@ -502,7 +534,7 @@ function LogbookContent() {
             {/* Notes */}
             <div>
               <label className="text-sm font-medium text-slate-700 block mb-1.5">💬 หมายเหตุ</label>
-              <Textarea rows={2} placeholder="เรื่องอื่นๆ ที่ต้องการบันทึก..." value={formData.report_notes}
+              <Textarea rows={2} placeholder="เรื่องอื่นๆ ที่ต้องการบันทึก..." value={formData.report_notes} disabled={isReadOnly}
                 onChange={e => setFormData(f => ({ ...f, report_notes: e.target.value }))} />
             </div>
 
@@ -513,7 +545,7 @@ function LogbookContent() {
                   <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <UserCheck className="h-4 w-4 text-emerald-500" /> เช็คชื่อนักเรียน ({classStudents.length} คน)
                   </h3>
-                  <Button type="button" variant="outline" size="sm" onClick={markAllPresent} className="text-xs h-7">✅ มาทุกคน</Button>
+                  {!isReadOnly && <Button type="button" variant="outline" size="sm" onClick={markAllPresent} className="text-xs h-7">✅ มาทุกคน</Button>}
                 </div>
                 <div className="bg-slate-50 rounded-xl border max-h-[200px] overflow-y-auto">
                   <table className="w-full text-sm">
@@ -532,7 +564,7 @@ function LogbookContent() {
                         <td className="px-3 py-1">{s.prefix}{s.first_name} {s.last_name}</td>
                         {(["present","absent","late","leave"] as const).map(st => (
                           <td key={st} className="text-center px-1 py-1">
-                            <button type="button" className={`w-7 h-7 rounded-full text-xs font-bold ${att?.status===st ? st==="present"?"bg-emerald-500 text-white":st==="absent"?"bg-red-500 text-white":st==="late"?"bg-amber-500 text-white":"bg-blue-500 text-white" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}
+                            <button type="button" disabled={isReadOnly} className={`w-7 h-7 rounded-full text-xs font-bold ${att?.status===st ? st==="present"?"bg-emerald-500 text-white":st==="absent"?"bg-red-500 text-white":st==="late"?"bg-amber-500 text-white":"bg-blue-500 text-white" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}
                               onClick={() => setStudentAttendance(s.id, st)}>{st==="present"?"✓":st==="absent"?"✗":st==="late"?"L":"ลา"}</button>
                           </td>
                         ))}
@@ -551,14 +583,22 @@ function LogbookContent() {
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => handleSave("draft")} disabled={saveMutation.isPending || attendanceMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                บันทึกแบบร่าง
-              </Button>
-              <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handleSave("submitted")} disabled={saveMutation.isPending || attendanceMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                ส่งรายงาน
-              </Button>
+              {isReadOnly ? (
+                <Button variant="outline" className="w-full font-bold border-slate-200 text-slate-700" onClick={() => setIsModalOpen(false)}>
+                  ปิดหน้าต่าง
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={() => handleSave("draft")} disabled={saveMutation.isPending || attendanceMutation.isPending}>
+                    {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    บันทึกแบบร่าง
+                  </Button>
+                  <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handleSave("submitted")} disabled={saveMutation.isPending || attendanceMutation.isPending}>
+                    {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    ส่งรายงาน
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </DialogContent>
