@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseServerClient()
     const userId = session.user.id
 
-    const fileExt = file.name.split('.').pop()
+    const fileExt = file.name.split('.').pop()?.toLowerCase()
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`
     const filePath = `${folder}/${userId}/${fileName}`
 
@@ -38,10 +38,20 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
+    // Map file extension to a valid MIME type accepted by the 'receipts' bucket
+    let contentType = file.type
+    if (fileExt === 'jpg' || fileExt === 'jpeg') {
+      contentType = 'image/jpeg'
+    } else if (fileExt === 'png') {
+      contentType = 'image/png'
+    } else if (fileExt === 'pdf') {
+      contentType = 'application/pdf'
+    }
+
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(filePath, buffer, {
-        contentType: file.type,
+        contentType,
         upsert: false
       })
 

@@ -351,7 +351,10 @@ function PurchasesContent() {
           method: "POST",
           body: formData
         })
-        if (!uploadRes.ok) throw new Error("Failed to upload receipts")
+        if (!uploadRes.ok) {
+          const errJson = await uploadRes.json().catch(() => ({}))
+          throw new Error(errJson.error || "Failed to upload receipts")
+        }
       } else if (payload.file) {
         const formData = new FormData()
         formData.append("file", payload.file)
@@ -359,7 +362,10 @@ function PurchasesContent() {
           method: "POST",
           body: formData
         })
-        if (!uploadRes.ok) throw new Error("Failed to upload receipt")
+        if (!uploadRes.ok) {
+          const errJson = await uploadRes.json().catch(() => ({}))
+          throw new Error(errJson.error || "Failed to upload receipt")
+        }
       }
 
       return purchase
@@ -474,7 +480,10 @@ function PurchasesContent() {
         method: "POST",
         body: formData
       })
-      if (!res.ok) throw new Error("Failed to upload receipt")
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}))
+        throw new Error(errJson.error || "Failed to upload receipt")
+      }
       
       const getRes = await fetch(`/api/purchases/${selectedPurchase.id}`)
       if (getRes.ok) {

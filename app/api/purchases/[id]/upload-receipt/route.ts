@@ -61,7 +61,7 @@ export async function POST(
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const fileExt = file.name.split('.').pop()
+      const fileExt = file.name.split('.').pop()?.toLowerCase()
       const fileName = `${params.id}_${Date.now()}_${i}.${fileExt}`
       const filePath = `receipts/${fileName}`
 
@@ -69,10 +69,20 @@ export async function POST(
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
+      // Map file extension to a valid MIME type accepted by the 'receipts' bucket
+      let contentType = file.type
+      if (fileExt === 'jpg' || fileExt === 'jpeg') {
+        contentType = 'image/jpeg'
+      } else if (fileExt === 'png') {
+        contentType = 'image/png'
+      } else if (fileExt === 'pdf') {
+        contentType = 'application/pdf'
+      }
+
       const { error: uploadError } = await supabase.storage
         .from('receipts')
         .upload(filePath, buffer, {
-          contentType: file.type,
+          contentType,
           upsert: false
         })
 
