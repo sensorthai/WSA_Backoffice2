@@ -236,6 +236,7 @@ export function TeachingLogsReview() {
       class_level: selectedLog.class_level || "",
       student_behavior: selectedLog.student_behavior || "",
       report_notes: selectedLog.report_notes || "",
+      has_teaching_fee: selectedLog.has_teaching_fee ?? true,
     })
     setClassStudents([])
     setEditAttendance({})
@@ -270,6 +271,7 @@ export function TeachingLogsReview() {
     if (editForm.class_level !== (selectedLog.class_level || "")) updates.class_level = editForm.class_level || null
     if (editForm.student_behavior !== (selectedLog.student_behavior || "")) updates.student_behavior = editForm.student_behavior || null
     if (editForm.report_notes !== (selectedLog.report_notes || "")) updates.report_notes = editForm.report_notes || null
+    if (editForm.has_teaching_fee !== (selectedLog.has_teaching_fee ?? true)) updates.has_teaching_fee = editForm.has_teaching_fee
 
     // If class_level changed and we have students, also update attendance
     if (classLevelChanged && classStudents.length > 0 && Object.keys(editAttendance).length > 0) {
@@ -398,6 +400,7 @@ export function TeachingLogsReview() {
               <TableHead className="min-w-[150px] whitespace-nowrap">ครู</TableHead>
               <TableHead className="min-w-[200px]">โรงเรียน</TableHead>
               <TableHead className="min-w-[150px]">วิชา / ระดับชั้น</TableHead>
+              <TableHead className="min-w-[100px] whitespace-nowrap">ค่าสอน</TableHead>
               <TableHead className="min-w-[100px]">สถานะ</TableHead>
               <TableHead className="w-[80px] text-right">ดู</TableHead>
             </TableRow>
@@ -437,6 +440,13 @@ export function TeachingLogsReview() {
                     </div>
                     {log.class_level && <Badge variant="outline" className="text-[10px]">{log.class_level}</Badge>}
                   </div>
+                </TableCell>
+                <TableCell>
+                  {log.has_teaching_fee !== false ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-normal">มีค่าสอน</Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 text-xs font-normal">ไม่มีค่าสอน</Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge className={`text-xs ${statusColors[log.status] || statusColors.pending}`}>
@@ -541,6 +551,18 @@ export function TeachingLogsReview() {
                     </a>
                   </div>
                 )}
+                <div className="flex justify-between items-center pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-medium">การคิดค่าสอน</span>
+                  {selectedLog.has_teaching_fee !== false ? (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold">
+                      💰 มีค่าสอน (นำไปคำนวณรายได้)
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300 font-medium">
+                      ⚪ ไม่มีค่าสอน
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* === EDIT MODE === */}
@@ -622,6 +644,19 @@ export function TeachingLogsReview() {
                       className="min-h-[60px] bg-white text-sm"
                       placeholder="หมายเหตุเพิ่มเติม..."
                     />
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="edit_has_teaching_fee"
+                      checked={editForm.has_teaching_fee ?? true}
+                      onChange={e => setEditForm({ ...editForm, has_teaching_fee: e.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <Label htmlFor="edit_has_teaching_fee" className="text-xs font-bold text-slate-700 cursor-pointer flex items-center gap-1.5">
+                      💰 สอนมีค่าสอน (ติ๊กเพื่อนำรายการนี้ไปคำนวณรายได้ครูผู้สอน)
+                    </Label>
                   </div>
 
                   {/* Students for new class_level */}

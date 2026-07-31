@@ -15,6 +15,7 @@ const logUpdateSchema = z.object({
   homework_assigned: z.string().optional().nullable(),
   student_behavior: z.string().optional().nullable(),
   teaching_method: z.string().optional().nullable(),
+  has_teaching_fee: z.boolean().optional(),
   status: z.string().optional(),
   reviewed_by: z.string().optional().nullable(),
   reviewed_at: z.string().optional().nullable(),

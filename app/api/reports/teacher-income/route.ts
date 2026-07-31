@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       assignment_id,
       teach_date,
       status,
+      has_teaching_fee,
       teacher:teacher_id (id, full_name),
       school:school_id (id, name),
       assignment:assignment_id (
@@ -92,6 +93,8 @@ export async function GET(req: NextRequest) {
   }>()
 
   for (const log of (logs || [])) {
+    if ((log as any).has_teaching_fee === false) continue
+
     const teacherId = log.teacher_id
     const assignmentId = log.assignment_id
     if (!teacherId || !assignmentId) continue

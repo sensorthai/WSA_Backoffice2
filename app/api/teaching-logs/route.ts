@@ -21,6 +21,7 @@ const teachingLogSchema = z.object({
   homework_assigned: z.string().optional().nullable(),
   student_behavior: z.string().optional().nullable(),
   teaching_method: z.string().optional().nullable(),
+  has_teaching_fee: z.boolean().default(true).optional(),
   status: z.string().default("pending"),
 })
 
