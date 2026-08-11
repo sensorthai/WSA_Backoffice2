@@ -97,16 +97,18 @@ export async function POST(req: Request) {
 
     const supabase = createSupabaseServerClient()
 
-    // 2. Get User Info (Supervisor)
+    // 2. Get User Info (Supervisor & Role)
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('supervisor_id, full_name')
+      .select('supervisor_id, full_name, role')
       .eq('id', session.user.id)
       .single()
 
     if (userError || !user) {
       return NextResponse.json({ error: "ไม่พบข้อมูลผู้ใช้" }, { status: 500 })
     }
+
+    const assignedSupervisorId = (user.supervisor_id && user.supervisor_id !== session.user.id) ? user.supervisor_id : null
 
     // 3. Create Purchase Request
     const { data: purchase, error: purchaseError } = await supabase
@@ -121,7 +123,7 @@ export async function POST(req: Request) {
         purpose,
         receipt_url,
         payment_method: payment_method || 'petty_cash',
-        supervisor_id: user.supervisor_id,
+        supervisor_id: assignedSupervisorId,
         status: 'pending',
         document_type: document_type || null,
         manifest_text: manifest_text || null,
@@ -142,11 +144,11 @@ export async function POST(req: Request) {
 
     if (purchaseError) return NextResponse.json({ error: purchaseError.message }, { status: 500 })
 
-    // 4. Notification to Supervisor
-    if (user.supervisor_id) {
-      // 4.1 Internal Notif
+    // 4. Notification to Supervisor or CEO
+    if (assignedSupervisorId) {
+      // 4.1 Internal Notif to assigned supervisor
       await supabase.from('notifications').insert({
-        user_id: user.supervisor_id,
+        user_id: assignedSupervisorId,
         type: 'purchase_request',
         title: 'คำขอเบิกเงินใหม่',
         message: `${user.full_name} ได้ส่งคำขอเบิก "${title}" ยอดรวม ${grandTotal.toLocaleString()} บาท`,
@@ -158,7 +160,7 @@ export async function POST(req: Request) {
       const { data: supervisor } = await supabase
         .from('users')
         .select('email')
-        .eq('id', user.supervisor_id)
+        .eq('id', assignedSupervisorId)
         .single()
 
       if (supervisor?.email) {
@@ -167,6 +169,32 @@ export async function POST(req: Request) {
           title,
           totalAmount: grandTotal
         })
+      }
+    } else {
+      // If requester is a supervisor or has no higher supervisor, notify CEO
+      const { data: ceo } = await supabase
+        .from('users')
+        .select('id, email, full_name')
+        .eq('role', 'ceo')
+        .maybeSingle()
+
+      if (ceo && ceo.id !== session.user.id) {
+        await supabase.from('notifications').insert({
+          user_id: ceo.id,
+          type: 'purchase_request',
+          title: 'คำขอเบิกเงินใหม่จากหัวหน้างาน',
+          message: `${user.full_name} ได้ส่งคำขอเบิก "${title}" ยอดรวม ${grandTotal.toLocaleString()} บาท`,
+          reference_id: purchase.id,
+          reference_type: 'purchase_requests'
+        })
+
+        if (ceo.email) {
+          sendPurchaseSubmitted(ceo.email, {
+            requesterName: user.full_name,
+            title,
+            totalAmount: grandTotal
+          })
+        }
       }
     }
 

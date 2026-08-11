@@ -21,7 +21,8 @@ import {
   LayoutGrid,
   ArrowRight,
   ArrowLeft,
-  Banknote
+  Banknote,
+  AlertTriangle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -405,44 +406,52 @@ export default function ApprovalsPage() {
         </div>
 
         {item.status === 'pending' || item.status === 'supervisor_approved' || (item.type === 'reimbursement' && item.status === 'approved') ? (
-          <div className="space-y-6">
-             <div className="space-y-2">
-                <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุการพิจารณา</Label>
-                <Textarea 
-                   placeholder="ใส่ข้อความแจ้งพนักงาน..."
-                   className="rounded-3xl border-slate-100 bg-slate-50/50 p-5 focus:ring-blue-600/20"
-                   value={rejectNote}
-                   onChange={e => setRejectNote(e.target.value)}
-                />
+          item.user_id === session?.user?.id ? (
+             <div className="p-5 bg-amber-50 border border-amber-200 rounded-3xl text-amber-800 font-bold text-center text-sm flex flex-col items-center gap-2">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+                <span>คำขอของคุณเอง</span>
+                <span className="text-xs text-amber-600 font-normal">รอการพิจารณาอนุมัติจากผู้บังคับบัญชา หรือ CEO</span>
              </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button 
-                   variant="ghost" 
-                   className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50"
-                   onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'reject', note: rejectNote, itemStatus: item.status })}
-                   disabled={approveMutation.isPending}
-                >
-                   <XCircle className="mr-2" /> ปฏิเสธ
-                </Button>
-                {item.type === 'reimbursement' && item.status === 'approved' ? (
-                  <Button 
-                     className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-xl"
-                     onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
-                     disabled={approveMutation.isPending}
-                  >
-                     <Banknote className="mr-2" /> ยืนยันการโอนเงิน
-                  </Button>
-                ) : (
-                  <Button 
-                     className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
-                     onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
-                     disabled={approveMutation.isPending}
-                  >
-                     <CheckCircle2 className="mr-2" /> อนุมัติคำขอ
-                  </Button>
-                )}
+          ) : (
+             <div className="space-y-6">
+                <div className="space-y-2">
+                   <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุการพิจารณา</Label>
+                   <Textarea 
+                      placeholder="ใส่ข้อความแจ้งพนักงาน..."
+                      className="rounded-3xl border-slate-100 bg-slate-50/50 p-5 focus:ring-blue-600/20"
+                      value={rejectNote}
+                      onChange={e => setRejectNote(e.target.value)}
+                   />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <Button 
+                      variant="ghost" 
+                      className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50"
+                      onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'reject', note: rejectNote, itemStatus: item.status })}
+                      disabled={approveMutation.isPending}
+                   >
+                      <XCircle className="mr-2" /> ปฏิเสธ
+                   </Button>
+                   {item.type === 'reimbursement' && item.status === 'approved' ? (
+                     <Button 
+                        className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-xl"
+                        onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
+                        disabled={approveMutation.isPending}
+                     >
+                        <Banknote className="mr-2" /> ยืนยันการโอนเงิน
+                     </Button>
+                   ) : (
+                     <Button 
+                        className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
+                        onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
+                        disabled={approveMutation.isPending}
+                     >
+                        <CheckCircle2 className="mr-2" /> อนุมัติคำขอ
+                     </Button>
+                   )}
+                </div>
              </div>
-          </div>
+          )
         ) : (
           <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">สถานะปัจจุบัน</Label>

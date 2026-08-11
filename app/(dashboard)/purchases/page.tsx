@@ -2138,35 +2138,45 @@ ${form.purpose || "-"}
                               </div>
                            </div>
                            <div className="w-full lg:w-[350px] bg-slate-50/50 p-10 flex flex-col justify-center gap-8">
-                              <div className="space-y-4">
-                                 <Label className="text-xs font-black text-slate-400 uppercase tracking-widest">หมายเหตุการพิจารณา</Label>
-                                 <Textarea 
-                                    id={`note-${p.id}`}
-                                    placeholder="ระบุเหตุผลในการอนุมัติหรือปฏิเสธ..."
-                                    className="min-h-[150px] rounded-3xl border-slate-100 bg-white shadow-inner p-5 focus:ring-blue-600/20 font-medium"
-                                 />
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                 <Button 
-                                   variant="ghost" 
-                                   className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
-                                   onClick={() => {
-                                     const note = (document.getElementById(`note-${p.id}`) as HTMLTextAreaElement).value
-                                     approveMutation.mutate({ id: p.id, action: 'reject', note, stage: userRole === 'ceo' ? 'ceo' : 'supervisor' })
-                                   }}
-                                 >
-                                    <XCircle className="mr-2" /> ปฏิเสธ
-                                 </Button>
-                                 <Button 
-                                   className="h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl shadow-blue-600/20"
-                                   onClick={() => {
-                                     const note = (document.getElementById(`note-${p.id}`) as HTMLTextAreaElement).value
-                                     approveMutation.mutate({ id: p.id, action: 'approve', note, stage: userRole === 'ceo' ? 'ceo' : 'supervisor' })
-                                   }}
-                                 >
-                                    <CheckCircle2 className="mr-2" /> อนุมัติ
-                                 </Button>
-                              </div>
+                              {p.user_id === session?.user?.id ? (
+                                 <div className="p-5 bg-amber-50 border border-amber-200 rounded-3xl text-amber-800 font-bold text-center text-sm flex flex-col items-center gap-2">
+                                    <AlertTriangle className="w-6 h-6 text-amber-600" />
+                                    <span>คำขอของคุณเอง</span>
+                                    <span className="text-xs text-amber-600 font-normal">รอการพิจารณาอนุมัติจากผู้บังคับบัญชา หรือ CEO</span>
+                                 </div>
+                              ) : (
+                                 <>
+                                    <div className="space-y-4">
+                                       <Label className="text-xs font-black text-slate-400 uppercase tracking-widest">หมายเหตุการพิจารณา</Label>
+                                       <Textarea 
+                                          id={`note-${p.id}`}
+                                          placeholder="ระบุเหตุผลในการอนุมัติหรือปฏิเสธ..."
+                                          className="min-h-[150px] rounded-3xl border-slate-100 bg-white shadow-inner p-5 focus:ring-blue-600/20 font-medium"
+                                       />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                       <Button 
+                                         variant="ghost" 
+                                         className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                                         onClick={() => {
+                                           const note = (document.getElementById(`note-${p.id}`) as HTMLTextAreaElement).value
+                                           approveMutation.mutate({ id: p.id, action: 'reject', note, stage: userRole === 'ceo' ? 'ceo' : 'supervisor' })
+                                         }}
+                                       >
+                                          <XCircle className="mr-2" /> ปฏิเสธ
+                                       </Button>
+                                       <Button 
+                                         className="h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-lg shadow-xl shadow-blue-600/20"
+                                         onClick={() => {
+                                           const note = (document.getElementById(`note-${p.id}`) as HTMLTextAreaElement).value
+                                           approveMutation.mutate({ id: p.id, action: 'approve', note, stage: userRole === 'ceo' ? 'ceo' : 'supervisor' })
+                                         }}
+                                       >
+                                          <CheckCircle2 className="mr-2" /> อนุมัติ
+                                       </Button>
+                                    </div>
+                                 </>
+                              )}
                            </div>
                         </div>
                      </CardContent>

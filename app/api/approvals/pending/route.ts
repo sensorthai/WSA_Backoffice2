@@ -28,19 +28,39 @@ export async function GET(_req: Request) {
   const { data: leaves } = await leaveQuery
 
   // 2. Fetch Purchases
-  let purchaseQuery = supabase
-    .from('purchase_requests')
-    .select('id, user_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, amount_before_vat, vat_amount, user:users!user_id!inner(full_name, avatar_url)')
-  
+  let rawPurchases: any[] = []
   if (userRole === 'supervisor') {
-    purchaseQuery = purchaseQuery.eq('supervisor_id', session.user.id).eq('status', 'pending')
+    const { data } = await supabase
+      .from('purchase_requests')
+      .select('id, user_id, supervisor_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, amount_before_vat, vat_amount, user:users!user_id!inner(role, full_name, avatar_url)')
+      .eq('supervisor_id', session.user.id)
+      .neq('user_id', session.user.id)
+      .eq('status', 'pending')
+    rawPurchases = data || []
   } else if (userRole === 'ceo') {
-    purchaseQuery = purchaseQuery.eq('status', 'supervisor_approved')
+    const { data } = await supabase
+      .from('purchase_requests')
+      .select('id, user_id, supervisor_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, amount_before_vat, vat_amount, user:users!user_id!inner(role, full_name, avatar_url)')
+      .in('status', ['pending', 'supervisor_approved'])
+
+    rawPurchases = (data || []).filter((item: any) => {
+      if (item.user_id === session.user.id) return false
+      if (item.status === 'supervisor_approved') return true
+      if (item.status === 'pending') {
+        const isSupervisorRequester = item.user?.role === 'supervisor' || !item.supervisor_id || item.supervisor_id === item.user_id
+        return isSupervisorRequester
+      }
+      return false
+    })
   } else if (userRole === 'admin') {
-    purchaseQuery = purchaseQuery.or('status.eq.pending,status.eq.supervisor_approved')
+    const { data } = await supabase
+      .from('purchase_requests')
+      .select('id, user_id, supervisor_id, title, total_amount, status, created_at, category, payment_method, purpose, receipt_url, document_type, manifest_text, items, amount_before_vat, vat_amount, user:users!user_id!inner(role, full_name, avatar_url)')
+      .in('status', ['pending', 'supervisor_approved'])
+    rawPurchases = data || []
   }
 
-  const { data: purchases } = await purchaseQuery
+  const purchases = rawPurchases
 
   // 3. Fetch Car Bookings
   let carQuery = supabase

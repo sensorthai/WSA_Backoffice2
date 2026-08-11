@@ -37,11 +37,20 @@ export async function processApproval({
   // 1. Fetch record with user info
   const { data: record, error: fetchError } = await supabase
     .from(table)
-    .select('*, user:users!user_id!inner(id, full_name, email, position:positions(approval_limit))')
+    .select('*, user:users!user_id!inner(id, full_name, email, role, position:positions(approval_limit))')
     .eq('id', entityId)
     .single()
 
   if (fetchError || !record) throw new Error("ไม่พบรายการที่ต้องการอนุมัติ")
+
+  // Prevent self-approval (cannot approve your own request)
+  if (record.user_id === actorUserId) {
+    throw new Error("คุณไม่สามารถอนุมัติรายการของตัวเองได้")
+  }
+
+  // Check if requester is a supervisor or has no higher supervisor
+  const requesterRole = record.user?.role
+  const isSupervisorRequester = requesterRole === 'supervisor' || !record.supervisor_id || record.supervisor_id === record.user_id
 
   // Fetch actor's user details to verify department/position for reimbursement approvals
   const { data: actorUser } = await supabase
@@ -83,7 +92,7 @@ export async function processApproval({
   }
   if (stage === 'ceo') {
     const expectedStatus = entityType === 'reimbursement' ? 'approved' : 'supervisor_approved'
-    if (record.status !== expectedStatus) {
+    if (record.status !== expectedStatus && !isSupervisorRequester) {
       throw new Error("รายการนี้ต้องผ่านการอนุมัติจากหัวหน้าก่อน")
     }
   }
@@ -107,19 +116,25 @@ export async function processApproval({
     }
   }
 
+  // If requester is a supervisor or has no higher supervisor, CEO/Admin approval directly approves the request
+  if (isSupervisorRequester && action === 'approve' && (actorRole === 'ceo' || actorRole === 'admin')) {
+    nextStatus = rule.ceoStatus.approve
+    escalationNeeded = false
+  }
+
   // 5. Update Record
   const updateData: any = {
     status: nextStatus,
     updated_at: new Date().toISOString()
   }
 
-  if (stage === 'supervisor') {
+  if (stage === 'ceo' || (isSupervisorRequester && (actorRole === 'ceo' || actorRole === 'admin'))) {
+    updateData.ceo_approved_at = new Date().toISOString()
+    updateData.ceo_note = note
+  } else if (stage === 'supervisor') {
     updateData.supervisor_id = actorUserId
     updateData.supervisor_approved_at = new Date().toISOString()
     updateData.supervisor_note = note
-  } else {
-    updateData.ceo_approved_at = new Date().toISOString()
-    updateData.ceo_note = note
   }
   
   // Car booking uses different column names for legacy reasons, let's map them if needed

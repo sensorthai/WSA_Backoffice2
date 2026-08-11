@@ -12,27 +12,41 @@ export async function GET() {
   let data, error
 
   if (userRole === 'supervisor') {
-    // Supervisor sees pending purchases where they are the assigned supervisor
+    // Supervisor sees pending purchases where they are assigned supervisor (excluding their own requests)
     ({ data, error } = await supabase
       .from('purchase_requests')
-      .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name), positions(name))')
+      .select('*, users!purchase_requests_user_id_fkey(role, full_name, avatar_url, departments(name), positions(name))')
       .eq('supervisor_id', session.user.id)
+      .neq('user_id', session.user.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false }))
   } 
   else if (userRole === 'ceo') {
-    // CEO sees all supervisor_approved purchases
-    ({ data, error } = await supabase
+    // CEO sees all supervisor_approved purchases OR pending purchases from supervisors / users without supervisor
+    let rawData: any[] = []
+    ;({ data: rawData, error } = await supabase
       .from('purchase_requests')
-      .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name), positions(name))')
-      .eq('status', 'supervisor_approved')
+      .select('*, users!purchase_requests_user_id_fkey(role, full_name, avatar_url, departments(name), positions(name))')
+      .in('status', ['pending', 'supervisor_approved'])
       .order('created_at', { ascending: false }))
+    
+    if (rawData) {
+      data = rawData.filter((item: any) => {
+        if (item.user_id === session.user.id) return false
+        if (item.status === 'supervisor_approved') return true
+        if (item.status === 'pending') {
+          const isSupervisorRequester = item.users?.role === 'supervisor' || !item.supervisor_id || item.supervisor_id === item.user_id
+          return isSupervisorRequester
+        }
+        return false
+      })
+    }
   }
   else if (userRole === 'admin') {
-    // Admin sees everything pending
+    // Admin sees everything pending / supervisor_approved
     ({ data, error } = await supabase
       .from('purchase_requests')
-      .select('*, users!purchase_requests_user_id_fkey(full_name, avatar_url, departments(name), positions(name))')
+      .select('*, users!purchase_requests_user_id_fkey(role, full_name, avatar_url, departments(name), positions(name))')
       .in('status', ['pending', 'supervisor_approved'])
       .order('created_at', { ascending: false }))
   }
