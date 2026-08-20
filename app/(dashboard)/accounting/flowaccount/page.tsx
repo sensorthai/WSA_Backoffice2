@@ -484,8 +484,8 @@ export default function FlowAccountAccountingPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/80">
+              <Table className="min-w-[1050px]">
+                <TableHeader className="bg-slate-50/90 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="w-10 text-center">
                       <button
@@ -500,16 +500,18 @@ export default function FlowAccountAccountingPage() {
                         )}
                       </button>
                     </TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700">วันที่ / รหัสอ้างอิง</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700">ผู้ขอเบิก</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700">ร้านค้า / คู่ค้า</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700">รายการ / จุดประสงค์</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-right">ยอดก่อน VAT</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-right">VAT 7%</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-right">ยอดรวมสุทธิ</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-center">สลิป/ใบเสร็จ</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-center">สถานะ FlowAccount</TableHead>
-                    <TableHead className="text-xs font-bold text-slate-700 text-center">การดำเนินการ</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 w-[140px]">วันที่ / รหัสอ้างอิง</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 w-[130px]">ผู้ขอเบิก</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 w-[160px]">ร้านค้า / คู่ค้า</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 min-w-[160px]">รายการ / จุดประสงค์</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 text-right w-[100px]">ยอดก่อน VAT</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 text-right w-[90px]">VAT 7%</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 text-right w-[110px]">ยอดรวมสุทธิ</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 text-center w-[90px]">สลิป</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700 text-center w-[150px]">สถานะ FlowAccount</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-800 text-center sticky right-0 bg-slate-100/95 backdrop-blur z-20 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] min-w-[140px]">
+                      การดำเนินการ
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -609,10 +611,10 @@ export default function FlowAccountAccountingPage() {
                               href={item.receiptUrl.startsWith('[') ? JSON.parse(item.receiptUrl)[0] : item.receiptUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-2 py-1 rounded-md"
+                              className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-2 py-1 rounded-md font-medium"
                             >
                               <Receipt className="w-3 h-3" />
-                              ดูสลิป
+                              สลิป
                             </a>
                           ) : (
                             <span className="text-[11px] text-slate-400">-</span>
@@ -633,13 +635,13 @@ export default function FlowAccountAccountingPage() {
                               )}
                             </div>
                           ) : (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-semibold">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-semibold whitespace-nowrap">
                               ⏳ รอส่ง FlowAccount
                             </Badge>
                           )}
                         </TableCell>
 
-                        <TableCell className="text-center">
+                        <TableCell className={`text-center sticky right-0 ${isSelected ? "bg-blue-50/95" : "bg-white/95"} backdrop-blur z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]`}>
                           <div className="flex items-center justify-center gap-1.5">
                             <Button
                               variant="ghost"
@@ -648,7 +650,7 @@ export default function FlowAccountAccountingPage() {
                                 setViewItem(item);
                                 setIsDetailDialogOpen(true);
                               }}
-                              className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900"
+                              className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                               title="ดูรายละเอียด"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -658,13 +660,13 @@ export default function FlowAccountAccountingPage() {
                               <Button
                                 size="sm"
                                 onClick={() => handleOpenSyncDialog(item)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-2.5 text-xs font-semibold gap-1 shadow-sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white h-7 px-2.5 text-xs font-semibold gap-1 shadow-sm whitespace-nowrap"
                               >
                                 <Send className="w-3 h-3" />
-                                ส่ง
+                                ส่ง FlowAccount
                               </Button>
                             ) : (
-                              <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px] font-normal">
+                              <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[10px] font-normal whitespace-nowrap">
                                 ส่งแล้ว
                               </Badge>
                             )}
