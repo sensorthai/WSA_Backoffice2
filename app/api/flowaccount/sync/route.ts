@@ -103,7 +103,7 @@ export async function POST(req: Request) {
               flowaccount_synced_at: syncedAt
             })
             .eq("id", id);
-        } catch (colErr) {
+        } catch {
           // ignore column missing
         }
 

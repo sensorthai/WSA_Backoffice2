@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const supabase = createSupabaseServerClient();
 
   // 1. Query Purchase Requests (approved or paid)
-  let pQuery = supabase
+  const pQuery = supabase
     .from("purchase_requests")
     .select("*, users!purchase_requests_user_id_fkey(full_name, email, departments(name))")
     .in("status", ["approved", "paid"])
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   }
 
   // 2. Query Reimbursements (approved or paid)
-  let rQuery = supabase
+  const rQuery = supabase
     .from("reimbursements")
     .select("*, users!user_id(full_name, email, departments(name))")
     .in("status", ["approved", "paid"])
