@@ -91,18 +91,42 @@ export async function POST(req: Request) {
           receiptUrl: itemData.receipt_url
         });
 
-        // 3. Update Supabase with flowaccount_doc_number
+        // 3. Update Supabase with flowaccount_doc_number & fallback fields
         const syncedAt = new Date().toISOString();
-        const { error: updateError } = await supabase
-          .from(targetTable)
-          .update({
-            flowaccount_doc_number: flowResult.documentSerial,
-            flowaccount_synced_at: syncedAt
-          })
-          .eq("id", id);
 
-        if (updateError) {
-          console.warn(`Failed to update flowaccount_doc_number for ${id} in ${targetTable}:`, updateError.message);
+        // 3.1 Try dedicated columns
+        try {
+          await supabase
+            .from(targetTable)
+            .update({
+              flowaccount_doc_number: flowResult.documentSerial,
+              flowaccount_synced_at: syncedAt
+            })
+            .eq("id", id);
+        } catch (colErr) {
+          // ignore column missing
+        }
+
+        // 3.2 Update standard fields as persistent fallback
+        if (type === "purchase") {
+          const cleanManifest = (itemData.manifest_text || "").replace(/\[FLOWACCOUNT:[^\]]+\]\s*/g, "");
+          const newManifest = `[FLOWACCOUNT:${flowResult.documentSerial}|${syncedAt}] ${cleanManifest}`.trim();
+          await supabase
+            .from("purchase_requests")
+            .update({
+              document_number: flowResult.documentSerial,
+              manifest_text: newManifest
+            })
+            .eq("id", id);
+        } else {
+          const cleanFinance = (itemData.finance_note || "").replace(/\[FLOWACCOUNT:[^\]]+\]\s*/g, "");
+          const newFinance = `[FLOWACCOUNT:${flowResult.documentSerial}|${syncedAt}] ${cleanFinance}`.trim();
+          await supabase
+            .from("reimbursements")
+            .update({
+              finance_note: newFinance
+            })
+            .eq("id", id);
         }
 
         results.push({

@@ -40,7 +40,12 @@ export async function GET(req: Request) {
   const formattedItems: any[] = [];
 
   (purchases || []).forEach((p: any) => {
-    const isSynced = Boolean(p.flowaccount_doc_number);
+    // Extract FlowAccount Doc No from dedicated column, document_number, or manifest tag
+    const manifestMatch = p.manifest_text?.match(/\[FLOWACCOUNT:([^\|\]]+)(?:\|([^\]]+))?\]/);
+    const flowDocNo = p.flowaccount_doc_number || (p.document_number?.startsWith("EXP") ? p.document_number : null) || manifestMatch?.[1] || null;
+    const flowSyncedTime = p.flowaccount_synced_at || manifestMatch?.[2] || (flowDocNo ? p.updated_at : null);
+
+    const isSynced = Boolean(flowDocNo);
     if (filter === "pending" && isSynced) return;
     if (filter === "synced" && !isSynced) return;
 
@@ -63,14 +68,19 @@ export async function GET(req: Request) {
       items: p.items || [],
       receiptUrl: p.receipt_url,
       status: p.status,
-      flowaccountDocNumber: p.flowaccount_doc_number || null,
-      flowaccountSyncedAt: p.flowaccount_synced_at || null,
+      flowaccountDocNumber: flowDocNo,
+      flowaccountSyncedAt: flowSyncedTime,
       createdAt: p.created_at
     });
   });
 
   (reimbursements || []).forEach((r: any) => {
-    const isSynced = Boolean(r.flowaccount_doc_number);
+    // Extract FlowAccount Doc No from dedicated column, finance_note or training_note
+    const financeMatch = (r.finance_note || r.training_note)?.match(/\[FLOWACCOUNT:([^\|\]]+)(?:\|([^\]]+))?\]/);
+    const flowDocNo = r.flowaccount_doc_number || financeMatch?.[1] || null;
+    const flowSyncedTime = r.flowaccount_synced_at || financeMatch?.[2] || (flowDocNo ? r.updated_at : null);
+
+    const isSynced = Boolean(flowDocNo);
     if (filter === "pending" && isSynced) return;
     if (filter === "synced" && !isSynced) return;
 
@@ -93,8 +103,8 @@ export async function GET(req: Request) {
       items: [{ description: r.description, quantity: 1, unit_price: r.amount, total: r.amount }],
       receiptUrl: r.receipt_url,
       status: r.status,
-      flowaccountDocNumber: r.flowaccount_doc_number || null,
-      flowaccountSyncedAt: r.flowaccount_synced_at || null,
+      flowaccountDocNumber: flowDocNo,
+      flowaccountSyncedAt: flowSyncedTime,
       createdAt: r.created_at
     });
   });
