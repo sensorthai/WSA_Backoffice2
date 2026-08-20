@@ -33,7 +33,8 @@ import {
   Contact,
   Headset,
   BookText,
-  User
+  User,
+  Cloud
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -97,6 +98,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       roles: ["admin", "employee", "supervisor", "ceo"],
       subItems: [
         { label: t("sidebar.pending"), href: "/approvals", icon: CheckSquare, roles: ["admin", "supervisor", "ceo"] },
+        { label: t("sidebar.flowaccount"), href: "/accounting/flowaccount", icon: Cloud, roles: ["admin", "ceo", "supervisor"] },
         { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles: ["ceo", "admin"] },
         { label: t("sidebar.assets"), href: "/assets", icon: MonitorSmartphone, roles: ["ceo", "admin"] },
         { label: t("sidebar.purchases_report"), href: "/reports?tab=purchase", icon: ShoppingBag, roles: ["admin", "ceo"] },
