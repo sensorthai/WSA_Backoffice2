@@ -94,15 +94,14 @@ export async function GET(_req: Request) {
   const isFinanceManager = currentDept === 'ฝ่ายบัญชีและการเงิน' && currentPos === 'ผู้จัดการ'
   const isCEOOrAdmin = userRole === 'ceo' || userRole === 'admin'
 
-  if (isCEOOrAdmin) {
-    // CEOs and Admins can see pending (awaiting Training Manager) and approved (awaiting Finance Manager payment)
-    reimbQuery = reimbQuery.or('status.eq.pending,status.eq.approved')
-  } else if (isTrainingManager) {
-    // Training Manager only sees pending (awaiting supervisor stage)
+  if (isFinanceManager) {
+    // Finance Manager sees approved reimbursements (awaiting payout) and pending (if admin/ceo)
+    reimbQuery = isCEOOrAdmin 
+      ? reimbQuery.or('status.eq.pending,status.eq.approved')
+      : reimbQuery.eq('status', 'approved')
+  } else if (isTrainingManager || isCEOOrAdmin) {
+    // Training Manager, CEO, and Admin can review pending reimbursements
     reimbQuery = reimbQuery.eq('status', 'pending')
-  } else if (isFinanceManager) {
-    // Finance Manager only sees approved (awaiting payment stage)
-    reimbQuery = reimbQuery.eq('status', 'approved')
   } else {
     // Others shouldn't see any pending approvals for reimbursements
     reimbQuery = reimbQuery.eq('id', '00000000-0000-0000-0000-000000000000') // empty result

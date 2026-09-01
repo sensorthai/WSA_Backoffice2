@@ -99,13 +99,16 @@ export default function ReimbursementsPage() {
     enabled: !!profile?.email
   })
 
+  const isFinanceManager = useMemo(() => {
+    return (userProfile as any)?.department?.name === 'ฝ่ายบัญชีและการเงิน' && (userProfile as any)?.position?.name === 'ผู้จัดการ'
+  }, [userProfile])
+
   const isFinanceUser = useMemo(() => {
     if (!profile) return false
     const role = profile.role
     const isCEOOrAdmin = role === 'ceo' || role === 'admin'
-    const isFinManager = (userProfile as any)?.department?.name === 'ฝ่ายบัญชีและการเงิน' && (userProfile as any)?.position?.name === 'ผู้จัดการ'
-    return isCEOOrAdmin || isFinManager
-  }, [profile, userProfile])
+    return isCEOOrAdmin || isFinanceManager
+  }, [profile, isFinanceManager])
 
   const handleAddAttachment = async (reimbId: string, files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -935,8 +938,8 @@ export default function ReimbursementsPage() {
                             );
                           })()}
 
-                          {/* ฝ่ายบัญชี/Admin ยืนยันการโอนเงิน เมื่อสถานะเป็น approved */}
-                          {isAdmin && reimb.status === 'approved' && (
+                          {/* เฉพาะผู้จัดการฝ่ายบัญชีและการเงินเท่านั้นที่ยืนยันการโอนเงิน เมื่อสถานะเป็น approved */}
+                          {isFinanceManager && reimb.status === 'approved' && (
                             <Button
                               size="sm"
                               className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-bold"

@@ -2,9 +2,10 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
+import { supabase } from "@/lib/supabase"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { toast } from "sonner"
@@ -22,7 +23,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Banknote,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  Clock
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -36,9 +39,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
@@ -66,6 +84,14 @@ export default function ApprovalsPage() {
   const [activeView, setActiveView] = useState("pending")
   const [mounted, setMounted] = useState(false)
 
+  // --- Finance Filter States ---
+  const [finPaidStartDate, setFinPaidStartDate] = useState("")
+  const [finPaidEndDate, setFinPaidEndDate] = useState("")
+  const [finPaidRequester, setFinPaidRequester] = useState("all")
+  const [finPaidStatus, setFinPaidStatus] = useState("paid")
+  const [finPaidPage, setFinPaidPage] = useState(1)
+  const finItemsPerPage = 10
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -92,6 +118,85 @@ export default function ApprovalsPage() {
   const paidItems = Array.isArray(historyItems)
     ? historyItems.filter((it: any) => it.status === 'paid' && (it.type === 'purchase' || it.type === 'reimbursement'))
     : []
+
+  // --- Finance: User Profile & Permission ---
+  const { data: userProfile } = useQuery({
+    queryKey: ["currentUserProfile", session?.user?.email],
+    queryFn: async () => {
+      if (!session?.user?.email) return null
+      const { data, error } = await supabase
+        .from('users')
+        .select('*, department:departments(name), position:positions(name)')
+        .eq('email', session.user.email)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!session?.user?.email
+  })
+
+  const isFinanceUser = useMemo(() => {
+    if (!session?.user) return false
+    const role = (session.user as any).role
+    const isCEOOrAdmin = role === 'ceo' || role === 'admin'
+    const isFinManager = (userProfile as any)?.department?.name === 'ฝ่ายบัญชีและการเงิน' && (userProfile as any)?.position?.name === 'ผู้จัดการ'
+    return isCEOOrAdmin || isFinManager
+  }, [session?.user, userProfile])
+
+  // --- Finance: Approved Purchases Query ---
+  const { data: approvedPurchases, isLoading: isApprovedLoading } = useQuery({
+    queryKey: ["approved-purchases"],
+    queryFn: async () => {
+      const res = await fetch("/api/purchases/approved?status=all")
+      return res.json()
+    },
+    enabled: !!session?.user && isFinanceUser
+  })
+
+  const finWaitingItems = useMemo(() => (approvedPurchases || []).filter((r: any) => r.status === 'approved'), [approvedPurchases])
+
+  const finUniqueRequesters = useMemo(() => {
+    const map = new Map<string, string>()
+    if (approvedPurchases) {
+      approvedPurchases.forEach((p: any) => {
+        if (p.user?.full_name && p.user_id) {
+          map.set(p.user_id, p.user.full_name)
+        }
+      })
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [approvedPurchases])
+
+  const finFilteredPaidItems = useMemo(() => {
+    return (approvedPurchases || []).filter((p: any) => {
+      if (finPaidStatus !== "all" && p.status !== finPaidStatus) return false
+      if (finPaidRequester !== "all" && p.user_id !== finPaidRequester) return false
+      const payDateStr = p.paid_at || p.updated_at || p.created_at
+      if (payDateStr) {
+        const payDate = new Date(payDateStr)
+        const checkDate = new Date(payDate.getFullYear(), payDate.getMonth(), payDate.getDate()).getTime()
+        if (finPaidStartDate) {
+          const start = new Date(finPaidStartDate)
+          if (checkDate < new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime()) return false
+        }
+        if (finPaidEndDate) {
+          const end = new Date(finPaidEndDate)
+          if (checkDate > new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime()) return false
+        }
+      } else if (finPaidStartDate || finPaidEndDate) {
+        return false
+      }
+      return true
+    })
+  }, [approvedPurchases, finPaidStatus, finPaidRequester, finPaidStartDate, finPaidEndDate])
+
+  const finTotalPages = Math.ceil(finFilteredPaidItems.length / finItemsPerPage)
+  const finPaginatedPaidItems = useMemo(() => {
+    const startIdx = (finPaidPage - 1) * finItemsPerPage
+    return finFilteredPaidItems.slice(startIdx, startIdx + finItemsPerPage)
+  }, [finFilteredPaidItems, finPaidPage])
+
+  useEffect(() => { setFinPaidPage(1) }, [finPaidStatus, finPaidRequester, finPaidStartDate, finPaidEndDate])
 
   // --- Mutations ---
   const approveMutation = useMutation({
@@ -137,7 +242,9 @@ export default function ApprovalsPage() {
     onSuccess: (_data, variables: any) => {
       setSelectedItem(null)
       setRejectNote("")
-      if (variables?.action === 'approve' && variables?.type === 'reimbursement' && variables?.itemStatus === 'approved') {
+      if (variables?.action === 'request_revision') {
+        toast.success("ส่งคำขอให้แก้ไขหรือแนบเอกสารเพิ่มเติมเรียบร้อยแล้ว!")
+      } else if (variables?.action === 'approve' && variables?.type === 'reimbursement' && variables?.itemStatus === 'approved') {
         toast.success("ยืนยันการโอนเงินเรียบร้อยแล้ว!")
       } else {
         toast.success("บันทึกการดำเนินการเรียบร้อยแล้ว!")
@@ -146,8 +253,39 @@ export default function ApprovalsPage() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
       queryClient.invalidateQueries({ queryKey: ["approval-history"] })
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
     }
   })
+
+  const payMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note?: string }) => {
+      const res = await fetch(`/api/purchases/${id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note })
+      })
+      if (!res.ok) throw new Error((await res.json()).error || "Payment action failed")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approved-purchases"] })
+      queryClient.invalidateQueries({ queryKey: ["pending-approvals"] })
+      queryClient.invalidateQueries({ queryKey: ["approval-history"] })
+      toast.success("บันทึกการจ่ายเงินเรียบร้อยแล้ว!")
+    },
+    onError: (err: any) => {
+      toast.error("การจ่ายเงินล้มเหลว: " + err.message)
+    }
+  })
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'petty_cash': return 'เงินสดสำรองจ่าย'
+      case 'credit_card': return 'บัตรเครดิตบริษัท'
+      case 'k_biz': return 'บัญชีธนาคาร (K-Biz)'
+      default: return method || 'เงินสดสำรองจ่าย'
+    }
+  }
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -171,9 +309,11 @@ export default function ApprovalsPage() {
     }
     switch (status) {
       case 'pending': return <Badge className="bg-amber-100 text-amber-600 border-amber-200">รอหัวหน้า</Badge>
+      case 'need_revision': return <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold">รอการแก้ไข / ขอเอกสารเพิ่ม</Badge>
       case 'supervisor_approved': return <Badge className="bg-blue-100 text-blue-600 border-blue-200">รอ CEO</Badge>
       case 'approved': return <Badge className="bg-emerald-100 text-emerald-600 border-emerald-200 font-bold">อนุมัติแล้ว</Badge>
       case 'rejected': return <Badge className="bg-rose-100 text-rose-600 border-rose-200">ปฏิเสธ</Badge>
+      case 'paid': return <Badge className="bg-emerald-100 text-emerald-600 border-emerald-200 font-bold">โอนเงินแล้ว</Badge>
       case 'returned': return <Badge className="bg-slate-900 text-white border-0">คืนรถแล้ว</Badge>
       default: return <Badge>{status}</Badge>
     }
@@ -423,15 +563,33 @@ export default function ApprovalsPage() {
                       onChange={e => setRejectNote(e.target.value)}
                    />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={cn("grid gap-3", item.type === 'purchase' ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
                    <Button 
                       variant="ghost" 
-                      className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50"
+                      className="h-16 rounded-2xl font-black text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200"
                       onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'reject', note: rejectNote, itemStatus: item.status })}
                       disabled={approveMutation.isPending}
                    >
                       <XCircle className="mr-2" /> ปฏิเสธ
                    </Button>
+
+                   {item.type === 'purchase' && (
+                     <Button 
+                        variant="outline"
+                        className="h-16 rounded-2xl font-black text-amber-700 bg-amber-50/60 hover:bg-amber-100 border-amber-200 hover:border-amber-300 shadow-sm"
+                        onClick={() => {
+                          if (!rejectNote.trim()) {
+                            toast.error("กรุณาระบุสิ่งที่ต้องการให้แก้ไขหรือเอกสารที่ขอเพิ่มในช่องหมายเหตุ")
+                            return
+                          }
+                          approveMutation.mutate({ id: item.id, type: item.type, action: 'request_revision', note: rejectNote, itemStatus: item.status })
+                        }}
+                        disabled={approveMutation.isPending}
+                     >
+                        <AlertTriangle className="mr-2 text-amber-600" /> ขอเอกสารเพิ่ม/แก้ไข
+                     </Button>
+                   )}
+
                    {item.type === 'reimbursement' && item.status === 'approved' ? (
                      <Button 
                         className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-xl"
@@ -442,7 +600,7 @@ export default function ApprovalsPage() {
                      </Button>
                    ) : (
                      <Button 
-                        className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl"
+                        className="h-16 rounded-2xl bg-slate-900 text-white font-black shadow-xl hover:bg-slate-800"
                         onClick={() => approveMutation.mutate({ id: item.id, type: item.type, action: 'approve', note: rejectNote, itemStatus: item.status })}
                         disabled={approveMutation.isPending}
                      >
@@ -547,7 +705,10 @@ export default function ApprovalsPage() {
               )}
             >
               <Banknote className="w-4 h-4" />
-              <span>การจ่ายเงิน</span>
+              <span>การเงิน / จ่ายเงิน</span>
+              {isFinanceUser && finWaitingItems.length > 0 && (
+                <Badge className="bg-emerald-600 text-white shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border-0 shadow-sm">{finWaitingItems.length}</Badge>
+              )}
               {activeView === "paid" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
               )}
@@ -664,65 +825,505 @@ export default function ApprovalsPage() {
           )}
 
           {activeView === "paid" && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-                  <div className="overflow-x-auto custom-scrollbar">
-                  <Table className="min-w-[700px]">
-                     <TableHeader className="bg-slate-50/50">
-                        <TableRow className="border-slate-100 hover:bg-transparent">
-                           <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่จ่าย</TableHead>
-                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอเบิก</TableHead>
-                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายการ</TableHead>
-                           <TableHead className="text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">ยอดจ่าย</TableHead>
-                           <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะ</TableHead>
-                           <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">จัดการ</TableHead>
-                        </TableRow>
-                     </TableHeader>
-                     <TableBody>
-                        {isHistoryLoading ? (
-                          <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
-                        ) : paidItems.length === 0 ? (
-                          <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ยังไม่มีรายการที่จ่ายเงินแล้ว</TableCell></TableRow>
-                        ) : paidItems.map((item: any) => {
-                          const amount = item.type === 'purchase' ? Number(item.total_amount || 0) : Number(item.amount || 0)
-                          const vendor = item.vendor_name || item.vendor || ""
-                          const paidDate = item.paid_at || item.updated_at || item.created_at
-                          return (
-                          <TableRow key={`${item.type}-${item.id}`} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
-                             <TableCell className="py-6 pl-10 font-bold text-slate-500 text-sm whitespace-nowrap">
-                                {format(new Date(paidDate), "d MMM yy", { locale: th })}
-                             </TableCell>
-                             <TableCell>
-                                <div className="flex items-center gap-3">
-                                   <Avatar className="h-8 w-8">
-                                      <AvatarImage src={item.user?.avatar_url} />
-                                      <AvatarFallback>{item.user?.full_name?.charAt(0)}</AvatarFallback>
-                                   </Avatar>
-                                   <span className="font-bold text-slate-900 whitespace-nowrap">{item.user?.full_name}</span>
-                                </div>
-                             </TableCell>
-                             <TableCell className="max-w-[280px]">
-                                <div className="font-bold text-slate-700 text-sm truncate">{item.title || item.description || item.document_type || "-"}</div>
-                                {vendor && <div className="text-xs text-slate-400 font-medium truncate">{vendor}</div>}
-                             </TableCell>
-                             <TableCell className="text-right font-black text-slate-900 text-sm tabular-nums whitespace-nowrap">
-                                {amount.toLocaleString('th-TH', { minimumFractionDigits: 0 })} ฿
-                             </TableCell>
-                             <TableCell>
-                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold">จ่ายเงินแล้ว</Badge>
-                             </TableCell>
-                             <TableCell className="pr-10 text-right">
-                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
-                                   <ChevronRight size={20} />
-                                </Button>
-                             </TableCell>
-                          </TableRow>
-                          )
-                        })}
-                     </TableBody>
-                  </Table>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+              {isFinanceUser ? (
+                /* ===== FINANCE MANAGER VIEW ===== */
+                isApprovedLoading ? (
+                  <div className="py-32 text-center">
+                    <Loader2 className="animate-spin inline-block text-emerald-300 w-12 h-12" />
                   </div>
-               </Card>
+                ) : (() => {
+                  const waitingItems = finWaitingItems
+                  const paidItemsFin = (approvedPurchases || []).filter((r: any) => r.status === 'paid')
+                  return (
+                    <div className="space-y-8">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="rounded-[2rem] border border-amber-200/60 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 space-y-2">
+                          <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest">รอจ่ายเงิน</div>
+                          <div className="text-3xl font-black text-amber-700">{waitingItems.length} <span className="text-base font-bold text-amber-400">รายการ</span></div>
+                          <div className="text-sm font-bold text-amber-600">
+                            {waitingItems.reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                          </div>
+                        </div>
+                        <div className="rounded-[2rem] border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50/40 p-6 space-y-2">
+                          <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">จ่ายเงินแล้ว</div>
+                          <div className="text-3xl font-black text-emerald-700">{paidItemsFin.length} <span className="text-base font-bold text-emerald-400">รายการ</span></div>
+                          <div className="text-sm font-bold text-emerald-600">
+                            {paidItemsFin.reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                          </div>
+                        </div>
+                        <div className="rounded-[2rem] border border-blue-200/60 bg-gradient-to-br from-blue-50 to-indigo-50/40 p-6 space-y-2">
+                          <div className="text-[10px] font-black text-blue-500 uppercase tracking-widest">รวมทั้งหมด</div>
+                          <div className="text-3xl font-black text-blue-700">{(approvedPurchases || []).length} <span className="text-base font-bold text-blue-400">รายการ</span></div>
+                          <div className="text-sm font-bold text-blue-600">
+                            {(approvedPurchases || []).reduce((sum: number, r: any) => sum + Number(r.total_amount), 0).toLocaleString('th-TH')} ฿
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Waiting for Payment Section */}
+                      {waitingItems.length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
+                              <Clock size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-black text-slate-900">รอดำเนินการจ่ายเงิน</h3>
+                              <p className="text-xs text-slate-400 font-medium">รายการที่ผ่านการอนุมัติแล้ว รอฝ่ายการเงินกดยืนยันจ่ายเงิน</p>
+                            </div>
+                          </div>
+
+                          {/* Desktop Table */}
+                          <Card className="hidden md:block rounded-[2.5rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-amber-200/40 overflow-hidden">
+                            <div className="overflow-x-auto custom-scrollbar">
+                              <Table className="min-w-[700px]">
+                                <TableHeader className="bg-amber-50/80 backdrop-blur-md">
+                                  <TableRow className="border-amber-100 hover:bg-transparent">
+                                    <TableHead className="py-5 pl-8 font-black text-amber-500/80 uppercase tracking-widest text-[10px]">วันที่</TableHead>
+                                    <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ผู้ขอเบิก</TableHead>
+                                    <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">รายการ</TableHead>
+                                    <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ยอดรวม</TableHead>
+                                    <TableHead className="font-black text-amber-500/80 uppercase tracking-widest text-[10px]">วิธีจ่าย</TableHead>
+                                    <TableHead className="pr-8 text-right font-black text-amber-500/80 uppercase tracking-widest text-[10px]">ดำเนินการ</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {waitingItems.map((p: any) => (
+                                    <TableRow key={p.id} className="border-amber-100/50 hover:bg-amber-50/30 transition-colors group">
+                                      <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
+                                        {format(new Date(p.created_at), "d MMM yy", { locale: th })}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-black text-sm">
+                                            {p.user?.full_name?.charAt(0) || '?'}
+                                          </div>
+                                          <div>
+                                            <div className="font-bold text-slate-800 text-sm">{p.user?.full_name || '-'}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium">{p.user?.departments?.name || ''}</div>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight text-sm">{p.title}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium mt-0.5">{p.vendor_name && <span>{p.vendor_name} · </span>}{p.items?.length || 0} รายการ</div>
+                                      </TableCell>
+                                      <TableCell className="font-black text-lg text-slate-900">
+                                        {Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm text-slate-400">฿</span>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge className="bg-slate-100 text-slate-600 border-slate-200 font-bold text-[10px]">
+                                          {getPaymentMethodLabel(p.payment_method)}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="pr-8 text-right">
+                                        <div className="flex items-center gap-2 justify-end">
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="rounded-xl font-bold text-blue-600 hover:bg-blue-50 text-xs"
+                                            onClick={() => setSelectedItem({ ...p, type: 'purchase', label: 'ใบเบิกเงิน' })}
+                                          >
+                                            <Eye size={14} className="mr-1" /> ดูข้อมูล
+                                          </Button>
+                                          <Dialog>
+                                            <DialogTrigger asChild>
+                                              <Button 
+                                                size="sm"
+                                                className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 h-9 px-4"
+                                              >
+                                                <Wallet size={14} className="mr-1.5" /> จ่ายเงินแล้ว
+                                              </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden">
+                                              <div className="bg-emerald-600 p-6 text-white">
+                                                <DialogHeader>
+                                                  <DialogTitle className="text-xl font-black text-white">ยืนยันการจ่ายเงิน</DialogTitle>
+                                                </DialogHeader>
+                                                <p className="text-emerald-100 text-sm mt-2 font-medium">คุณกำลังยืนยันว่าได้จ่ายเงินให้กับรายการนี้แล้ว</p>
+                                              </div>
+                                              <div className="p-6 space-y-5">
+                                                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                                  <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-500">รายการ</span>
+                                                    <span className="text-sm font-black text-slate-900 text-right max-w-[60%]">{p.title}</span>
+                                                  </div>
+                                                  <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-500">ผู้เบิก</span>
+                                                    <span className="text-sm font-bold text-slate-700">{p.user?.full_name || '-'}</span>
+                                                  </div>
+                                                  <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                                                    <span className="text-sm font-bold text-slate-500">ยอดจ่าย</span>
+                                                    <span className="text-xl font-black text-emerald-600">{Number(p.total_amount).toLocaleString('th-TH')} ฿</span>
+                                                  </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุการจ่ายเงิน (ไม่บังคับ)</Label>
+                                                  <Textarea
+                                                    id={`pay-note-${p.id}`}
+                                                    placeholder="เช่น โอนผ่าน K-BIZ เลขที่อ้างอิง..."
+                                                    className="min-h-[100px] rounded-2xl border-slate-100 bg-slate-50 p-4 focus:ring-emerald-600/20 font-medium"
+                                                  />
+                                                </div>
+                                                <Button
+                                                  className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-lg shadow-emerald-600/20"
+                                                  disabled={payMutation.isPending}
+                                                  onClick={() => {
+                                                    const note = (document.getElementById(`pay-note-${p.id}`) as HTMLTextAreaElement)?.value || ''
+                                                    payMutation.mutate({ id: p.id, note })
+                                                  }}
+                                                >
+                                                  {payMutation.isPending ? <Loader2 className="animate-spin" /> : (
+                                                    <><CheckCircle2 className="mr-2" size={20} /> ยืนยัน — จ่ายเงินแล้ว</>
+                                                  )}
+                                                </Button>
+                                              </div>
+                                            </DialogContent>
+                                          </Dialog>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </Card>
+
+                          {/* Mobile Cards */}
+                          <div className="grid md:hidden gap-4">
+                            {waitingItems.map((p: any) => (
+                              <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-amber-200/40 p-5 space-y-4">
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 font-black text-xs">
+                                        {p.user?.full_name?.charAt(0) || '?'}
+                                      </div>
+                                      <div>
+                                        <div className="text-xs font-bold text-slate-700">{p.user?.full_name || '-'}</div>
+                                        <div className="text-[10px] text-slate-400">{p.user?.departments?.name || ''}</div>
+                                      </div>
+                                    </div>
+                                    <div className="font-black text-slate-900 text-base leading-tight">{p.title}</div>
+                                    <div className="text-[10px] text-slate-400 font-medium mt-1">{format(new Date(p.created_at), "d MMM yyyy", { locale: th })} · {p.items?.length || 0} รายการ</div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <div className="font-black text-blue-600 text-lg">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></div>
+                                    <Badge className="mt-1 bg-slate-100 text-slate-600 border-slate-200 font-bold text-[10px]">
+                                      {getPaymentMethodLabel(p.payment_method)}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Button 
+                                    variant="outline"
+                                    className="h-12 rounded-2xl font-bold text-slate-600 border-slate-200 text-sm"
+                                    onClick={() => setSelectedItem({ ...p, type: 'purchase', label: 'ใบเบิกเงิน' })}
+                                  >
+                                    <Eye size={16} className="mr-1.5" /> ดูข้อมูล
+                                  </Button>
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-md shadow-emerald-600/20">
+                                        <Wallet size={16} className="mr-1.5" /> จ่ายเงิน
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden">
+                                      <div className="bg-emerald-600 p-6 text-white">
+                                        <DialogHeader>
+                                          <DialogTitle className="text-xl font-black text-white">ยืนยันการจ่ายเงิน</DialogTitle>
+                                        </DialogHeader>
+                                        <p className="text-emerald-100 text-sm mt-2 font-medium">ยืนยันว่าได้จ่ายเงินให้กับรายการนี้แล้ว</p>
+                                      </div>
+                                      <div className="p-6 space-y-5">
+                                        <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold text-slate-500">รายการ</span>
+                                            <span className="text-sm font-black text-slate-900 text-right max-w-[60%]">{p.title}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold text-slate-500">ผู้เบิก</span>
+                                            <span className="text-sm font-bold text-slate-700">{p.user?.full_name || '-'}</span>
+                                          </div>
+                                          <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                                            <span className="text-sm font-bold text-slate-500">ยอดจ่าย</span>
+                                            <span className="text-xl font-black text-emerald-600">{Number(p.total_amount).toLocaleString('th-TH')} ฿</span>
+                                          </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">หมายเหตุ (ไม่บังคับ)</Label>
+                                          <Textarea
+                                            id={`pay-note-m-${p.id}`}
+                                            placeholder="เช่น โอนผ่าน K-BIZ เลขที่อ้างอิง..."
+                                            className="min-h-[80px] rounded-2xl border-slate-100 bg-slate-50 p-4 focus:ring-emerald-600/20 font-medium"
+                                          />
+                                        </div>
+                                        <Button
+                                          className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-lg shadow-emerald-600/20"
+                                          disabled={payMutation.isPending}
+                                          onClick={() => {
+                                            const note = (document.getElementById(`pay-note-m-${p.id}`) as HTMLTextAreaElement)?.value || ''
+                                            payMutation.mutate({ id: p.id, note })
+                                          }}
+                                        >
+                                          {payMutation.isPending ? <Loader2 className="animate-spin" /> : (
+                                            <><CheckCircle2 className="mr-2" size={20} /> ยืนยัน — จ่ายเงินแล้ว</>
+                                          )}
+                                        </Button>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Already Paid Section — with Filters */}
+                      {(approvedPurchases || []).length > 0 && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-2xl">
+                              <CheckCircle2 size={20} />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-black text-slate-900">จ่ายเงินแล้ว</h3>
+                              <p className="text-xs text-slate-400 font-medium">รายการที่ดำเนินการจ่ายเงินเรียบร้อยแล้ว</p>
+                            </div>
+                          </div>
+
+                          {/* Filters */}
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-white/80 p-5 rounded-3xl border border-slate-100 shadow-sm no-print">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">วันที่จ่าย (เริ่มต้น)</Label>
+                              <Input type="date" value={finPaidStartDate} onChange={(e) => setFinPaidStartDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white font-medium text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">วันที่จ่าย (สิ้นสุด)</Label>
+                              <Input type="date" value={finPaidEndDate} onChange={(e) => setFinPaidEndDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white font-medium text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ผู้ขอเบิก</Label>
+                              <Select value={finPaidRequester} onValueChange={setFinPaidRequester}>
+                                <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white font-medium text-sm">
+                                  <SelectValue placeholder="ทั้งหมด" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                                  {finUniqueRequesters.map((req) => (
+                                    <SelectItem key={req.id} value={req.id}>{req.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">สถานะ</Label>
+                              <Select value={finPaidStatus} onValueChange={setFinPaidStatus}>
+                                <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white font-medium text-sm">
+                                  <SelectValue placeholder="จ่ายเงินแล้ว" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="all">ทั้งหมด (All)</SelectItem>
+                                  <SelectItem value="paid">จ่ายเงินแล้ว (Paid)</SelectItem>
+                                  <SelectItem value="approved">รอจ่ายเงิน (Approved)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {finFilteredPaidItems.length === 0 ? (
+                            <Card className="py-20 text-center rounded-3xl border-2 border-dashed border-slate-100 bg-slate-50/20">
+                              <p className="text-slate-400 font-bold text-sm">ไม่พบรายการเบิกจ่ายเงินที่ตรงกับตัวกรอง</p>
+                            </Card>
+                          ) : (
+                            <>
+                              {/* Desktop Table */}
+                              <Card className="hidden md:block rounded-[2.5rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-emerald-200/30 overflow-hidden">
+                                <div className="overflow-x-auto custom-scrollbar">
+                                  <Table className="min-w-[700px]">
+                                    <TableHeader className="bg-emerald-50/60 backdrop-blur-md">
+                                      <TableRow className="border-emerald-100 hover:bg-transparent">
+                                        <TableHead className="py-5 pl-8 font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">วันที่จ่าย</TableHead>
+                                        <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">ผู้ขอเบิก</TableHead>
+                                        <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">รายการ</TableHead>
+                                        <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">ยอดจ่าย</TableHead>
+                                        <TableHead className="font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">สถานะ</TableHead>
+                                        <TableHead className="pr-8 text-right font-black text-emerald-500/80 uppercase tracking-widest text-[10px]">จัดการ</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {finPaginatedPaidItems.map((p: any) => (
+                                        <TableRow key={p.id} className="border-emerald-100/30 hover:bg-emerald-50/20 transition-colors">
+                                          <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
+                                            {p.paid_at ? format(new Date(p.paid_at), "d MMM yy", { locale: th }) : format(new Date(p.updated_at || p.created_at), "d MMM yy", { locale: th })}
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500 font-black text-sm">
+                                                {p.user?.full_name?.charAt(0) || '?'}
+                                              </div>
+                                              <div>
+                                                <div className="font-bold text-slate-800 text-sm">{p.user?.full_name || '-'}</div>
+                                                <div className="text-[10px] text-slate-400 font-medium">{p.user?.departments?.name || ''}</div>
+                                              </div>
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="font-bold text-slate-700 leading-tight text-sm">{p.title}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium mt-0.5">{p.vendor_name && <span>{p.vendor_name}</span>}</div>
+                                          </TableCell>
+                                          <TableCell className="font-black text-lg text-slate-900">
+                                            {Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm text-slate-400">฿</span>
+                                          </TableCell>
+                                          <TableCell>
+                                            {getStatusBadge(p.status)}
+                                          </TableCell>
+                                          <TableCell className="pr-8 text-right">
+                                            <Button 
+                                              variant="ghost" 
+                                              size="sm" 
+                                              className="rounded-xl font-bold text-blue-600 hover:bg-blue-50 text-xs"
+                                              onClick={() => setSelectedItem({ ...p, type: 'purchase', label: 'ใบเบิกเงิน' })}
+                                            >
+                                              <Eye size={14} className="mr-1" /> ดูข้อมูล
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </Card>
+
+                              {/* Mobile Cards */}
+                              <div className="grid md:hidden gap-4">
+                                {finPaginatedPaidItems.map((p: any) => (
+                                  <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-emerald-200/30 p-5 space-y-4">
+                                    <div className="flex justify-between items-start gap-3">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-500 font-black text-xs">
+                                            {p.user?.full_name?.charAt(0) || '?'}
+                                          </div>
+                                          <div>
+                                            <div className="text-xs font-bold text-slate-700">{p.user?.full_name || '-'}</div>
+                                            <div className="text-[10px] text-slate-400">{p.user?.departments?.name || ''}</div>
+                                          </div>
+                                        </div>
+                                        <div className="font-black text-slate-900 text-base leading-tight">{p.title}</div>
+                                        <div className="text-[10px] text-slate-400 font-medium mt-1">{p.paid_at ? format(new Date(p.paid_at), "d MMM yyyy", { locale: th }) : format(new Date(p.updated_at || p.created_at), "d MMM yyyy", { locale: th })}</div>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <div className="font-black text-emerald-600 text-lg">{Number(p.total_amount).toLocaleString('th-TH')} <span className="text-sm">฿</span></div>
+                                        <div className="mt-1">{getStatusBadge(p.status)}</div>
+                                      </div>
+                                    </div>
+                                    <Button 
+                                      variant="outline"
+                                      className="w-full h-12 rounded-2xl font-bold text-slate-600 border-slate-200 text-sm"
+                                      onClick={() => setSelectedItem({ ...p, type: 'purchase', label: 'ใบเบิกเงิน' })}
+                                    >
+                                      <Eye size={16} className="mr-1.5" /> ดูรายละเอียด
+                                    </Button>
+                                  </Card>
+                                ))}
+                              </div>
+
+                              {/* Pagination */}
+                              {finTotalPages > 1 && (
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl shadow-sm mt-4 no-print">
+                                  <div className="text-xs font-bold text-slate-500">
+                                    แสดง {((finPaidPage - 1) * finItemsPerPage) + 1} - {Math.min(finPaidPage * finItemsPerPage, finFilteredPaidItems.length)} จากทั้งหมด {finFilteredPaidItems.length} รายการ
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-slate-200 text-xs h-9" disabled={finPaidPage === 1} onClick={() => setFinPaidPage(p => Math.max(1, p - 1))}>ก่อนหน้า</Button>
+                                    {Array.from({ length: finTotalPages }).map((_, i) => (
+                                      <Button key={i} variant={finPaidPage === i + 1 ? "default" : "outline"} size="sm" className={cn("rounded-xl font-bold w-9 h-9 p-0 text-xs", finPaidPage === i + 1 ? "bg-emerald-600 hover:bg-emerald-700 text-white border-0" : "border-slate-200 text-slate-600")} onClick={() => setFinPaidPage(i + 1)}>{i + 1}</Button>
+                                    ))}
+                                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-slate-200 text-xs h-9" disabled={finPaidPage === finTotalPages} onClick={() => setFinPaidPage(p => Math.min(finTotalPages, p + 1))}>ถัดไป</Button>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Empty State */}
+                      {waitingItems.length === 0 && paidItemsFin.length === 0 && (
+                        <Card className="py-32 text-center rounded-[3rem] border-2 border-dashed border-slate-200 bg-slate-50/50">
+                          <Wallet size={64} className="mx-auto text-slate-200 mb-6" />
+                          <h3 className="text-xl font-black text-slate-900">ไม่มีรายการ</h3>
+                          <p className="text-slate-400 font-medium">ยังไม่มีรายการเบิกเงินที่ผ่านการอนุมัติ</p>
+                        </Card>
+                      )}
+                    </div>
+                  )
+                })()
+              ) : (
+                /* ===== NON-FINANCE USER: Show paid items from history ===== */
+                <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                   <div className="overflow-x-auto custom-scrollbar">
+                   <Table className="min-w-[700px]">
+                      <TableHeader className="bg-slate-50/50">
+                         <TableRow className="border-slate-100 hover:bg-transparent">
+                            <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่จ่าย</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">ผู้ขอเบิก</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">รายการ</TableHead>
+                            <TableHead className="text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">ยอดจ่าย</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase tracking-widest text-[11px]">สถานะ</TableHead>
+                            <TableHead className="pr-10 text-right font-black text-slate-400 uppercase tracking-widest text-[11px]">จัดการ</TableHead>
+                         </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                         {isHistoryLoading ? (
+                           <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
+                         ) : paidItems.length === 0 ? (
+                           <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ยังไม่มีรายการที่จ่ายเงินแล้ว</TableCell></TableRow>
+                         ) : paidItems.map((item: any) => {
+                           const amount = item.type === 'purchase' ? Number(item.total_amount || 0) : Number(item.amount || 0)
+                           const vendor = item.vendor_name || item.vendor || ""
+                           const paidDate = item.paid_at || item.updated_at || item.created_at
+                           return (
+                           <TableRow key={`${item.type}-${item.id}`} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
+                              <TableCell className="py-6 pl-10 font-bold text-slate-500 text-sm whitespace-nowrap">
+                                 {format(new Date(paidDate), "d MMM yy", { locale: th })}
+                              </TableCell>
+                              <TableCell>
+                                 <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                       <AvatarImage src={item.user?.avatar_url} />
+                                       <AvatarFallback>{item.user?.full_name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-bold text-slate-900 whitespace-nowrap">{item.user?.full_name}</span>
+                                 </div>
+                              </TableCell>
+                              <TableCell className="max-w-[280px]">
+                                 <div className="font-bold text-slate-700 text-sm truncate">{item.title || item.description || item.document_type || "-"}</div>
+                                 {vendor && <div className="text-xs text-slate-400 font-medium truncate">{vendor}</div>}
+                              </TableCell>
+                              <TableCell className="text-right font-black text-slate-900 text-sm tabular-nums whitespace-nowrap">
+                                 {amount.toLocaleString('th-TH', { minimumFractionDigits: 0 })} ฿
+                              </TableCell>
+                              <TableCell>
+                                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold">จ่ายเงินแล้ว</Badge>
+                              </TableCell>
+                              <TableCell className="pr-10 text-right">
+                                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-white hover:shadow-lg">
+                                    <ChevronRight size={20} />
+                                 </Button>
+                              </TableCell>
+                           </TableRow>
+                           )
+                         })}
+                      </TableBody>
+                   </Table>
+                   </div>
+                </Card>
+              )}
             </div>
           )}
         </>

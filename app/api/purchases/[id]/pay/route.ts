@@ -25,10 +25,9 @@ export async function POST(
   const actorPos = (actorUser?.position as any)?.name || ""
 
   const isFinanceManager = actorDept === 'ฝ่ายบัญชีและการเงิน' && actorPos === 'ผู้จัดการ'
-  const isCEOOrAdmin = userRole === 'ceo' || userRole === 'admin'
 
-  if (!isFinanceManager && !isCEOOrAdmin) {
-    return NextResponse.json({ error: "คุณไม่มีสิทธิ์ดำเนินการชำระเงินในหน้านี้ (ต้องเป็นผู้จัดการฝ่ายบัญชีและการเงิน หรือ CEO หรือ Admin)" }, { status: 403 })
+  if (!isFinanceManager) {
+    return NextResponse.json({ error: "คุณไม่มีสิทธิ์ดำเนินการชำระเงินในหน้านี้ (ต้องเป็นผู้จัดการฝ่ายบัญชีและการเงินเท่านั้น)" }, { status: 403 })
   }
 
   try {

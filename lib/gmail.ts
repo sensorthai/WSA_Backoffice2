@@ -123,6 +123,22 @@ export const sendPurchaseRejected = (to: string, data: any) => {
   return send(to, 'คำขอเบิกเงินไม่ผ่านการอนุมัติ', html)
 }
 
+// 6.1 Purchase Revision Requested
+export const sendPurchaseRevisionRequested = (to: string, data: any) => {
+  const html = `
+    <h2 style="color: #d97706; margin-bottom: 20px;">คำขอเบิกเงินต้องแก้ไขหรือแนบเอกสารเพิ่มเติม</h2>
+    <p>สวัสดีคุณ <strong>${data.name}</strong>,</p>
+    <p>ผู้อนุมัติ (<strong>${data.approverName}</strong>) ได้ตรวจสอบรายการ <strong>"${data.title}"</strong> ยอดเงิน <strong>${Number(data.totalAmount).toLocaleString()} ฿</strong> และขอให้แก้ไขหรือแนบเอกสารเพิ่มเติมดังนี้:</p>
+    <div style="background: #fffbeb; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #fef3c7; color: #92400e;">
+      <p style="margin: 0; font-weight: bold; font-size: 14px;">รายละเอียดที่ต้องแก้ไข/เอกสารที่ขอเพิ่ม:</p>
+      <p style="margin: 8px 0 0 0; font-size: 15px; line-height: 1.5;">${data.note || 'กรุณาตรวจสอบและอัปเดตข้อมูล'}</p>
+    </div>
+    <p>กรุณาเข้าสู่ระบบเพื่อแก้ไขข้อมูลและส่งใหม่อีกครั้ง:</p>
+    <div style="margin-top: 25px;"><a href="${process.env.NEXTAUTH_URL}/purchases" style="background-color: #d97706; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">ไปที่หน้ารายการจัดซื้อ</a></div>
+  `
+  return send(to, 'คำขอเบิกเงินต้องแก้ไขหรือแนบเอกสารเพิ่มเติม', html)
+}
+
 // 7. Car Booking Approved
 export const sendCarBookingApproved = (to: string, data: any) => {
   const html = `

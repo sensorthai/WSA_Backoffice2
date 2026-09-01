@@ -40,7 +40,7 @@
     "settings": "ตั้งค่าระบบ",
     "google_api": "ตั้งค่า Google API",
     "teaching_sub": {
-      "timetable": "ตารางสอน",
+      "timetable": "ตารางสอน & เช็คอิน",
       "checkin": "เช็คอินการสอน",
       "logbook": "สมุดบันทึก & รายงาน",
       "materials": "สื่อการสอน",

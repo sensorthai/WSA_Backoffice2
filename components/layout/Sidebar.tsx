@@ -134,7 +134,6 @@ export function Sidebar({ onClose }: SidebarProps) {
       requireTeacher: true,
       subItems: [
         { label: t("sidebar.teaching_sub.timetable"), href: "/teaching", icon: CalendarRange },
-        { label: t("sidebar.teaching_sub.checkin"), href: "/teaching/checkin", icon: UserCheck },
         { label: t("sidebar.teaching_sub.logbook"), href: "/teaching/logbook", icon: BookOpenCheck },
         { label: t("sidebar.teaching_sub.materials"), href: "/teaching/materials", icon: FileSpreadsheet },
         { label: t("sidebar.teaching_sub.timetable_grid"), href: "/teaching/timetable", icon: Grid3X3 },

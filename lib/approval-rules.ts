@@ -1,5 +1,5 @@
 export type ApprovalEntity = 'leave' | 'purchase' | 'car_booking' | 'reimbursement'
-export type ApprovalAction = 'approve' | 'reject'
+export type ApprovalAction = 'approve' | 'reject' | 'request_revision'
 export type ApprovalStage = 'supervisor' | 'ceo'
 
 export interface ApprovalRule {

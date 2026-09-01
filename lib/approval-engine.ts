@@ -5,6 +5,7 @@ import {
   sendLeaveRejected, 
   sendPurchaseApproved, 
   sendPurchaseRejected, 
+  sendPurchaseRevisionRequested,
   sendCarBookingApproved,
   sendPurchaseSubmitted 
 } from "./gmail"
@@ -71,11 +72,10 @@ export async function processApproval({
         throw new Error("คุณไม่มีสิทธิ์อนุมัติรายการนี้ (ต้องเป็นผู้จัดการฝ่ายอบรม หรือ CEO)")
       }
     } else if (stage === 'ceo') {
-      // Finance Manager: department 'ฝ่ายบัญชีและการเงิน' and position 'ผู้จัดการ'
+      // Payment Stage: Strictly Finance Manager (department 'ฝ่ายบัญชีและการเงิน' and position 'ผู้จัดการ')
       const isFinanceManager = actorDept === 'ฝ่ายบัญชีและการเงิน' && actorPos === 'ผู้จัดการ'
-      const isCEOOrAdmin = actorRole === 'ceo' || actorRole === 'admin'
-      if (!isFinanceManager && !isCEOOrAdmin) {
-        throw new Error("คุณไม่มีสิทธิ์อนุมัติรายการนี้ (ต้องเป็นผู้จัดการฝ่ายบัญชีและการเงิน หรือ CEO)")
+      if (!isFinanceManager) {
+        throw new Error("คุณไม่มีสิทธิ์ดำเนินการจ่ายเงิน (ต้องเป็นผู้จัดการฝ่ายบัญชีและการเงินเท่านั้น)")
       }
     }
   } else {
@@ -98,28 +98,45 @@ export async function processApproval({
   }
 
   // 4. Determine next status
-  let nextStatus = action === 'approve' ? rule[stage === 'supervisor' ? 'supervisorStatus' : 'ceoStatus'].approve : rule[stage === 'supervisor' ? 'supervisorStatus' : 'ceoStatus'].reject
+  let nextStatus = action === 'approve' 
+    ? rule[stage === 'supervisor' ? 'supervisorStatus' : 'ceoStatus'].approve 
+    : action === 'request_revision'
+    ? 'need_revision'
+    : rule[stage === 'supervisor' ? 'supervisorStatus' : 'ceoStatus'].reject
 
   // Special logic for escalation (Supervisor Stage)
   let escalationNeeded = false
-  if (stage === 'supervisor' && action === 'approve') {
-    const limit = record.user?.position?.approval_limit
-    if (typeof rule.requiresCeo === 'function') {
-      escalationNeeded = rule.requiresCeo(record, limit)
-    } else {
-      escalationNeeded = !!rule.requiresCeo
-    }
-
-    if (!escalationNeeded) {
-      // If no CEO needed, jump straight to final approved
-      nextStatus = rule.ceoStatus.approve
-    }
-  }
-
-  // If requester is a supervisor or has no higher supervisor, CEO/Admin approval directly approves the request
-  if (isSupervisorRequester && action === 'approve' && (actorRole === 'ceo' || actorRole === 'admin')) {
-    nextStatus = rule.ceoStatus.approve
+  if (action === 'request_revision') {
+    nextStatus = 'need_revision'
     escalationNeeded = false
+  } else if (entityType === 'reimbursement') {
+    if (stage === 'supervisor') {
+      nextStatus = action === 'approve' ? 'approved' : 'rejected'
+      escalationNeeded = action === 'approve'
+    } else {
+      nextStatus = action === 'approve' ? 'paid' : 'rejected'
+      escalationNeeded = false
+    }
+  } else {
+    if (stage === 'supervisor' && action === 'approve') {
+      const limit = record.user?.position?.approval_limit
+      if (typeof rule.requiresCeo === 'function') {
+        escalationNeeded = rule.requiresCeo(record, limit)
+      } else {
+        escalationNeeded = !!rule.requiresCeo
+      }
+
+      if (!escalationNeeded) {
+        // If no CEO needed, jump straight to final approved
+        nextStatus = rule.ceoStatus.approve
+      }
+    }
+
+    // If requester is a supervisor or has no higher supervisor, CEO/Admin approval directly approves the request
+    if (isSupervisorRequester && action === 'approve' && (actorRole === 'ceo' || actorRole === 'admin')) {
+      nextStatus = rule.ceoStatus.approve
+      escalationNeeded = false
+    }
   }
 
   // 5. Update Record
@@ -128,7 +145,17 @@ export async function processApproval({
     updated_at: new Date().toISOString()
   }
 
-  if (stage === 'ceo' || (isSupervisorRequester && (actorRole === 'ceo' || actorRole === 'admin'))) {
+  if (action === 'request_revision') {
+    if (stage === 'ceo') {
+      updateData.ceo_note = note ? `[ขอเอกสารเพิ่มเติม/แก้ไข]: ${note}` : '[ขอเอกสารเพิ่มเติม/แก้ไข]'
+    } else {
+      updateData.supervisor_id = actorUserId
+      updateData.supervisor_note = note ? `[ขอเอกสารเพิ่มเติม/แก้ไข]: ${note}` : '[ขอเอกสารเพิ่มเติม/แก้ไข]'
+    }
+    updateData.revision_note = note
+    updateData.revision_requested_at = new Date().toISOString()
+    updateData.revision_requested_by = actorUserId
+  } else if (stage === 'ceo' || (isSupervisorRequester && (actorRole === 'ceo' || actorRole === 'admin'))) {
     updateData.ceo_approved_at = new Date().toISOString()
     updateData.ceo_note = note
   } else if (stage === 'supervisor') {
@@ -183,11 +210,22 @@ export async function processApproval({
   const requesterName = record.user?.full_name
 
   // Notify Requester about current action
+  let notifTitle = 'ความคืบหน้าการอนุมัติ'
+  let notifMessage = `คำขอ ${entityType} ของคุณได้รับการอนุมัติในขั้น ${stage}`
+
+  if (action === 'request_revision') {
+    notifTitle = 'คำขอของคุณต้องแก้ไขหรือแนบเอกสารเพิ่มเติม'
+    notifMessage = note ? `ผู้อนุมัติขอให้แก้ไข: ${note}` : 'ผู้อนุมัติขอให้แก้ไขหรือแนบเอกสารเพิ่มเติม'
+  } else if (action === 'reject') {
+    notifTitle = 'คำขอของคุณถูกปฏิเสธ'
+    notifMessage = `คำขอ ${entityType} ถูกปฏิเสธโดยผู้อนุมัติ`
+  }
+
   await supabase.from('notifications').insert({
     user_id: requesterId,
-    type: `${entityType}_update`,
-    title: action === 'approve' ? 'ความคืบหน้าการอนุมัติ' : 'คำขอของคุณถูกปฏิเสธ',
-    message: action === 'approve' ? `คำขอ ${entityType} ของคุณได้รับการอนุมัติในขั้น ${stage}` : `คำขอ ${entityType} ถูกปฏิเสธโดยผู้อนุมัติ`,
+    type: action === 'request_revision' ? `${entityType}_revision` : `${entityType}_update`,
+    title: notifTitle,
+    message: notifMessage,
     reference_id: entityId,
     reference_type: table
   })
@@ -251,15 +289,17 @@ export async function processApproval({
     }
   }
 
-  // 8. Email to Requester on Final Result
-  if (action === 'reject' || (action === 'approve' && !escalationNeeded) || stage === 'ceo') {
-    if (requesterEmail) {
-      const emailData = {
-        name: requesterName,
-        approverName: actorRole,
-        note
-      }
+  // 8. Email to Requester on Result / Revision
+  if (requesterEmail) {
+    const emailData = {
+      name: requesterName,
+      approverName: actorRole,
+      note
+    }
 
+    if (action === 'request_revision' && entityType === 'purchase') {
+      sendPurchaseRevisionRequested(requesterEmail, { ...emailData, title: record.title, totalAmount: record.total_amount })
+    } else if (action === 'reject' || (action === 'approve' && !escalationNeeded) || stage === 'ceo') {
       if (entityType === 'leave') {
         action === 'approve' 
           ? sendLeaveApproved(requesterEmail, { ...emailData, leaveType: record.leave_type, startDate: record.start_date, endDate: record.end_date })

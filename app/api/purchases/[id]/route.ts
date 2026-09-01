@@ -132,7 +132,7 @@ export async function PUT(
       canEdit = true
     } else if (isFinanceManager && purchase.status !== 'paid') {
       canEdit = true
-    } else if (isOwner && purchase.status === 'pending') {
+    } else if (isOwner && (purchase.status === 'pending' || purchase.status === 'need_revision')) {
       canEdit = true
     }
 
@@ -216,6 +216,15 @@ export async function PUT(
       }
     }
 
+    const {
+      status,
+      resubmit
+    } = body
+
+    if (resubmit || (status === 'pending' && purchase.status === 'need_revision')) {
+      updatePayload.status = 'pending'
+    }
+
     // 4. Update
     const { data: updated, error: updateError } = await supabase
       .from('purchase_requests')
@@ -225,6 +234,21 @@ export async function PUT(
       .single()
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+    // Notify approver if resubmitted
+    if (updatePayload.status === 'pending' && purchase.status === 'need_revision') {
+      const approverId = purchase.supervisor_id
+      if (approverId) {
+        await supabase.from('notifications').insert({
+          user_id: approverId,
+          type: 'purchase_update',
+          title: 'คำขอจัดซื้อได้รับการแก้ไขและส่งใหม่',
+          message: `${session.user.name || "พนักงาน"} ได้แก้ไขข้อมูลคำขอ "${updatePayload.title || purchase.title}" และส่งให้พิจารณาใหม่เรียบร้อยแล้ว`,
+          reference_id: params.id,
+          reference_type: 'purchase_requests'
+        })
+      }
+    }
 
     return NextResponse.json(updated)
   } catch {
