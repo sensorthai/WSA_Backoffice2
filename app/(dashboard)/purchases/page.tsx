@@ -989,7 +989,7 @@ ${form.purpose || "-"}
           
           <div style="display: flex; align-items: center; margin-bottom: 25px; font-size: 14px;">
             <span style="white-space: nowrap;">บจ. / หจก.</span>
-            <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin: 0 10px; font-weight: bold; text-align: center; min-height: 20px;">${selectedPurchase.vendor_name || selectedPurchase.vendor || '-'}</span>
+            <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin: 0 10px; font-weight: bold; text-align: center; min-height: 20px;">บริษัท ไวร์เลส โซลูชั่น เอเชีย จำกัด</span>
             <span style="white-space: nowrap;">(ผู้ซื้อ / ผู้ใช้บริการ)</span>
           </div>
 
