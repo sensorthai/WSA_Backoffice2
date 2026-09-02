@@ -25,7 +25,8 @@ import {
   Banknote,
   AlertTriangle,
   Eye,
-  Clock
+  Clock,
+  Printer
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -287,6 +288,144 @@ export default function ApprovalsPage() {
     }
   }
 
+  const handlePrint = (purchaseItem: any) => {
+    if (!purchaseItem) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error("กรุณาอนุญาต Pop-up บนเบราว์เซอร์เพื่อพิมพ์เอกสาร");
+      return;
+    }
+
+    const docDate = purchaseItem.document_date ? format(new Date(purchaseItem.document_date), "d MMMM yyyy", { locale: th }) : (purchaseItem.created_at ? format(new Date(purchaseItem.created_at), "d MMMM yyyy", { locale: th }) : "-");
+    
+    const paymentLabels: Record<string, string> = { 
+      petty_cash: 'เงินสดย่อย', 
+      credit_card: 'ตัดบัตรเครดิต', 
+      k_biz: 'K BIZ (โอน)' 
+    };
+
+    const items = purchaseItem.items || [];
+    // คำนวณยอดสำหรับสรุป (fallback จากรายการ หากไม่มีค่าในฐานข้อมูล)
+    const computedItemsTotal = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
+    const printBeforeVat = Number(purchaseItem.amount_before_vat) > 0 ? Number(purchaseItem.amount_before_vat) : computedItemsTotal;
+    const printVat = Number(purchaseItem.vat_amount) || 0;
+    const printTotal = Number(purchaseItem.total_amount) || (printBeforeVat + printVat);
+
+    // Render minimum 5 rows to match physical form
+    const minRows = 5;
+    const rowsToRender = Math.max(items.length, minRows);
+    let rowsHtml = '';
+    for (let i = 0; i < rowsToRender; i++) {
+      const item = items[i];
+      if (item) {
+        rowsHtml += `
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px;">${docDate}</td>
+            <td style="border: 1px solid #000; padding: 10px; font-size: 14px;">${item.name} (จำนวน: ${item.quantity} x ${Number(item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿)</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: right; font-size: 14px;">${(item.quantity * item.unit_price).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center; font-size: 14px;">-</td>
+          </tr>
+        `;
+      } else {
+        rowsHtml += `
+          <tr>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+            <td style="border: 1px solid #000; padding: 10px; height: 35px;"></td>
+          </tr>
+        `;
+      }
+    }
+
+    const html = `
+      <html>
+        <head>
+          <title>ใบรับรองแทนใบเสร็จรับเงิน - ${purchaseItem.document_number || 'TEMP'}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+            body { font-family: 'Sarabun', sans-serif; color: #000; padding: 40px; line-height: 1.6; max-width: 850px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 25px; }
+            @media print {
+              body { padding: 20px; }
+              .no-print { display: none; }
+              .attachment-page { page-break-before: always; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background-color: #0070f3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-family: 'Sarabun', sans-serif;">พิมพ์เอกสาร (Print)</button>
+          </div>
+          <div class="header" style="margin-top: 20px;">
+            <h1 style="font-size: 22px; font-weight: bold; margin: 0;">ใบรับรองแทนใบเสร็จรับเงิน</h1>
+          </div>
+          
+          <div style="display: flex; align-items: center; margin-bottom: 25px; font-size: 14px;">
+            <span style="white-space: nowrap;">บจ. / หจก.</span>
+            <span style="border-bottom: 1px dotted #000; flex-grow: 1; margin: 0 10px; font-weight: bold; text-align: center; min-height: 20px;">บริษัท ไวร์เลส โซลูชั่น เอเชีย จำกัด</span>
+            <span style="white-space: nowrap;">(ผู้ซื้อ / ผู้ใช้บริการ)</span>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+              <tr>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">วัน เดือน ปี</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 55%; background-color: #f5f5f5;">รายละเอียดรายจ่าย</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">จำนวนเงิน</th>
+                <th style="border: 1px solid #000; padding: 10px; text-align: center; font-weight: bold; width: 15%; background-color: #f5f5f5;">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div style="display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 30px; gap: 20px;">
+            <div style="border: 1px solid #000; padding: 15px; font-size: 14px; font-weight: bold; width: 350px; display: flex; flex-direction: column; justify-content: center;">
+              วิธีการชำระเงิน: ${paymentLabels[purchaseItem.payment_method] || purchaseItem.payment_method || '-'}
+            </div>
+            <div style="display: flex; align-items: center; font-size: 14px; font-weight: bold;">
+              <span style="margin-right: 15px; white-space: nowrap;">รวมเป็นเงิน</span>
+              <div style="border: 1px solid #000; padding: 12px 25px; min-width: 180px; text-align: right; background-color: #fafafa; font-size: 16px; font-weight: bold;">
+                ${printTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 30px; font-size: 14px; line-height: 2.2;">
+            <div>ข้าพเจ้า <span style="border-bottom: 1px dotted #000; display: inline-block; width: 300px; text-align: center; font-weight: bold; padding: 0 5px;">${purchaseItem.user?.full_name || '-'}</span> (ผู้สั่งจ่าย) ตำแหน่ง <span style="border-bottom: 1px dotted #000; display: inline-block; width: 250px; text-align: center; font-weight: bold; padding: 0 5px;">${purchaseItem.user?.position || '-'}</span></div>
+            <div>ขอรับรองว่า รายจ่ายข้างต้นนี้ไม่อาจเรียกเก็บใบเสร็จรับเงินจากผู้รับได้ และได้จ่ายไปเพื่องานของ</div>
+            <div><strong>บริษัท ไวร์เลส โซลูชั่น เอเชีย จำกัด</strong> ตั้งแต่วันที่ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 150px; text-align: center; font-weight: bold; padding: 0 5px;">${docDate}</span> ถึงวันที่ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 150px; text-align: center; font-weight: bold; padding: 0 5px;">${docDate}</span></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 45px; gap: 20px; padding-right: 20px; font-size: 14px; line-height: 1.8;">
+            <div>
+              ลงชื่อ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 200px; margin: 0 10px;"></span> (ผู้จ่ายเงิน)
+            </div>
+            <div>
+              ลงชื่อ <span style="border-bottom: 1px dotted #000; display: inline-block; width: 200px; margin: 0 10px;"></span> (ผู้อนุมัติ)
+            </div>
+          </div>
+
+          ${purchaseItem.receipt_url ? (() => {
+            const urls = getReceiptUrls(purchaseItem.receipt_url);
+            return urls.map((url, i) => `
+              <div class="attachment-page" style="margin-top: 40px; text-align: center;">
+                <h2 style="font-size: 18px; border-bottom: 2px solid #eee; padding-bottom: 5px; color: #555; text-align: left;">เอกสารแนบ (Attachment) ${urls.length > 1 ? `#${i + 1}` : ''}</h2>
+                <div style="text-align: center; margin-top: 20px;">
+                  <img src="${url}" style="max-width: 100%; max-height: 800px; object-fit: contain; border: 1px solid #ccc; padding: 10px; border-radius: 8px;" />
+                </div>
+              </div>
+            `).join('');
+          })() : ''}
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'leave': return <FileText className="text-emerald-500" />
@@ -451,6 +590,17 @@ export default function ApprovalsPage() {
                       </div>
                     )
                  })()}
+
+                <div className="pt-2">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="w-full h-12 rounded-2xl font-bold text-slate-700 border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center gap-2 shadow-sm"
+                    onClick={() => handlePrint(item)}
+                  >
+                    <Printer size={16} className="text-blue-600" /> พิมพ์เอกสารเบิก / ใบรับรองแทนใบเสร็จรับเงิน (Print)
+                  </Button>
+                </div>
 
                 {item.receipt_url && (() => {
                   const urls = getReceiptUrls(item.receipt_url);
@@ -650,16 +800,39 @@ export default function ApprovalsPage() {
       {selectedItem ? (
         /* ===== IN-PAGE DETAIL PANEL (แทนที่ Dialog modal) ===== */
         <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-          <Button 
-            variant="ghost" 
-            onClick={() => { setSelectedItem(null); setRejectNote(''); }} 
-            className="mb-4 rounded-xl text-slate-500 hover:text-slate-700 font-bold"
-          >
-            <ArrowLeft className="mr-2 w-4 h-4" /> กลับไปรายการ
-          </Button>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <Button 
+              variant="ghost" 
+              onClick={() => { setSelectedItem(null); setRejectNote(''); }} 
+              className="rounded-xl text-slate-500 hover:text-slate-700 font-bold"
+            >
+              <ArrowLeft className="mr-2 w-4 h-4" /> กลับไปรายการ
+            </Button>
+            {selectedItem.type === 'purchase' && (
+              <Button 
+                variant="outline" 
+                className="h-10 rounded-2xl font-bold text-slate-700 bg-white hover:bg-slate-50 border-slate-200 shadow-sm gap-2"
+                onClick={() => handlePrint(selectedItem)}
+              >
+                <Printer size={16} className="text-blue-600" /> พิมพ์เอกสาร (Print)
+              </Button>
+            )}
+          </div>
           <Card className="rounded-[2rem] md:rounded-[3rem] border-0 shadow-xl overflow-hidden">
             <CardContent className="p-6 md:p-10">
-              <h3 className="text-slate-400 font-black text-xs uppercase tracking-widest mb-6">รายละเอียดคำขอ</h3>
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                <h3 className="text-slate-400 font-black text-xs uppercase tracking-widest">รายละเอียดคำขอ</h3>
+                {selectedItem.type === 'purchase' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="rounded-xl font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200 gap-2 text-xs"
+                    onClick={() => handlePrint(selectedItem)}
+                  >
+                    <Printer size={14} className="text-blue-600" /> พิมพ์เอกสารเบิก (Print)
+                  </Button>
+                )}
+              </div>
               {renderDetail(selectedItem)}
             </CardContent>
           </Card>
