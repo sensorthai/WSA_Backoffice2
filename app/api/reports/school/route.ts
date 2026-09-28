@@ -83,14 +83,21 @@ export async function GET(req: NextRequest) {
   }))
 
   // Attendance stats per student
-  const studentAttMap: Record<string, { present: number; absent: number; late: number; leave: number }> = {}
+  const studentAttMap: Record<string, { present: number; absent: number; late: number; leave: number; sick: number; personal: number }> = {}
   for (const a of attendance) {
     const sid = a.student_id
-    if (!studentAttMap[sid]) studentAttMap[sid] = { present: 0, absent: 0, late: 0, leave: 0 }
+    if (!studentAttMap[sid]) studentAttMap[sid] = { present: 0, absent: 0, late: 0, leave: 0, sick: 0, personal: 0 }
     if (a.status === 'present') studentAttMap[sid].present++
     else if (a.status === 'absent') studentAttMap[sid].absent++
     else if (a.status === 'late') studentAttMap[sid].late++
-    else if (a.status === 'leave') studentAttMap[sid].leave++
+    else if (a.status === 'sick' || a.status === 'sick_leave') {
+      studentAttMap[sid].sick++
+      studentAttMap[sid].leave++
+    }
+    else if (a.status === 'personal' || a.status === 'personal_leave' || a.status === 'leave') {
+      studentAttMap[sid].personal++
+      studentAttMap[sid].leave++
+    }
   }
 
   // Students with issues (absent >= 2 or late >= 2)
@@ -108,7 +115,9 @@ export async function GET(req: NextRequest) {
   const totalPresent = attendance.filter(a => a.status === 'present').length
   const totalAbsent = attendance.filter(a => a.status === 'absent').length
   const totalLate = attendance.filter(a => a.status === 'late').length
-  const totalLeave = attendance.filter(a => a.status === 'leave').length
+  const totalSick = attendance.filter(a => a.status === 'sick' || a.status === 'sick_leave').length
+  const totalPersonal = attendance.filter(a => a.status === 'personal' || a.status === 'personal_leave' || a.status === 'leave').length
+  const totalLeave = totalSick + totalPersonal
   const totalAtt = attendance.length
 
   // Teachers summary
@@ -129,16 +138,23 @@ export async function GET(req: NextRequest) {
   }
 
   // Attendance by classroom
-  const classAttMap: Record<string, { present: number; absent: number; late: number; leave: number }> = {}
+  const classAttMap: Record<string, { present: number; absent: number; late: number; leave: number; sick: number; personal: number }> = {}
   for (const log of allLogs) {
     const cls = log.class_level || 'ไม่ระบุ'
-    if (!classAttMap[cls]) classAttMap[cls] = { present: 0, absent: 0, late: 0, leave: 0 }
+    if (!classAttMap[cls]) classAttMap[cls] = { present: 0, absent: 0, late: 0, leave: 0, sick: 0, personal: 0 }
     const logAtt = attendanceByLog[log.id] || []
     for (const a of logAtt) {
       if (a.status === 'present') classAttMap[cls].present++
       else if (a.status === 'absent') classAttMap[cls].absent++
       else if (a.status === 'late') classAttMap[cls].late++
-      else if (a.status === 'leave') classAttMap[cls].leave++
+      else if (a.status === 'sick' || a.status === 'sick_leave') {
+        classAttMap[cls].sick++
+        classAttMap[cls].leave++
+      }
+      else if (a.status === 'personal' || a.status === 'personal_leave' || a.status === 'leave') {
+        classAttMap[cls].personal++
+        classAttMap[cls].leave++
+      }
     }
   }
   const attendanceByClassroom = Object.entries(classAttMap).map(([cls, att]) => {

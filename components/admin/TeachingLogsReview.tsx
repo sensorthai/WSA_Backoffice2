@@ -786,11 +786,12 @@ export function TeachingLogsReview() {
                   <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <Users className="h-4 w-4 text-emerald-500" /> เช็คชื่อนักเรียน ({logAttendance.length} คน)
                   </h4>
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex flex-wrap gap-2 text-xs">
                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">มา {logAttendance.filter((a: any) => a.status === 'present').length}</Badge>
                     <Badge className="bg-red-50 text-red-700 border-red-200">ขาด {logAttendance.filter((a: any) => a.status === 'absent').length}</Badge>
                     <Badge className="bg-amber-50 text-amber-700 border-amber-200">สาย {logAttendance.filter((a: any) => a.status === 'late').length}</Badge>
-                    <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลา {logAttendance.filter((a: any) => a.status === 'leave').length}</Badge>
+                    <Badge className="bg-purple-50 text-purple-700 border-purple-200">ลาป่วย {logAttendance.filter((a: any) => a.status === 'sick' || a.status === 'sick_leave').length}</Badge>
+                    <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลากิจ {logAttendance.filter((a: any) => a.status === 'personal' || a.status === 'personal_leave' || a.status === 'leave').length}</Badge>
                   </div>
                   <div className="bg-slate-50 rounded-lg border max-h-[180px] overflow-y-auto">
                     <table className="w-full text-xs">
@@ -805,8 +806,18 @@ export function TeachingLogsReview() {
                             <td className="px-2 py-1 text-slate-400">{att.student?.student_number || '-'}</td>
                             <td className="px-2 py-1">{att.student?.prefix}{att.student?.first_name} {att.student?.last_name}</td>
                             <td className="px-2 py-1 text-center">
-                              <Badge className={`text-[10px] ${att.status === 'present' ? 'bg-emerald-100 text-emerald-700' : att.status === 'absent' ? 'bg-red-100 text-red-700' : att.status === 'late' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                                {att.status === 'present' ? 'มา' : att.status === 'absent' ? 'ขาด' : att.status === 'late' ? 'สาย' : 'ลา'}
+                              <Badge className={`text-[10px] ${
+                                att.status === 'present' 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : att.status === 'absent' 
+                                  ? 'bg-red-100 text-red-700' 
+                                  : att.status === 'late' 
+                                  ? 'bg-amber-100 text-amber-700' 
+                                  : att.status === 'sick' || att.status === 'sick_leave'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {att.status === 'present' ? 'มา' : att.status === 'absent' ? 'ขาด' : att.status === 'late' ? 'สาย' : att.status === 'sick' || att.status === 'sick_leave' ? 'ลาป่วย' : 'ลากิจ'}
                               </Badge>
                             </td>
                           </tr>

@@ -200,7 +200,7 @@ export function ReportsSchool() {
         if (a.status === 'present') present++
         else if (a.status === 'absent') absent++
         else if (a.status === 'late') late++
-        else if (a.status === 'leave') leave++
+        else if (a.status === 'leave' || a.status === 'sick' || a.status === 'personal' || a.status === 'sick_leave' || a.status === 'personal_leave') leave++
       }
     }
     
@@ -250,7 +250,7 @@ export function ReportsSchool() {
     excellent: "ดีมาก", good: "ดี", fair: "พอใช้", needs_improvement: "ต้องปรับปรุง"
   }
   const statusTh: Record<string, string> = {
-    present: "มา", absent: "ขาด", late: "สาย", leave: "ลา"
+    present: "มา", absent: "ขาด", late: "สาย", leave: "ลา", sick: "ลาป่วย", personal: "ลากิจ", sick_leave: "ลาป่วย", personal_leave: "ลากิจ"
   }
 
   const generatePDF = useCallback((rpt: any, periodLabel: string) => {
@@ -259,7 +259,7 @@ export function ReportsSchool() {
     const logsHtml = (rpt.logs || []).map((log: any) => {
       const attList = rpt.attendance_by_log?.[log.id] || []
       const attRows = attList.map((a: any, i: number) =>
-        `<tr><td style="padding:4px 8px;border:1px solid #ddd;text-align:center">${a.student_number||i+1}</td><td style="padding:4px 8px;border:1px solid #ddd">${a.name}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${a.status==='present'?'#059669':a.status==='absent'?'#dc2626':a.status==='late'?'#d97706':'#2563eb'}">${sMap[a.status]||a.status}</td></tr>`
+        `<tr><td style="padding:4px 8px;border:1px solid #ddd;text-align:center">${a.student_number||i+1}</td><td style="padding:4px 8px;border:1px solid #ddd">${a.name}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${a.status==='present'?'#059669':a.status==='absent'?'#dc2626':a.status==='late'?'#d97706':a.status==='sick'||a.status==='sick_leave'?'#9333ea':'#2563eb'}">${sMap[a.status]||a.status}</td></tr>`
       ).join('')
       return `<div style="page-break-inside:avoid;margin-bottom:14px;border:1px solid #ccc;border-radius:6px;overflow:hidden">
         <div style="background:#f3f4f6;padding:8px 14px;border-bottom:1px solid #ddd">

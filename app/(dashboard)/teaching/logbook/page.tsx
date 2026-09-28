@@ -211,7 +211,8 @@ function LogbookContent() {
     const map: Record<string, { status: string; reason: string }> = {}
     existingAtt.forEach((a: any) => {
       if (a.student_id) {
-        map[a.student_id] = { status: a.status, reason: a.reason || "" }
+        const st = a.status === "leave" ? "personal" : a.status
+        map[a.student_id] = { status: st, reason: a.reason || "" }
       }
     })
     setAttendanceMap(map)
@@ -337,7 +338,8 @@ function LogbookContent() {
               const present = att.filter((a: any) => a.status === 'present').length
               const absent = att.filter((a: any) => a.status === 'absent').length
               const late = att.filter((a: any) => a.status === 'late').length
-              const leave = att.filter((a: any) => a.status === 'leave').length
+              const sick = att.filter((a: any) => a.status === 'sick' || a.status === 'sick_leave').length
+              const personal = att.filter((a: any) => a.status === 'personal' || a.status === 'personal_leave' || a.status === 'leave').length
               const st = statusMap[log.status] || statusMap.pending
               const canEdit = log.status === 'draft' || log.status === 'pending'
 
@@ -411,12 +413,13 @@ function LogbookContent() {
                       <Badge variant="outline" className="text-[10px]">พฤติกรรม: {behaviorMap[log.student_behavior] || log.student_behavior}</Badge>
                     )}
                     {att.length > 0 && (
-                      <div className="flex items-center gap-1.5 ml-auto">
+                      <div className="flex items-center gap-1.5 ml-auto flex-wrap">
                         <Users className="h-3 w-3 text-slate-400" />
                         <span className="text-emerald-600 font-bold">✓{present}</span>
                         {absent > 0 && <span className="text-red-600 font-bold">ขาด{absent}</span>}
                         {late > 0 && <span className="text-amber-600 font-bold">สาย{late}</span>}
-                        {leave > 0 && <span className="text-blue-600 font-bold">ลา{leave}</span>}
+                        {sick > 0 && <span className="text-purple-600 font-bold">ป่วย{sick}</span>}
+                        {personal > 0 && <span className="text-blue-600 font-bold">กิจ{personal}</span>}
                       </div>
                     )}
                     {log.report_notes && (
@@ -555,28 +558,52 @@ function LogbookContent() {
                       <th className="text-center px-1 py-1.5 w-10">มา</th>
                       <th className="text-center px-1 py-1.5 w-10">ขาด</th>
                       <th className="text-center px-1 py-1.5 w-10">สาย</th>
-                      <th className="text-center px-1 py-1.5 w-10">ลา</th>
+                      <th className="text-center px-1 py-1.5 w-12">ลาป่วย</th>
+                      <th className="text-center px-1 py-1.5 w-12">ลากิจ</th>
                     </tr></thead>
                     <tbody>{classStudents.map((s: any) => {
                       const att = attendanceMap[s.id]
                       return (<tr key={s.id} className="border-t border-slate-100">
                         <td className="px-3 py-1 text-slate-400">{s.student_number}</td>
                         <td className="px-3 py-1">{s.prefix}{s.first_name} {s.last_name}</td>
-                        {(["present","absent","late","leave"] as const).map(st => (
-                          <td key={st} className="text-center px-1 py-1">
-                            <button type="button" disabled={isReadOnly} className={`w-7 h-7 rounded-full text-xs font-bold ${att?.status===st ? st==="present"?"bg-emerald-500 text-white":st==="absent"?"bg-red-500 text-white":st==="late"?"bg-amber-500 text-white":"bg-blue-500 text-white" : "bg-slate-200 text-slate-400 hover:bg-slate-300"}`}
-                              onClick={() => setStudentAttendance(s.id, st)}>{st==="present"?"✓":st==="absent"?"✗":st==="late"?"L":"ลา"}</button>
-                          </td>
-                        ))}
+                        {(["present","absent","late","sick","personal"] as const).map(st => {
+                          const isSelected = att?.status === st || (st === "personal" && att?.status === "leave")
+                          return (
+                            <td key={st} className="text-center px-1 py-1">
+                              <button
+                                type="button"
+                                disabled={isReadOnly}
+                                className={cn(
+                                  "w-7 h-7 rounded-full text-xs font-bold transition-colors",
+                                  isSelected
+                                    ? st === "present"
+                                      ? "bg-emerald-500 text-white"
+                                      : st === "absent"
+                                      ? "bg-red-500 text-white"
+                                      : st === "late"
+                                      ? "bg-amber-500 text-white"
+                                      : st === "sick"
+                                      ? "bg-purple-500 text-white"
+                                      : "bg-blue-500 text-white"
+                                    : "bg-slate-200 text-slate-400 hover:bg-slate-300"
+                                )}
+                                onClick={() => setStudentAttendance(s.id, st)}
+                              >
+                                {st === "present" ? "✓" : st === "absent" ? "✗" : st === "late" ? "สาย" : st === "sick" ? "ป่วย" : "กิจ"}
+                              </button>
+                            </td>
+                          )
+                        })}
                       </tr>)
                     })}</tbody>
                   </table>
                 </div>
-                <div className="flex gap-2 text-xs">
+                <div className="flex flex-wrap gap-2 text-xs">
                   <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">มา {Object.values(attendanceMap).filter(v=>v.status==="present").length}</Badge>
                   <Badge className="bg-red-50 text-red-700 border-red-200">ขาด {Object.values(attendanceMap).filter(v=>v.status==="absent").length}</Badge>
                   <Badge className="bg-amber-50 text-amber-700 border-amber-200">สาย {Object.values(attendanceMap).filter(v=>v.status==="late").length}</Badge>
-                  <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลา {Object.values(attendanceMap).filter(v=>v.status==="leave").length}</Badge>
+                  <Badge className="bg-purple-50 text-purple-700 border-purple-200">ลาป่วย {Object.values(attendanceMap).filter(v=>v.status==="sick"||v.status==="sick_leave").length}</Badge>
+                  <Badge className="bg-blue-50 text-blue-700 border-blue-200">ลากิจ {Object.values(attendanceMap).filter(v=>v.status==="personal"||v.status==="personal_leave"||v.status==="leave").length}</Badge>
                 </div>
               </div>
             )}

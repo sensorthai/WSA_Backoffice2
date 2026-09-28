@@ -131,7 +131,9 @@ export async function GET(req: NextRequest) {
   const totalPresent = attendance.filter((a: any) => a.status === "present").length
   const totalAbsent = attendance.filter((a: any) => a.status === "absent").length
   const totalLate = attendance.filter((a: any) => a.status === "late").length
-  const totalLeave = attendance.filter((a: any) => a.status === "leave").length
+  const totalSick = attendance.filter((a: any) => a.status === "sick" || a.status === "sick_leave").length
+  const totalPersonal = attendance.filter((a: any) => a.status === "personal" || a.status === "personal_leave" || a.status === "leave").length
+  const totalLeave = totalSick + totalPersonal
   const averageAttendanceRate = totalAttRecords > 0
     ? Math.round(((totalPresent + totalLate) / totalAttRecords) * 100)
     : 0
@@ -192,14 +194,21 @@ export async function GET(req: NextRequest) {
     }))
 
   // Per-student attendance summary
-  const studentAttMap: Record<string, { present: number; absent: number; late: number; leave: number }> = {}
+  const studentAttMap: Record<string, { present: number; absent: number; late: number; leave: number; sick: number; personal: number }> = {}
   for (const a of attendance) {
     const sid = a.student_id
-    if (!studentAttMap[sid]) studentAttMap[sid] = { present: 0, absent: 0, late: 0, leave: 0 }
+    if (!studentAttMap[sid]) studentAttMap[sid] = { present: 0, absent: 0, late: 0, leave: 0, sick: 0, personal: 0 }
     if (a.status === "present") studentAttMap[sid].present++
     else if (a.status === "absent") studentAttMap[sid].absent++
     else if (a.status === "late") studentAttMap[sid].late++
-    else if (a.status === "leave") studentAttMap[sid].leave++
+    else if (a.status === "sick" || a.status === "sick_leave") {
+      studentAttMap[sid].sick++
+      studentAttMap[sid].leave++
+    }
+    else if (a.status === "personal" || a.status === "personal_leave" || a.status === "leave") {
+      studentAttMap[sid].personal++
+      studentAttMap[sid].leave++
+    }
   }
 
   // Unique subjects taught
