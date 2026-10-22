@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Loader2, Car } from "lucide-react"
+import { Search, Plus, Edit2, Loader2, Car } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -39,6 +40,9 @@ export function CarsTable() {
   const [isUploadingInsurance, setIsUploadingInsurance] = useState(false)
   const [isUploadingCtp, setIsUploadingCtp] = useState(false)
   const [isUploadingRegBook, setIsUploadingRegBook] = useState(false)
+  const [carSearch, setCarSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const { data: cars, isLoading } = useQuery({
     queryKey: ["admin-cars"],
@@ -63,6 +67,29 @@ export function CarsTable() {
       return res.json()
     }
   })
+
+  const filteredCars = useMemo(() => {
+    if (!Array.isArray(cars)) return []
+    return cars.filter((c: any) => {
+      if (typeFilter !== "all" && c.type !== typeFilter) return false
+      if (statusFilter === "available" && !c.is_available) return false
+      if (statusFilter === "unavailable" && c.is_available) return false
+      if (carSearch.trim()) {
+        const q = carSearch.toLowerCase().trim()
+        const matchPlate = (c.license_plate || "").toLowerCase().includes(q)
+        const matchModel = (c.model || "").toLowerCase().includes(q)
+        const matchColor = (c.color || "").toLowerCase().includes(q)
+        const caretakerName = users?.find((u: any) => u.id === c.caretaker_id)?.full_name || ""
+        const matchCaretaker = caretakerName.toLowerCase().includes(q)
+        if (!matchPlate && !matchModel && !matchColor && !matchCaretaker) return false
+      }
+      return true
+    })
+  }, [cars, typeFilter, statusFilter, carSearch, users])
+
+  const carsPagination = useTablePagination(filteredCars, 10, [10, 20, 30, 50, 100])
+
+
 
   const form = useForm<z.infer<typeof carSchema>>({
     resolver: zodResolver(carSchema) as any,
@@ -458,7 +485,7 @@ export function CarsTable() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
           <div className="col-span-full py-12 text-center text-slate-500">กำลังโหลด...</div>
-        ) : cars?.map((car: any) => (
+        ) : carsPagination.paginatedItems.map((car: any) => (
           <div key={car.id} className="bg-white border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
             <div className="flex items-start justify-between">
               <div className="bg-blue-50 p-3 rounded-xl">
@@ -528,6 +555,18 @@ export function CarsTable() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={carsPagination.currentPage}
+          totalPages={carsPagination.totalPages}
+          totalItems={carsPagination.totalItems}
+          pageSize={carsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={carsPagination.setCurrentPage}
+          onPageSizeChange={carsPagination.setPageSize}
+          itemLabel="คัน"
+        />
       </div>
     </div>
   )

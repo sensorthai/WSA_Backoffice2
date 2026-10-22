@@ -2,13 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format, parseISO, isWeekend, addDays } from "date-fns"
 import { th } from "date-fns/locale"
 import { toast } from "sonner"
 import { 
+  Search,
   Plus, 
   CalendarRange, 
   Clock, 
@@ -34,11 +35,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 export default function LeavesPage() {
   const queryClient = useQueryClient()
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
   
   // Form State
   const [leaveType, setLeaveType] = useState("vacation")
@@ -83,6 +86,21 @@ export default function LeavesPage() {
       return res.json()
     }
   })
+
+  const filteredLeaves = useMemo(() => {
+    const list = Array.isArray(data?.data) ? data.data : []
+    if (!searchQuery.trim()) return list
+    const q = searchQuery.toLowerCase().trim()
+    return list.filter((l: any) => {
+      const typeStr = l.leave_type === 'sick' ? 'ป่วย' : l.leave_type === 'personal' ? 'กิจ' : 'พักร้อน'
+      const matchType = typeStr.includes(q) || (l.leave_type || "").toLowerCase().includes(q)
+      const matchReason = (l.reason || "").toLowerCase().includes(q)
+      const matchDays = String(l.days_count || "").includes(q)
+      return matchType || matchReason || matchDays
+    })
+  }, [data?.data, searchQuery])
+
+  const leavesPagination = useTablePagination(filteredLeaves, 10, [10, 20, 30, 50, 100])
 
   // 1.1 Fetch Stats
   const { data: stats } = useQuery({
@@ -427,15 +445,30 @@ export default function LeavesPage() {
 
           {/* Filters & Content */}
           <div className="space-y-6">
-            <div className="flex items-center justify-between px-4">
-              <div className="flex items-center gap-3 font-black text-slate-900 uppercase tracking-widest text-sm">
-                <FileText size={18} className="text-slate-400" /> รายการใบลาของคุณ
+            <div className="bg-white p-4 md:p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="ค้นหาตามประเภทการลา, เหตุผล..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    leavesPagination.setCurrentPage(1)
+                  }}
+                  className="pl-11 h-11 bg-slate-50 border-slate-200 rounded-2xl text-sm font-medium"
+                />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px] rounded-xl border-slate-200 bg-white">
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => {
+                  setStatusFilter(val)
+                  leavesPagination.setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[180px] h-11 rounded-2xl border-slate-200 bg-slate-50 font-bold text-xs text-slate-700">
                   <SelectValue placeholder="ทุกสถานะ" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl">
+                <SelectContent className="rounded-2xl">
                   <SelectItem value="all">ทุกสถานะ</SelectItem>
                   <SelectItem value="pending">รออนุมัติ</SelectItem>
                   <SelectItem value="approved">อนุมัติแล้ว</SelectItem>
@@ -449,7 +482,7 @@ export default function LeavesPage() {
                 <Loader2 className="w-12 h-12 animate-spin text-emerald-200" />
                 <p className="text-slate-400 font-bold">กำลังรวบรวมข้อมูลรายการลาของคุณ...</p>
               </div>
-            ) : !data?.data || data.data.length === 0 ? (
+            ) : filteredLeaves.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 gap-6 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200">
                 <div className="p-8 bg-white rounded-full shadow-sm text-slate-200">
                    <CalendarRange size={64} />
@@ -467,8 +500,9 @@ export default function LeavesPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {data.data.map((leave: any) => (
+              <>
+                <div className="grid grid-cols-1 gap-4">
+                {leavesPagination.paginatedItems.map((leave: any) => (
                   <Card key={leave.id} className="group overflow-hidden rounded-3xl border-0 bg-white shadow-sm ring-1 ring-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
                     <CardContent className="p-0">
                       <div className="flex flex-col md:flex-row items-stretch">
@@ -534,6 +568,20 @@ export default function LeavesPage() {
                   </Card>
                 ))}
               </div>
+
+                <div className="pt-2">
+                  <TablePagination
+                    currentPage={leavesPagination.currentPage}
+                    totalPages={leavesPagination.totalPages}
+                    totalItems={leavesPagination.totalItems}
+                    pageSize={leavesPagination.pageSize}
+                    pageSizeOptions={[10, 20, 30, 50, 100]}
+                    onPageChange={leavesPagination.setCurrentPage}
+                    onPageSizeChange={leavesPagination.setPageSize}
+                    itemLabel="ใบลา"
+                  />
+                </div>
+              </>
             )}
           </div>
         </>

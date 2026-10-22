@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
+  Search,
   Plus, Edit2, Loader2, BookOpen,
   ChevronDown, ChevronRight, Trash2, Video, Presentation, FileText, Link2, Package, ExternalLink
 } from "lucide-react"
@@ -50,6 +52,7 @@ export function SubjectsTable() {
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null)
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
+  const [subjectSearch, setSubjectSearch] = useState("")
 
   const { data: subjects, isLoading } = useQuery({
     queryKey: ["admin-subjects"],
@@ -59,6 +62,20 @@ export function SubjectsTable() {
       return text ? JSON.parse(text) : []
     }
   })
+
+  const filteredSubjects = useMemo(() => {
+    if (!Array.isArray(subjects)) return []
+    if (!subjectSearch.trim()) return subjects
+    const q = subjectSearch.toLowerCase().trim()
+    return subjects.filter((s: any) => {
+      const matchName = (s.name || "").toLowerCase().includes(q)
+      const matchCode = (s.code || "").toLowerCase().includes(q)
+      const matchDesc = (s.description || "").toLowerCase().includes(q)
+      return matchName || matchCode || matchDesc
+    })
+  }, [subjects, subjectSearch])
+
+  const subjectsPagination = useTablePagination(filteredSubjects, 10, [10, 20, 30, 50, 100])
 
   const { data: allMaterials } = useQuery({
     queryKey: ["admin-materials"],
@@ -330,6 +347,18 @@ export function SubjectsTable() {
             })}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={subjectsPagination.currentPage}
+          totalPages={subjectsPagination.totalPages}
+          totalItems={subjectsPagination.totalItems}
+          pageSize={subjectsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={subjectsPagination.setCurrentPage}
+          onPageSizeChange={subjectsPagination.setPageSize}
+          itemLabel="วิชา"
+        />
       </div>
     </div>
   )

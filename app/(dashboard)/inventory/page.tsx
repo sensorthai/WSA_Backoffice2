@@ -26,6 +26,7 @@ import { downloadDeviceInventoryTemplate } from "@/lib/excel-templates";
 import { CreateRequisitionModal } from "@/components/inventory/CreateRequisitionModal";
 import { PrintableRequisitionModal, RequisitionSlipData } from "@/components/inventory/PrintableRequisitionModal";
 import { toast } from "sonner";
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<"devices" | "requisitions" | "stock_card">("devices");
@@ -150,7 +151,44 @@ export default function InventoryPage() {
   };
 
   const devices = Array.isArray(devicesData) ? devicesData : [];
-  const requisitions = Array.isArray(requisitionsData) ? requisitionsData : [];
+  const rawRequisitions = Array.isArray(requisitionsData) ? requisitionsData : [];
+
+  // Search state for tab 2 & 3
+  const [reqSearch, setReqSearch] = useState("");
+  const [stockSearch, setStockSearch] = useState("");
+
+  // Requisitions filtering
+  const filteredRequisitions = React.useMemo(() => {
+    if (!reqSearch.trim()) return rawRequisitions;
+    const q = reqSearch.toLowerCase();
+    return rawRequisitions.filter((r: any) =>
+      r.requisition_no?.toLowerCase().includes(q) ||
+      r.requester_name?.toLowerCase().includes(q) ||
+      r.plot?.land_plot?.toLowerCase().includes(q) ||
+      r.plot?.house_number?.toLowerCase().includes(q) ||
+      r.plot?.po_number?.toLowerCase().includes(q) ||
+      r.plot?.project?.project_name?.toLowerCase().includes(q)
+    );
+  }, [rawRequisitions, reqSearch]);
+
+  // Stock Card ledger filtering
+  const rawLedger = stockCardData?.ledger || [];
+  const filteredLedger = React.useMemo(() => {
+    if (!stockSearch.trim()) return rawLedger;
+    const q = stockSearch.toLowerCase();
+    return rawLedger.filter((tx: any) =>
+      tx.ref_no?.toLowerCase().includes(q) ||
+      tx.serial_number?.toLowerCase().includes(q) ||
+      tx.destination?.toLowerCase().includes(q) ||
+      tx.action?.toLowerCase().includes(q) ||
+      tx.actor?.toLowerCase().includes(q)
+    );
+  }, [rawLedger, stockSearch]);
+
+  // Pagination hooks for each tab
+  const devicesPagination = useTablePagination(devices, 10, [10, 20, 30, 50, 100]);
+  const reqsPagination = useTablePagination(filteredRequisitions, 10, [10, 20, 30, 50, 100]);
+  const stockPagination = useTablePagination(filteredLedger, 10, [10, 20, 30, 50, 100]);
 
   const handleRegisterDevice = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -251,7 +289,7 @@ export default function InventoryPage() {
           }`}
         >
           <PackageCheck className="w-4 h-4" />
-          ประวัติใบเบิกอุปกรณ์ ({requisitions.length})
+          ประวัติใบเบิกอุปกรณ์ ({rawRequisitions.length})
         </button>
         <button
           onClick={() => setActiveTab("stock_card")}
@@ -381,7 +419,7 @@ export default function InventoryPage() {
                       </td>
                     </tr>
                   ) : (
-                    devices.map((d: any) => (
+                    devicesPagination.paginatedItems.map((d: any) => (
                       <tr key={d.id} className="hover:bg-slate-50">
                         <td className="p-3 font-mono font-bold text-slate-900">
                           {d.serial_number}
@@ -453,84 +491,125 @@ export default function InventoryPage() {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={devicesPagination.currentPage}
+              totalPages={devicesPagination.totalPages}
+              totalItems={devicesPagination.totalItems}
+              pageSize={devicesPagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={devicesPagination.setCurrentPage}
+              onPageSizeChange={devicesPagination.setPageSize}
+              itemLabel="ชิ้น"
+            />
           </div>
         </div>
       )}
 
       {/* TAB 2: REQUISITIONS */}
       {activeTab === "requisitions" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold">
-                <tr>
-                  <th className="p-3">เลขที่ใบเบิก</th>
-                  <th className="p-3">วันที่เบิก</th>
-                  <th className="p-3">ผู้ขอเบิก (ช่าง)</th>
-                  <th className="p-3">แปลงบ้านปลายทาง</th>
-                  <th className="p-3">โครงการ / PO</th>
-                  <th className="p-3 text-center">จำนวนอุปกรณ์</th>
-                  <th className="p-3 text-center">สถานะ</th>
-                  <th className="p-3 text-right">การจัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isReqsLoading ? (
+        <div className="space-y-4">
+          {/* Requisitions Search & Filter Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="text-xs text-slate-500 font-medium">
+              ประวัติใบเบิกอุปกรณ์ทั้งหมด ({filteredRequisitions.length} รายการ)
+            </div>
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="ค้นหาเลขที่ใบเบิก, ชื่อช่าง, แปลง, โครงการ..."
+                value={reqSearch}
+                onChange={(e) => setReqSearch(e.target.value)}
+                className="pl-9 text-xs h-9"
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold">
                   <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-500">
-                      กำลังโหลดประวัติใบเบิก...
-                    </td>
+                    <th className="p-3">เลขที่ใบเบิก</th>
+                    <th className="p-3">วันที่เบิก</th>
+                    <th className="p-3">ผู้ขอเบิก (ช่าง)</th>
+                    <th className="p-3">แปลงบ้านปลายทาง</th>
+                    <th className="p-3">โครงการ / PO</th>
+                    <th className="p-3 text-center">จำนวนอุปกรณ์</th>
+                    <th className="p-3 text-center">สถานะ</th>
+                    <th className="p-3 text-right">การจัดการ</th>
                   </tr>
-                ) : requisitions.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-500">
-                      ยังไม่มีประวัติการเบิกอุปกรณ์ สามารถกดปุ่ม "สร้างใบเบิกอุปกรณ์ใหม่" ด้านบนเพื่อเริ่มเบิกของ
-                    </td>
-                  </tr>
-                ) : (
-                  requisitions.map((req: any) => (
-                    <tr key={req.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-mono font-bold text-indigo-700">
-                        {req.requisition_no}
-                      </td>
-                      <td className="p-3 text-slate-600">
-                        {new Date(req.created_at).toLocaleDateString("th-TH")}
-                      </td>
-                      <td className="p-3 font-medium text-slate-900">
-                        {req.requester_name}
-                      </td>
-                      <td className="p-3">
-                        <strong className="text-slate-900">{req.plot?.land_plot || "-"}</strong>
-                        {req.plot?.house_number ? ` (บ้านเลขที่: ${req.plot.house_number})` : ""}
-                      </td>
-                      <td className="p-3 text-slate-600">
-                        <div>{req.plot?.project?.project_name || "-"}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">PO: {req.plot?.po_number || "-"}</div>
-                      </td>
-                      <td className="p-3 text-center font-bold text-slate-800">
-                        {req.items?.length || 0} ชิ้น
-                      </td>
-                      <td className="p-3 text-center">
-                        <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">
-                          เบิกออกแล้ว
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedReqSlip(req)}
-                          className="h-7 px-2.5 text-xs gap-1 border-slate-300 text-slate-700 hover:bg-slate-100"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-indigo-600" />
-                          พิมพ์ใบเบิก
-                        </Button>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {isReqsLoading ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-slate-500">
+                        กำลังโหลดประวัติใบเบิก...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : filteredRequisitions.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-slate-500">
+                        ไม่พบประวัติการเบิกอุปกรณ์ตามคำค้นหา
+                      </td>
+                    </tr>
+                  ) : (
+                    reqsPagination.paginatedItems.map((req: any) => (
+                      <tr key={req.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-indigo-700">
+                          {req.requisition_no}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {new Date(req.created_at).toLocaleDateString("th-TH")}
+                        </td>
+                        <td className="p-3 font-medium text-slate-900">
+                          {req.requester_name}
+                        </td>
+                        <td className="p-3">
+                          <strong className="text-slate-900">{req.plot?.land_plot || "-"}</strong>
+                          {req.plot?.house_number ? ` (บ้านเลขที่: ${req.plot.house_number})` : ""}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          <div>{req.plot?.project?.project_name || "-"}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">PO: {req.plot?.po_number || "-"}</div>
+                        </td>
+                        <td className="p-3 text-center font-bold text-slate-800">
+                          {req.items?.length || 0} ชิ้น
+                        </td>
+                        <td className="p-3 text-center">
+                          <Badge className="bg-indigo-100 text-indigo-800 text-[10px]">
+                            เบิกออกแล้ว
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedReqSlip(req)}
+                            className="h-7 px-2.5 text-xs gap-1 border-slate-300 text-slate-700 hover:bg-slate-100"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                            พิมพ์ใบเบิก
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <TablePagination
+              currentPage={reqsPagination.currentPage}
+              totalPages={reqsPagination.totalPages}
+              totalItems={reqsPagination.totalItems}
+              pageSize={reqsPagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={reqsPagination.setCurrentPage}
+              onPageSizeChange={reqsPagination.setPageSize}
+              itemLabel="ฉบับ"
+            />
           </div>
         </div>
       )}
@@ -608,6 +687,18 @@ export default function InventoryPage() {
                 <option value="new">เฉพาะของใหม่ (New)</option>
                 <option value="repaired_refurbished">เฉพาะซ่อมแล้ว (Refurbished)</option>
               </select>
+
+              {/* Search box for Stock Card */}
+              <div className="relative w-full sm:w-60 ml-0 sm:ml-2">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="ค้นหาเอกสาร, S/N, แปลง..."
+                  value={stockSearch}
+                  onChange={(e) => setStockSearch(e.target.value)}
+                  className="pl-8 text-xs h-8"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -721,7 +812,7 @@ export default function InventoryPage() {
                       </td>
                     </tr>
                   ) : (
-                    stockCardData.ledger.map((tx: any) => (
+                    stockPagination.paginatedItems.map((tx: any) => (
                       <tr key={tx.id} className="hover:bg-slate-50">
                         <td className="p-2.5 text-slate-600 font-mono text-[11px]">
                           {new Date(tx.timestamp).toLocaleString("th-TH", {
@@ -771,6 +862,17 @@ export default function InventoryPage() {
                 </tbody>
               </table>
             </div>
+
+            <TablePagination
+              currentPage={stockPagination.currentPage}
+              totalPages={stockPagination.totalPages}
+              totalItems={stockPagination.totalItems}
+              pageSize={stockPagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={stockPagination.setCurrentPage}
+              onPageSizeChange={stockPagination.setPageSize}
+              itemLabel="รายการ"
+            />
           </div>
         </div>
       )}

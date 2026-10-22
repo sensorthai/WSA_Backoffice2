@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Loader2, School, X, CalendarOff, Landmark, CalendarPlus } from "lucide-react"
+import { Search, Plus, Edit2, Loader2, School, X, CalendarOff, Landmark, CalendarPlus } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -34,6 +35,7 @@ export function SchoolsTable() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingSchool, setEditingSchool] = useState<any>(null)
   const [newHoliday, setNewHoliday] = useState("")
+  const [searchSchool, setSearchSchool] = useState("")
 
   const { data: schools, isLoading } = useQuery({
     queryKey: ["admin-schools"],
@@ -44,6 +46,20 @@ export function SchoolsTable() {
       return text ? JSON.parse(text) : []
     }
   })
+
+  const filteredSchools = useMemo(() => {
+    if (!Array.isArray(schools)) return []
+    if (!searchSchool.trim()) return schools
+    const q = searchSchool.toLowerCase().trim()
+    return schools.filter((s: any) => {
+      const matchName = (s.name || "").toLowerCase().includes(q)
+      const matchProvince = (s.province || s.district || "").toLowerCase().includes(q)
+      const matchContact = (s.contact_name || s.contact_phone || s.contact_email || "").toLowerCase().includes(q)
+      return matchName || matchProvince || matchContact
+    })
+  }, [schools, searchSchool])
+
+  const schoolsPagination = useTablePagination(filteredSchools, 10, [10, 20, 30, 50, 100])
 
   const form = useForm<z.infer<typeof schoolFormSchema>>({
     resolver: zodResolver(schoolFormSchema) as any,
@@ -119,9 +135,22 @@ export function SchoolsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
         <h2 className="text-xl font-semibold text-slate-800">รายชื่อโรงเรียน</h2>
-        <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) { setEditingSchool(null); form.reset(); setNewHoliday("") } }}>
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="ค้นหาชื่อโรงเรียน, จังหวัด..."
+              value={searchSchool}
+              onChange={(e) => {
+                setSearchSchool(e.target.value)
+                schoolsPagination.setCurrentPage(1)
+              }}
+              className="pl-9 h-9 text-xs bg-white"
+            />
+          </div>
+          <Dialog open={isModalOpen} onOpenChange={(open) => { setIsModalOpen(open); if (!open) { setEditingSchool(null); form.reset(); setNewHoliday("") } }}>
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingSchool(null); form.reset() }}><Plus className="mr-2 h-4 w-4" /> เพิ่มโรงเรียน</Button>
           </DialogTrigger>
@@ -234,6 +263,7 @@ export function SchoolsTable() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Table */}
@@ -317,6 +347,18 @@ export function SchoolsTable() {
             })}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={schoolsPagination.currentPage}
+          totalPages={schoolsPagination.totalPages}
+          totalItems={schoolsPagination.totalItems}
+          pageSize={schoolsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={schoolsPagination.setCurrentPage}
+          onPageSizeChange={schoolsPagination.setPageSize}
+          itemLabel="โรงเรียน"
+        />
       </div>
     </div>
   )

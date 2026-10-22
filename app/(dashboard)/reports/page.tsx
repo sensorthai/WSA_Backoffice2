@@ -62,7 +62,7 @@ import {
 } from "@/components/ui/dialog"
 import { useUser } from "@/hooks/useUser"
 import { supabase } from "@/lib/supabase"
-
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 const getReceiptUrls = (receiptUrl: string | null | undefined): string[] => {
   if (!receiptUrl) return []
   const trimmed = receiptUrl.trim()
@@ -567,6 +567,9 @@ function ReportsContent() {
     return null
   }, [filteredData, reportType])
 
+  const reportPagination = useTablePagination(filteredData, 10, [10, 20, 30, 50, 100])
+  const approvedPurchasesPagination = useTablePagination(approvedPurchases, 10, [10, 20, 30, 50, 100])
+
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto pb-20 animate-in fade-in duration-700 print:p-0 print:m-0 print:space-y-4">
       {/* Print Header */}
@@ -727,7 +730,7 @@ function ReportsContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {approvedPurchases.map((row: any, idx: number) => (
+                    {approvedPurchasesPagination.paginatedItems.map((row: any, idx: number) => (
                       <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/30">
                         <TableCell className="pl-6 py-4 font-bold text-slate-500 text-xs font-mono">
                           {row.document_date || (row.created_at ? format(new Date(row.created_at), "dd/MM/yy") : "-")}
@@ -902,7 +905,7 @@ function ReportsContent() {
                   {filteredData.length === 0 ? (
                     <TableRow><TableCell colSpan={12} className="text-center py-20 text-slate-400 font-bold">ไม่พบข้อมูลรายงานในระบบ</TableCell></TableRow>
                   ) : (
-                    filteredData.map((row: any, idx: number) => (
+                    reportPagination.paginatedItems.map((row: any, idx: number) => (
                       <Fragment key={idx}>
                         <TableRow 
                            className={`border-slate-50 hover:bg-slate-50/30 ${(reportType === 'purchase' || reportType === 'leave' || reportType === 'wfh') ? 'cursor-pointer' : ''}`}

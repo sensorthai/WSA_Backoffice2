@@ -2,10 +2,11 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, type FormEvent } from "react"
+import { useState, useMemo, type FormEvent } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { Headset, Loader2 } from "lucide-react"
+import { Headset, Loader2, Search } from "lucide-react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -71,6 +72,10 @@ export default function HelpdeskPage() {
     category: "it",
     priority: "medium",
   })
+  const [ticketSearch, setTicketSearch] = useState("")
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("all")
+  const [ticketCategoryFilter, setTicketCategoryFilter] = useState("all")
+
   const queryClient = useQueryClient()
 
   const { data: tickets, isLoading } = useQuery({
@@ -84,6 +89,26 @@ export default function HelpdeskPage() {
       return res.json()
     },
   })
+
+  const rawTickets = Array.isArray(tickets) ? tickets : []
+
+  const filteredTickets = useMemo(() => {
+    let list = rawTickets
+    if (ticketStatusFilter !== "all") {
+      list = list.filter((t: any) => t.status === ticketStatusFilter)
+    }
+    if (ticketCategoryFilter !== "all") {
+      list = list.filter((t: any) => t.category === ticketCategoryFilter)
+    }
+    if (!ticketSearch.trim()) return list
+    const q = ticketSearch.toLowerCase()
+    return list.filter((t: any) =>
+      t.title?.toLowerCase().includes(q) ||
+      t.description?.toLowerCase().includes(q)
+    )
+  }, [rawTickets, ticketStatusFilter, ticketCategoryFilter, ticketSearch])
+
+  const pagination = useTablePagination(filteredTickets, 10, [10, 20, 30, 50, 100])
 
   const createTicketMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -263,18 +288,60 @@ export default function HelpdeskPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>คำแจ้งซ่อมของฉัน</CardTitle>
-          <CardDescription>รายการคำแจ้งที่คุณส่งแล้ว</CardDescription>
+        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle>คำแจ้งซ่อมของฉัน</CardTitle>
+            <CardDescription>รายการคำแจ้งที่คุณส่งแล้ว ({filteredTickets.length} รายการ)</CardDescription>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Select value={ticketCategoryFilter} onValueChange={setTicketCategoryFilter}>
+              <SelectTrigger className="w-[130px] h-9 text-xs">
+                <SelectValue placeholder="ทุกหมวดหมู่" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกหมวดหมู่</SelectItem>
+                {categoryOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={ticketStatusFilter} onValueChange={setTicketStatusFilter}>
+              <SelectTrigger className="w-[120px] h-9 text-xs">
+                <SelectValue placeholder="ทุกสถานะ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="relative w-full sm:w-60">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="ค้นหาหัวข้อ, รายละเอียด..."
+                value={ticketSearch}
+                onChange={(e) => setTicketSearch(e.target.value)}
+                className="pl-8 text-xs h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
-          ) : !tickets?.length ? (
+          ) : !filteredTickets?.length ? (
             <div className="rounded-3xl border border-dashed border-slate-300 p-12 text-center text-slate-500">
-              ยังไม่มีคำแจ้งซ่อม กรุณาส่งคำแจ้งใหม่เพื่อเริ่มต้น
+              ไม่พบคำแจ้งซ่อมตามเงื่อนไขที่เลือก
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -289,11 +356,11 @@ export default function HelpdeskPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tickets.map((ticket: any) => (
+                  {pagination.paginatedItems.map((ticket: any) => (
                     <TableRow key={ticket.id}>
-                      <TableCell>{ticket.title}</TableCell>
-                      <TableCell>{ticket.category}</TableCell>
-                      <TableCell>{ticket.priority}</TableCell>
+                      <TableCell className="font-semibold">{ticket.title}</TableCell>
+                      <TableCell className="capitalize">{ticket.category}</TableCell>
+                      <TableCell className="capitalize">{ticket.priority}</TableCell>
                       <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                       <TableCell>
                         {new Date(ticket.created_at).toLocaleString("th-TH", {
@@ -306,6 +373,19 @@ export default function HelpdeskPage() {
                 </TableBody>
               </Table>
             </div>
+          )}
+
+          {filteredTickets.length > 0 && (
+            <TablePagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={pagination.setCurrentPage}
+              onPageSizeChange={pagination.setPageSize}
+              itemLabel="รายการ"
+            />
           )}
         </CardContent>
       </Card>

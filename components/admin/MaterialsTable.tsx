@@ -5,10 +5,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
+  Search,
   Plus, Edit2, Loader2, Trash2, BookOpen, FileText, Presentation,
   Video, FileSpreadsheet, Link2, Package, ExternalLink, Filter
 } from "lucide-react"
@@ -42,6 +44,7 @@ export function MaterialsTable() {
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
   const [filterCode, setFilterCode] = useState<string>("all")
   const [filterType, setFilterType] = useState<string>("all")
+  const [materialSearch, setMaterialSearch] = useState("")
 
   // Fetch materials
   const { data: materials, isLoading } = useQuery({
@@ -119,9 +122,21 @@ export function MaterialsTable() {
     return match ? match[1] : null
   }
 
-  const filteredMaterials = (materials || []).filter((m: any) =>
-    filterType === "all" || m.type === filterType
-  )
+  const filteredMaterials = useMemo(() => {
+    return (materials || []).filter((m: any) => {
+      if (filterType !== "all" && m.type !== filterType) return false
+      if (materialSearch.trim()) {
+        const q = materialSearch.toLowerCase().trim()
+        const matchTitle = (m.title || "").toLowerCase().includes(q)
+        const matchCode = (m.material_code || "").toLowerCase().includes(q)
+        const matchDesc = (m.description || "").toLowerCase().includes(q)
+        if (!matchTitle && !matchCode && !matchDesc) return false
+      }
+      return true
+    })
+  }, [materials, filterType, materialSearch])
+
+  const materialsPagination = useTablePagination(filteredMaterials, 10, [10, 20, 30, 50, 100])
 
   return (
     <div className="space-y-4">
@@ -221,6 +236,18 @@ export function MaterialsTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 rounded-xl border">
         <Filter className="h-4 w-4 text-slate-400" />
+        <div className="relative w-full sm:w-56">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <Input
+            placeholder="ค้นหาชื่อสื่อ, รหัสสื่อ..."
+            value={materialSearch}
+            onChange={(e) => {
+              setMaterialSearch(e.target.value)
+              materialsPagination.setCurrentPage(1)
+            }}
+            className="pl-8 h-9 text-xs bg-white"
+          />
+        </div>
         <Select value={filterCode} onValueChange={setFilterCode}>
           <SelectTrigger className="w-[200px] bg-white"><SelectValue placeholder="ทุกรหัสสื่อ" /></SelectTrigger>
           <SelectContent>
@@ -266,7 +293,7 @@ export function MaterialsTable() {
                 <p className="text-slate-500 font-medium">ยังไม่มีสื่อการสอน</p>
                 <p className="text-sm text-slate-400 mt-1">เพิ่ม คู่มือ, Slide, YouTube หรือเอกสาร</p>
               </TableCell></TableRow>
-            ) : filteredMaterials.map((m: any, idx: number) => {
+            ) : materialsPagination.paginatedItems.map((m: any, idx: number) => {
               const cfg = TYPE_CONFIG[m.type] || TYPE_CONFIG.other
               const Icon = cfg.icon
               return (
@@ -311,6 +338,18 @@ export function MaterialsTable() {
             })}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={materialsPagination.currentPage}
+          totalPages={materialsPagination.totalPages}
+          totalItems={materialsPagination.totalItems}
+          pageSize={materialsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={materialsPagination.setCurrentPage}
+          onPageSizeChange={materialsPagination.setPageSize}
+          itemLabel="สื่อการสอน"
+        />
       </div>
     </div>
   )

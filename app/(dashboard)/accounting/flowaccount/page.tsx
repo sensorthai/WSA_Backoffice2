@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -195,6 +196,8 @@ export default function FlowAccountAccountingPage() {
       return true;
     });
   }, [items, typeFilter, search]);
+
+  const flowPagination = useTablePagination(filteredItems, 10, [10, 20, 30, 50, 100]);
 
   // Summary Metrics
   const metrics = useMemo(() => {
@@ -483,7 +486,8 @@ export default function FlowAccountAccountingPage() {
               <p className="text-xs text-slate-400">ลองเปลี่ยนตัวกรอง หรือตรวจสอบว่ามีใบเบิกที่ได้รับอนุมัติแล้วหรือไม่</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <Table className="min-w-[1050px]">
                 <TableHeader className="bg-slate-50/90 sticky top-0 z-10">
                   <TableRow>
@@ -515,7 +519,7 @@ export default function FlowAccountAccountingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.map((item) => {
+                  {flowPagination.paginatedItems.map((item) => {
                     const isSynced = Boolean(item.flowaccountDocNumber);
                     const isSelected = selectedIds.includes(item.id);
 
@@ -678,6 +682,19 @@ export default function FlowAccountAccountingPage() {
                 </TableBody>
               </Table>
             </div>
+            <div className="p-4 border-t border-slate-100">
+              <TablePagination
+                currentPage={flowPagination.currentPage}
+                totalPages={flowPagination.totalPages}
+                pageSize={flowPagination.pageSize}
+                totalItems={flowPagination.totalItems}
+                pageSizeOptions={[10, 20, 30, 50, 100]}
+                onPageChange={flowPagination.setCurrentPage}
+                onPageSizeChange={flowPagination.setPageSize}
+                itemLabel="รายการ"
+              />
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

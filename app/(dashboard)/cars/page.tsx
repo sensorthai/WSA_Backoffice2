@@ -27,6 +27,8 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Search } from "lucide-react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -102,6 +104,29 @@ export default function CarsPage() {
       return res.json()
     }
   })
+
+  const [bookingSearch, setBookingSearch] = useState("")
+  const [bookingStatusFilter, setBookingStatusFilter] = useState("all")
+
+  const rawBookings = Array.isArray(myBookings) ? myBookings : []
+
+  const filteredBookings = useMemo(() => {
+    let list = rawBookings
+    if (bookingStatusFilter !== "all") {
+      list = list.filter((b: any) => b.status === bookingStatusFilter)
+    }
+    if (!bookingSearch.trim()) return list
+    const q = bookingSearch.toLowerCase()
+    return list.filter((b: any) =>
+      b.company_cars?.model?.toLowerCase().includes(q) ||
+      b.company_cars?.license_plate?.toLowerCase().includes(q) ||
+      b.destination?.toLowerCase().includes(q)
+    )
+  }, [rawBookings, bookingStatusFilter, bookingSearch])
+
+  const bookingPagination = useTablePagination(filteredBookings, 10, [10, 20, 30, 50, 100])
+
+
 
   const { data: allPendingBookings, isLoading: isAllPendingLoading } = useQuery({
     queryKey: ["all-bookings"],
@@ -297,6 +322,34 @@ export default function CarsPage() {
 
       {activeView === "my-bookings" && (
         <div className="space-y-6">
+           {/* Filter and Search Bar */}
+           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                 <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">สถานะ:</span>
+                 <select
+                    value={bookingStatusFilter}
+                    onChange={(e) => setBookingStatusFilter(e.target.value)}
+                    className="h-9 px-3 rounded-xl border border-slate-200 bg-white font-bold text-xs text-slate-700"
+                 >
+                    <option value="all">ทุกสถานะ</option>
+                    <option value="pending">รออนุมัติ</option>
+                    <option value="approved">อนุมัติแล้ว</option>
+                    <option value="returned">คืนรถแล้ว</option>
+                    <option value="rejected">ปฏิเสธ</option>
+                 </select>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                 <Input
+                    placeholder="ค้นหาทะเบียนรถ, รุ่นรถ, ปลายทาง..."
+                    value={bookingSearch}
+                    onChange={(e) => setBookingSearch(e.target.value)}
+                    className="pl-9 h-10 rounded-xl text-xs border-slate-200"
+                 />
+              </div>
+           </div>
+
            <Card className="rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
               <Table>
                  <TableHeader className="bg-slate-50/50">
@@ -325,7 +378,7 @@ export default function CarsPage() {
                             </div>
                          </TableCell>
                       </TableRow>
-                    ) : myBookings?.map((b: any) => (
+                    ) : bookingPagination.paginatedItems?.map((b: any) => (
                       <TableRow key={b.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group">
                          <TableCell className="py-8 pl-10">
                             <div className="flex items-center gap-4">
@@ -363,6 +416,17 @@ export default function CarsPage() {
                     ))}
                  </TableBody>
               </Table>
+
+               <TablePagination
+                  currentPage={bookingPagination.currentPage}
+                  totalPages={bookingPagination.totalPages}
+                  totalItems={bookingPagination.totalItems}
+                  pageSize={bookingPagination.pageSize}
+                  pageSizeOptions={[10, 20, 30, 50, 100]}
+                  onPageChange={bookingPagination.setCurrentPage}
+                  onPageSizeChange={bookingPagination.setPageSize}
+                  itemLabel="รายการ"
+               />
            </Card>
         </div>
       )}

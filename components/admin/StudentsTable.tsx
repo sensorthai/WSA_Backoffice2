@@ -26,7 +26,7 @@ const studentFormSchema = z.object({
   notes: z.string().optional(),
 })
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100]
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100]
 
 export function StudentsTable() {
   const queryClient = useQueryClient()
@@ -34,11 +34,12 @@ export function StudentsTable() {
   const [editingStudent, setEditingStudent] = useState<any>(null)
   const [filterSchool, setFilterSchool] = useState<string>("all")
   const [filterClass, setFilterClass] = useState("")
+  const [studentSearch, setStudentSearch] = useState("")
   const [filterYear, setFilterYear] = useState<string>("all")
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = useState(10)
 
   // Fetch schools for dropdown
   const { data: schools } = useQuery({
@@ -85,6 +86,19 @@ export function StudentsTable() {
     })
   }, [rawStudents])
 
+  const filteredStudents = useMemo(() => {
+    if (!studentSearch.trim()) return students
+    const q = studentSearch.toLowerCase().trim()
+    return students.filter((s: any) => {
+      const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.toLowerCase()
+      const matchName = fullName.includes(q)
+      const matchNum = String(s.student_number || "").includes(q)
+      const matchNick = (s.nickname || "").toLowerCase().includes(q)
+      const matchClass = (s.class_level || "").toLowerCase().includes(q)
+      return matchName || matchNum || matchNick || matchClass
+    })
+  }, [students, studentSearch])
+
   // Unique academic years from ALL students (not filtered)
   const { data: allStudents } = useQuery({
     queryKey: ["admin-students-all-years"],
@@ -103,9 +117,9 @@ export function StudentsTable() {
   }, [allStudents])
 
   // Pagination
-  const totalItems = students.length
+  const totalItems = filteredStudents.length
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
-  const paginatedStudents = students.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const paginatedStudents = filteredStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const startIdx = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const endIdx = Math.min(currentPage * pageSize, totalItems)
 
@@ -326,6 +340,12 @@ export function StudentsTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 rounded-xl border">
         <Filter className="h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="ค้นหาชื่อ, เลขที่, ชื่อเล่น..."
+          value={studentSearch}
+          onChange={(e) => { setStudentSearch(e.target.value); setCurrentPage(1) }}
+          className="w-[200px] bg-white text-xs h-9"
+        />
         <Select value={filterSchool} onValueChange={(v) => handleFilterChange(setFilterSchool, v)}>
           <SelectTrigger className="w-[250px] bg-white"><SelectValue placeholder="ทุกโรงเรียน" /></SelectTrigger>
           <SelectContent>

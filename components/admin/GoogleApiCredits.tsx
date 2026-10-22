@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { Button } from "@/components/ui/button"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -85,8 +86,7 @@ export function GoogleApiCredits() {
   const [budgetValue, setBudgetValue] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [daysFilter, setDaysFilter] = useState<7 | 14 | 30>(30)
-  const [currentPage, setCurrentPage] = useState(1)
-  const logsPerPage = 15
+  // Replaced with useTablePagination
 
   const { data, isLoading, isError } = useQuery<ApiData>({
     queryKey: ["google-api-credits"],
@@ -137,6 +137,8 @@ export function GoogleApiCredits() {
     return filtered
   }, [data?.logs, daysFilter, searchQuery])
 
+  const logsPagination = useTablePagination(filteredLogs, 10, [10, 20, 30, 50, 100])
+
   const dailyData = useMemo(() => {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - daysFilter)
@@ -146,12 +148,7 @@ export function GoogleApiCredits() {
 
   const maxDailyCost = Math.max(...dailyData.map((d) => d.cost), 0.001)
 
-  // Pagination
-  const totalPages = Math.ceil(filteredLogs.length / logsPerPage)
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * logsPerPage,
-    currentPage * logsPerPage
-  )
+
 
   // Stats for filtered period
   const periodStats = useMemo(() => {
@@ -383,7 +380,7 @@ export function GoogleApiCredits() {
               {([7, 14, 30] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => { setDaysFilter(d); setCurrentPage(1) }}
+                  onClick={() => { setDaysFilter(d); logsPagination.setCurrentPage(1) }}
                   className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                     daysFilter === d
                       ? "bg-blue-500 text-white shadow-lg shadow-blue-500/20"
@@ -496,7 +493,7 @@ export function GoogleApiCredits() {
                 type="text"
                 placeholder="ค้นหา API หรือสถานะ..."
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
+                onChange={(e) => { setSearchQuery(e.target.value); logsPagination.setCurrentPage(1) }}
                 className="pl-10 pr-4 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white text-sm font-medium placeholder:text-slate-500 focus:outline-none focus:border-violet-400/50 w-full md:w-64 transition-colors"
               />
             </div>
@@ -525,7 +522,7 @@ export function GoogleApiCredits() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {paginatedLogs.map((log) => (
+              {logsPagination.paginatedItems.map((log) => (
                 <tr
                   key={log.id}
                   className="hover:bg-slate-50/50 transition-colors"
@@ -571,7 +568,7 @@ export function GoogleApiCredits() {
                   </td>
                 </tr>
               ))}
-              {paginatedLogs.length === 0 && (
+              {logsPagination.paginatedItems.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-16 text-center text-slate-400 font-medium">
                     ไม่พบรายการที่ตรงกับเงื่อนไข
@@ -583,56 +580,18 @@ export function GoogleApiCredits() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-8 py-5 border-t border-slate-100">
-            <p className="text-xs text-slate-400 font-medium">
-              แสดง {(currentPage - 1) * logsPerPage + 1} -{" "}
-              {Math.min(currentPage * logsPerPage, filteredLogs.length)} จาก{" "}
-              {filteredLogs.length} รายการ
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                ก่อนหน้า
-              </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                let page: number
-                if (totalPages <= 5) {
-                  page = i + 1
-                } else if (currentPage <= 3) {
-                  page = i + 1
-                } else if (currentPage >= totalPages - 2) {
-                  page = totalPages - 4 + i
-                } else {
-                  page = currentPage - 2 + i
-                }
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${
-                      currentPage === page
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              })}
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                ถัดไป
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="p-4 border-t border-slate-100">
+          <TablePagination
+            currentPage={logsPagination.currentPage}
+            totalPages={logsPagination.totalPages}
+            totalItems={logsPagination.totalItems}
+            pageSize={logsPagination.pageSize}
+            pageSizeOptions={[10, 20, 30, 50, 100]}
+            onPageChange={logsPagination.setCurrentPage}
+            onPageSizeChange={logsPagination.setPageSize}
+            itemLabel="รายการ"
+          />
+        </div>
       </div>
     </div>
   )

@@ -15,7 +15,8 @@ import {
   BookOpen,
   ArrowLeft,
   Loader2,
-  Users
+  Users,
+  Search
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -32,10 +33,12 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 export default function TicketsSummaryPage() {
   const queryClient = useQueryClient()
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), "yyyy-MM"))
+  const [searchResolved, setSearchResolved] = useState("")
 
   // 1. Fetch monthly summary data
   const { data: summary, isLoading } = useQuery<any>({
@@ -46,6 +49,21 @@ export default function TicketsSummaryPage() {
       return res.json()
     }
   })
+
+  // Filter resolved tickets
+  const filteredResolved = (summary?.resolved_tickets || []).filter((t: any) => {
+    if (!searchResolved.trim()) return true;
+    const q = searchResolved.toLowerCase();
+    return (
+      t.title?.toLowerCase().includes(q) ||
+      t.customer_name?.toLowerCase().includes(q) ||
+      t.ticket_type?.name?.toLowerCase().includes(q) ||
+      t.resolution_notes?.toLowerCase().includes(q)
+    );
+  });
+
+  const workerPagination = useTablePagination(summary?.worker_performance || [], 10, [10, 20, 30, 50, 100]);
+  const resolvedPagination = useTablePagination(filteredResolved, 10, [10, 20, 30, 50, 100]);
 
   // 2. Convert resolved ticket to Knowledge Base
   const publishToKbMutation = useMutation({
@@ -199,7 +217,8 @@ export default function TicketsSummaryPage() {
                 {summary.worker_performance?.length === 0 ? (
                   <p className="text-sm font-medium text-slate-400 text-center py-10">ไม่มีพนักงานที่ได้รับมอบหมายงานในเดือนนี้</p>
                 ) : (
-                  <Table>
+                  <>
+                    <Table>
                     <TableHeader className="bg-slate-50/50">
                       <TableRow className="border-slate-100">
                         <TableHead className="pl-6 font-bold text-slate-500 text-xs py-3">พนักงาน</TableHead>
@@ -209,8 +228,8 @@ export default function TicketsSummaryPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summary.worker_performance.map((wp: any, idx: number) => {
-                        const rate = ((wp.resolved / wp.total) * 100).toFixed(0)
+                      {workerPagination.paginatedItems.map((wp: any, idx: number) => {
+                        const rate = wp.total > 0 ? ((wp.resolved / wp.total) * 100).toFixed(0) : "0"
                         return (
                           <TableRow key={idx} className="border-slate-50 hover:bg-slate-50/10">
                             <TableCell className="pl-6 py-3 font-semibold text-slate-800 text-xs">{wp.name}</TableCell>
@@ -222,6 +241,17 @@ export default function TicketsSummaryPage() {
                       })}
                     </TableBody>
                   </Table>
+                    <TablePagination
+                      currentPage={workerPagination.currentPage}
+                      totalPages={workerPagination.totalPages}
+                      totalItems={workerPagination.totalItems}
+                      pageSize={workerPagination.pageSize}
+                      pageSizeOptions={[10, 20, 30, 50, 100]}
+                      onPageChange={workerPagination.setCurrentPage}
+                      onPageSizeChange={workerPagination.setPageSize}
+                      itemLabel="คน"
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -284,54 +314,79 @@ export default function TicketsSummaryPage() {
 
           {/* Resolved Tickets & Know-how conversion section */}
           <Card className="rounded-3xl border-slate-150 shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-6 border-b border-slate-100">
-              <CardTitle className="text-base font-bold text-slate-800">งานแก้ปัญหาที่สำเร็จ (พร้อมบันทึกถอดบทเรียน Know-how)</CardTitle>
-              <CardDescription>
-                เผยแพร่ตั๋วงานที่แก้ไขสำเร็จและปิดตั๋วเรียบร้อยแล้วไปเป็นบทความคลังความรู้สำหรับพนักงานคนอื่นๆ ค้นหาในอนาคต
-              </CardDescription>
+            <CardHeader className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-bold text-slate-800">งานแก้ปัญหาที่สำเร็จ (พร้อมบันทึกถอดบทเรียน Know-how)</CardTitle>
+                <CardDescription>
+                  เผยแพร่ตั๋วงานที่แก้ไขสำเร็จและปิดตั๋วเรียบร้อยแล้วไปเป็นบทความคลังความรู้สำหรับพนักงานคนอื่นๆ ค้นหาในอนาคต
+                </CardDescription>
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="ค้นหาชื่องาน, ลูกค้า, แนวทางแก้ไข..."
+                  value={searchResolved}
+                  onChange={(e) => setSearchResolved(e.target.value)}
+                  className="pl-9 text-xs h-9"
+                />
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              {summary.resolved_tickets?.length === 0 ? (
-                <p className="text-sm font-medium text-slate-400 text-center py-10">ยังไม่มีงานแก้ไขปัญหาที่สำเร็จในเดือนนี้</p>
+              {filteredResolved.length === 0 ? (
+                <p className="text-sm font-medium text-slate-400 text-center py-10">ไม่พบงานแก้ไขปัญหาที่สำเร็จตามเงื่อนไข</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow className="border-slate-100">
-                        <TableHead className="pl-6 font-bold text-slate-500 text-xs py-4">ตั๋วงานที่ทำสำเร็จ</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs py-4">ประเภท</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs py-4">ลูกค้า</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-xs py-4">แนวทางการแก้ไข</TableHead>
-                        <TableHead className="pr-6 font-bold text-slate-500 text-xs py-4 text-right">Know-how</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {summary.resolved_tickets.map((ticket: any) => (
-                        <TableRow key={ticket.id} className="border-slate-50 hover:bg-slate-50/10">
-                          <TableCell className="pl-6 py-4 font-bold text-slate-800 text-xs">{ticket.title}</TableCell>
-                          <TableCell className="text-slate-500 font-semibold py-4 text-xs">{ticket.ticket_type?.name}</TableCell>
-                          <TableCell className="text-slate-700 py-4 text-xs font-semibold">{ticket.customer_name}</TableCell>
-                          <TableCell className="text-slate-600 max-w-[280px] truncate py-4 text-xs font-medium">{ticket.resolution_notes}</TableCell>
-                          <TableCell className="pr-6 py-4 text-right">
-                            {ticket.is_knowledge_base ? (
-                              <Badge className="bg-emerald-100 text-emerald-800 border-0 flex items-center gap-1 w-max ml-auto text-[10px] py-0.5"><BookOpen size={10} /> บันทึกแล้ว</Badge>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={publishToKbMutation.isPending}
-                                onClick={() => publishToKbMutation.mutate(ticket.id)}
-                                className="h-8 rounded-lg font-bold text-xs gap-1 border-indigo-100 text-indigo-600 hover:bg-indigo-50 shadow-sm"
-                              >
-                                <BookOpen size={12} /> บันทึกเข้าคลังความรู้
-                              </Button>
-                            )}
-                          </TableCell>
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-slate-50/50">
+                        <TableRow className="border-slate-100">
+                          <TableHead className="pl-6 font-bold text-slate-500 text-xs py-4">ตั๋วงานที่ทำสำเร็จ</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs py-4">ประเภท</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs py-4">ลูกค้า</TableHead>
+                          <TableHead className="font-bold text-slate-500 text-xs py-4">แนวทางการแก้ไข</TableHead>
+                          <TableHead className="pr-6 font-bold text-slate-500 text-xs py-4 text-right">Know-how</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {resolvedPagination.paginatedItems.map((ticket: any) => (
+                          <TableRow key={ticket.id} className="border-slate-50 hover:bg-slate-50/10">
+                            <TableCell className="pl-6 py-4 font-bold text-slate-800 text-xs">{ticket.title}</TableCell>
+                            <TableCell className="text-slate-500 font-semibold py-4 text-xs">{ticket.ticket_type?.name}</TableCell>
+                            <TableCell className="text-slate-700 py-4 text-xs font-semibold">{ticket.customer_name}</TableCell>
+                            <TableCell className="text-slate-600 max-w-[280px] truncate py-4 text-xs font-medium">{ticket.resolution_notes}</TableCell>
+                            <TableCell className="pr-6 py-4 text-right">
+                              {ticket.is_knowledge_base ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-0 flex items-center gap-1 w-max ml-auto text-[10px] py-0.5"><BookOpen size={10} /> บันทึกแล้ว</Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={publishToKbMutation.isPending}
+                                  onClick={() => publishToKbMutation.mutate(ticket.id)}
+                                  className="h-8 rounded-lg font-bold text-xs gap-1 border-indigo-100 text-indigo-600 hover:bg-indigo-50 shadow-sm"
+                                >
+                                  <BookOpen size={12} /> บันทึกเข้าคลังความรู้
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <TablePagination
+                    currentPage={resolvedPagination.currentPage}
+                    totalPages={resolvedPagination.totalPages}
+                    totalItems={resolvedPagination.totalItems}
+                    pageSize={resolvedPagination.pageSize}
+                    pageSizeOptions={[10, 20, 30, 50, 100]}
+                    onPageChange={resolvedPagination.setCurrentPage}
+                    onPageSizeChange={resolvedPagination.setPageSize}
+                    itemLabel="งาน"
+                  />
+                </>
               )}
             </CardContent>
           </Card>

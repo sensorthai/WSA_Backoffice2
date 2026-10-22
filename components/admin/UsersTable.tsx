@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { 
   Table, 
@@ -75,6 +76,8 @@ export function UsersTable() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   // Fetch Users
   const { data: users, isLoading: usersLoading } = useQuery({
@@ -232,22 +235,64 @@ export function UsersTable() {
     setIsModalOpen(true)
   }
 
-  const filteredUsers = users?.filter((u: any) => 
-    u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users)) return []
+    return users.filter((u: any) => {
+      if (roleFilter !== "all" && u.role !== roleFilter) return false
+      if (statusFilter === "active" && !u.is_active) return false
+      if (statusFilter === "inactive" && u.is_active) return false
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase().trim()
+        const matchName = (u.full_name || "").toLowerCase().includes(q)
+        const matchEmail = (u.email || "").toLowerCase().includes(q)
+        const matchDept = (u.departments?.name || "").toLowerCase().includes(q)
+        const matchPos = (u.positions?.name || "").toLowerCase().includes(q)
+        if (!matchName && !matchEmail && !matchDept && !matchPos) return false
+      }
+      return true
+    })
+  }, [users, roleFilter, statusFilter, searchTerm])
+
+  const usersPagination = useTablePagination(filteredUsers, 10, [10, 20, 30, 50, 100])
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="ค้นหาพนักงาน..." 
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input 
+              placeholder="ค้นหาพนักงาน, อีเมล, แผนก..." 
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value)
+                usersPagination.setCurrentPage(1)
+              }}
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={(val) => { setRoleFilter(val); usersPagination.setCurrentPage(1); }}>
+            <SelectTrigger className="w-[130px] h-10 bg-white text-xs">
+              <SelectValue placeholder="ทุกสิทธิ์" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกสิทธิ์</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="ceo">CEO</SelectItem>
+              <SelectItem value="manager">Manager</SelectItem>
+              <SelectItem value="employee">Employee</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); usersPagination.setCurrentPage(1); }}>
+            <SelectTrigger className="w-[120px] h-10 bg-white text-xs">
+              <SelectValue placeholder="ทุกสถานะ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกสถานะ</SelectItem>
+              <SelectItem value="active">ปกติ</SelectItem>
+              <SelectItem value="inactive">ระงับ</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         
         <Dialog open={isModalOpen} onOpenChange={(open) => {
@@ -448,7 +493,7 @@ export function UsersTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers?.map((user: any) => (
+              usersPagination.paginatedItems.map((user: any) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex flex-col">
@@ -574,6 +619,18 @@ export function UsersTable() {
             )}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={usersPagination.currentPage}
+          totalPages={usersPagination.totalPages}
+          totalItems={usersPagination.totalItems}
+          pageSize={usersPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={usersPagination.setCurrentPage}
+          onPageSizeChange={usersPagination.setPageSize}
+          itemLabel="คน"
+        />
       </div>
     </div>
   )

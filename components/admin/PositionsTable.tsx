@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Edit2, Loader2 } from "lucide-react"
+import { Search, Plus, Edit2, Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -22,6 +23,7 @@ export function PositionsTable() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPos, setEditingPos] = useState<any>(null)
+  const [posSearch, setPosSearch] = useState("")
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["admin-positions"],
@@ -34,6 +36,15 @@ export function PositionsTable() {
       return res.json()
     }
   })
+
+  const filteredPositions = useMemo(() => {
+    if (!Array.isArray(positions)) return []
+    if (!posSearch.trim()) return positions
+    const q = posSearch.toLowerCase().trim()
+    return positions.filter((p: any) => (p.name || "").toLowerCase().includes(q))
+  }, [positions, posSearch])
+
+  const positionsPagination = useTablePagination(filteredPositions, 10, [10, 20, 30, 50, 100])
 
   const form = useForm<z.infer<typeof posSchema>>({
     resolver: zodResolver(posSchema) as any,
@@ -145,7 +156,7 @@ export function PositionsTable() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={3} className="text-center py-8">กำลังโหลด...</TableCell></TableRow>
-            ) : positions?.map((pos: any) => (
+            ) : positionsPagination.paginatedItems.map((pos: any) => (
               <TableRow key={pos.id}>
                 <TableCell className="font-medium text-slate-900">{pos.name}</TableCell>
                 <TableCell className="font-semibold text-blue-600">
@@ -160,6 +171,18 @@ export function PositionsTable() {
             ))}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={positionsPagination.currentPage}
+          totalPages={positionsPagination.totalPages}
+          totalItems={positionsPagination.totalItems}
+          pageSize={positionsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={positionsPagination.setCurrentPage}
+          onPageSizeChange={positionsPagination.setPageSize}
+          itemLabel="ตำแหน่ง"
+        />
       </div>
     </div>
   )

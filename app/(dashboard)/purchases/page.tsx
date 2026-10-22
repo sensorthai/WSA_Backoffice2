@@ -63,6 +63,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 const CATEGORIES = [
   "ค่าใช้จ่ายเดินทาง/ ค่าทางด่วน",
@@ -110,6 +111,11 @@ function PurchasesContent() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [activeView, setActiveView] = useState(tabParam || "my-purchases")
   const [mounted, setMounted] = useState(false)
+
+  // --- Search & Filters for My Purchases ---
+  const [purchaseSearch, setPurchaseSearch] = useState("")
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState("all")
+  const [purchaseCategoryFilter, setPurchaseCategoryFilter] = useState("all")
 
   useEffect(() => {
     if (tabParam) {
@@ -188,6 +194,26 @@ function PurchasesContent() {
     },
     enabled: !!session?.user
   })
+
+  const filteredPurchases = useMemo(() => {
+    if (!Array.isArray(myPurchases)) return []
+    return myPurchases.filter((p: any) => {
+      if (purchaseStatusFilter !== "all" && p.status !== purchaseStatusFilter) return false
+      if (purchaseCategoryFilter !== "all" && p.category !== purchaseCategoryFilter) return false
+      if (purchaseSearch.trim()) {
+        const q = purchaseSearch.toLowerCase()
+        const matchTitle = (p.title || "").toLowerCase().includes(q)
+        const matchVendor = (p.vendor_name || p.vendor || "").toLowerCase().includes(q)
+        const matchCat = (p.category || "").toLowerCase().includes(q)
+        const matchId = (p.id || "").toLowerCase().includes(q)
+        const matchItems = Array.isArray(p.items) && p.items.some((it: any) => (it.name || "").toLowerCase().includes(q))
+        if (!matchTitle && !matchVendor && !matchCat && !matchId && !matchItems) return false
+      }
+      return true
+    })
+  }, [myPurchases, purchaseStatusFilter, purchaseCategoryFilter, purchaseSearch])
+
+  const myPurchasesPagination = useTablePagination(filteredPurchases, 10, [10, 20, 30, 50, 100])
 
   const { data: pendingPurchases, isLoading: isPendingLoading } = useQuery({
     queryKey: ["pending-purchases"],
@@ -1826,7 +1852,7 @@ ${form.purpose || "-"}
                             <Loader2 className="animate-spin inline-block text-blue-400 w-10 h-10" />
                          </TableCell>
                       </TableRow>
-                    ) : myPurchases?.length === 0 ? (
+                    ) : filteredPurchases.length === 0 ? (
                       <TableRow>
                          <TableCell colSpan={5} className="py-32 text-center">
                             <div className="flex flex-col items-center gap-4 text-slate-300">
@@ -1835,7 +1861,7 @@ ${form.purpose || "-"}
                             </div>
                          </TableCell>
                       </TableRow>
-                    ) : myPurchases?.map((p: any) => (
+                    ) : myPurchasesPagination.paginatedItems.map((p: any) => (
                       <TableRow key={p.id} className="border-slate-100 hover:bg-slate-50/50 transition-colors group">
                          <TableCell className="py-6 pl-8 font-bold text-slate-500">
                             {format(new Date(p.created_at), "d MMM yy", { locale: th })}

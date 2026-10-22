@@ -57,6 +57,7 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { useUser } from "@/hooks/useUser"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 type TicketStatus = 'pending' | 'assigned' | 'in_progress' | 'resolved' | 'closed'
 type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -404,6 +405,8 @@ export default function TicketsPage() {
     return matchesSearch
   })
 
+  const ticketsPagination = useTablePagination(filteredTickets, 10, [10, 20, 30, 50, 100]);
+
   // Lazy load the staff/teachers list if they open detail modal
   // Fetch users when modal opens
   const openDetail = (id: string) => {
@@ -509,9 +512,10 @@ export default function TicketsPage() {
               ไม่พบตั๋วงานที่เกี่ยวข้องในระบบ
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/50">
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
                   <TableRow className="border-slate-100">
                     <TableHead className="pl-6 font-bold text-slate-500 py-4 text-xs">ตั๋วงาน / หัวข้อ</TableHead>
                     <TableHead className="font-bold text-slate-500 py-4 text-xs">ประเภทงาน</TableHead>
@@ -524,7 +528,7 @@ export default function TicketsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTickets.map((ticket: any) => (
+                  {ticketsPagination.paginatedItems.map((ticket: any) => (
                     <TableRow key={ticket.id} className="border-slate-50 hover:bg-slate-50/20 cursor-pointer" onClick={() => openDetail(ticket.id)}>
                       <TableCell className="pl-6 py-4 font-bold text-slate-900 text-sm max-w-[200px] truncate">
                         {ticket.title}
@@ -559,6 +563,18 @@ export default function TicketsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            <TablePagination
+              currentPage={ticketsPagination.currentPage}
+              totalPages={ticketsPagination.totalPages}
+              totalItems={ticketsPagination.totalItems}
+              pageSize={ticketsPagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={ticketsPagination.setCurrentPage}
+              onPageSizeChange={ticketsPagination.setPageSize}
+              itemLabel="ตั๋ว"
+            />
+            </>
           )}
         </CardContent>
       </Card>

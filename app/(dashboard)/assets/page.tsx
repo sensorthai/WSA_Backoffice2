@@ -5,7 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useMemo, useState, type FormEvent } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { MonitorSmartphone, Loader2, Plus, CircleDashed } from "lucide-react"
+import { MonitorSmartphone, Loader2, Plus, CircleDashed, Search } from "lucide-react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -75,6 +76,10 @@ export default function AssetsPage() {
     notes: "",
   })
 
+  const [assetSearch, setAssetSearch] = useState("")
+  const [assetCategoryFilter, setAssetCategoryFilter] = useState("all")
+  const [assetStatusFilter, setAssetStatusFilter] = useState("all")
+
   const queryClient = useQueryClient()
 
   const { data: assets, isLoading } = useQuery({
@@ -88,6 +93,27 @@ export default function AssetsPage() {
       return res.json()
     },
   })
+
+  const rawAssets = Array.isArray(assets) ? assets : []
+
+  const filteredAssets = useMemo(() => {
+    let list = rawAssets
+    if (assetCategoryFilter !== "all") {
+      list = list.filter((a: any) => a.category === assetCategoryFilter)
+    }
+    if (assetStatusFilter !== "all") {
+      list = list.filter((a: any) => a.status === assetStatusFilter)
+    }
+    if (!assetSearch.trim()) return list
+    const q = assetSearch.toLowerCase()
+    return list.filter((a: any) =>
+      a.name?.toLowerCase().includes(q) ||
+      a.asset_tag?.toLowerCase().includes(q) ||
+      a.notes?.toLowerCase().includes(q)
+    )
+  }, [rawAssets, assetCategoryFilter, assetStatusFilter, assetSearch])
+
+  const pagination = useTablePagination(filteredAssets, 10, [10, 20, 30, 50, 100])
 
   const createAssetMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -330,18 +356,61 @@ export default function AssetsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>รายการทรัพย์สิน</CardTitle>
-          <CardDescription>กรองและตรวจสอบสถานะทรัพย์สินทั้งหมด</CardDescription>
+        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle>รายการทรัพย์สิน</CardTitle>
+            <CardDescription>กรองและตรวจสอบสถานะทรัพย์สินทั้งหมด ({filteredAssets.length} รายการ)</CardDescription>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Select value={assetCategoryFilter} onValueChange={setAssetCategoryFilter}>
+              <SelectTrigger className="w-[130px] h-9 text-xs">
+                <SelectValue placeholder="ทุกหมวดหมู่" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกหมวดหมู่</SelectItem>
+                {categoryOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={assetStatusFilter} onValueChange={setAssetStatusFilter}>
+              <SelectTrigger className="w-[130px] h-9 text-xs">
+                <SelectValue placeholder="ทุกสถานะ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="relative w-full sm:w-60">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="ค้นหาชื่อทรัพย์สิน, Asset Tag..."
+                value={assetSearch}
+                onChange={(e) => setAssetSearch(e.target.value)}
+                className="pl-8 text-xs h-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
-          ) : !assets?.length ? (
+          ) : !filteredAssets?.length ? (
             <div className="rounded-3xl border border-dashed border-slate-300 p-12 text-center text-slate-500">
-              ยังไม่มีทรัพย์สินในระบบ ลองเพิ่มรายการใหม่ได้เลย
+              ไม่พบรายการทรัพย์สินตามเงื่อนไขที่เลือก
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -356,10 +425,10 @@ export default function AssetsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assets.map((asset: any) => (
+                  {pagination.paginatedItems.map((asset: any) => (
                     <TableRow key={asset.id}>
-                      <TableCell>{asset.name}</TableCell>
-                      <TableCell>{asset.asset_tag}</TableCell>
+                      <TableCell className="font-semibold">{asset.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{asset.asset_tag}</TableCell>
                       <TableCell>{asset.category}</TableCell>
                       <TableCell>{statusBadge(asset.status)}</TableCell>
                       <TableCell>
@@ -376,6 +445,19 @@ export default function AssetsPage() {
                 </TableBody>
               </Table>
             </div>
+          )}
+
+          {filteredAssets.length > 0 && (
+            <TablePagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              pageSizeOptions={[10, 20, 30, 50, 100]}
+              onPageChange={pagination.setCurrentPage}
+              onPageSizeChange={pagination.setPageSize}
+              itemLabel="รายการ"
+            />
           )}
         </CardContent>
       </Card>

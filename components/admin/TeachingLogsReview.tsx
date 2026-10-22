@@ -22,6 +22,7 @@ import {
   MapPin, School, BookOpen, ExternalLink, Users, Trash2, Pencil, X, Save
 } from "lucide-react"
 import { useUser } from "@/hooks/useUser"
+import { TablePagination } from "@/components/ui/TablePagination"
 
 export function TeachingLogsReview() {
   const { profile } = useUser()
@@ -34,7 +35,7 @@ export function TeachingLogsReview() {
   const [subjectFilter, setSubjectFilter] = useState("all")
   const [classLevelFilter, setClassLevelFilter] = useState("all")
   const [page, setPage] = useState(1)
-  const limit = 20
+  const [pageSize, setPageSize] = useState(10)
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState<any>({})
   const [classStudents, setClassStudents] = useState<any[]>([])
@@ -80,7 +81,7 @@ export function TeachingLogsReview() {
   })
 
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ["teaching-logs-review", statusFilter, dateFilter, schoolFilter, teacherFilter, subjectFilter, classLevelFilter, page],
+    queryKey: ["teaching-logs-review", statusFilter, dateFilter, schoolFilter, teacherFilter, subjectFilter, classLevelFilter, page, pageSize],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
@@ -90,7 +91,7 @@ export function TeachingLogsReview() {
       if (subjectFilter !== "all") params.set('subject_id', subjectFilter)
       if (classLevelFilter !== "all") params.set('class_level', classLevelFilter)
       params.set('page', String(page))
-      params.set('limit', String(limit))
+      params.set('limit', String(pageSize))
       const res = await fetch(`/api/teaching-logs?${params.toString()}`)
       return res.ok ? res.json() : { data: [], totalPages: 1 }
     }
@@ -465,33 +466,21 @@ export function TeachingLogsReview() {
       </div>
 
       {/* Pagination Footer */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-slate-500 font-medium">
-            หน้า {page} จาก {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
-              ก่อนหน้า
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
-              ถัดไป
-            </Button>
-          </div>
-        </div>
-      )}
+      <div className="pt-2">
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={logsData?.total || (logs.length * totalPages)}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize)
+            setPage(1)
+          }}
+          itemLabel="บันทึก"
+        />
+      </div>
 
       {/* Detail / Review / Edit Modal */}
       <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) { setSelectedLog(null); setIsEditing(false); setIsReturning(false); setReturnFeedback(""); } }}>

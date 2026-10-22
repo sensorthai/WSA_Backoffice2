@@ -30,11 +30,13 @@ import { LhImportModal } from "@/components/installation/LhImportModal";
 import { LhSummaryReport } from "@/components/installation/LhSummaryReport";
 import { PlotCoverSheetData } from "@/components/installation/ExactCoverSheet";
 import { getCustomerCompanyInfo } from "@/lib/lh-customer";
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination";
 
 export default function LhPlotsPage() {
   const [viewMode, setViewMode] = useState<"plots" | "reports">("plots");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending"); // default to pending
+  const [lotFilter, setLotFilter] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Modals state
@@ -49,7 +51,7 @@ export default function LhPlotsPage() {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (searchTerm) params.append("search", searchTerm);
-      params.append("limit", "200");
+      params.append("limit", "1000");
 
       const res = await fetch(`/api/lh/plots?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch plots");
@@ -57,7 +59,27 @@ export default function LhPlotsPage() {
     },
   });
 
-  const plots = data?.plots || [];
+  const rawPlots = data?.plots || [];
+
+  // Filter by Lot if specified
+  const plots = React.useMemo(() => {
+    if (lotFilter === "all") return rawPlots;
+    return rawPlots.filter((p: any) => {
+      const lotStr = (p.po_item?.lot_number || p.project?.notes || "").toString().toLowerCase();
+      return lotStr.includes(lotFilter.toLowerCase());
+    });
+  }, [rawPlots, lotFilter]);
+
+  // Pagination hook
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    totalItems,
+    paginatedItems: paginatedPlots,
+    setCurrentPage,
+    setPageSize,
+  } = useTablePagination(plots, 10, [10, 20, 30, 50, 100]);
 
   // Toggle single selection
   const handleToggleSelect = (plotId: string) => {
@@ -218,16 +240,38 @@ export default function LhPlotsPage() {
             </button>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              type="text"
-              placeholder="ค้นหาตามแปลง, บ้านเลขที่, PO, โครงการ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 text-xs h-9"
-            />
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* Lot Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 text-xs font-medium">Lot:</span>
+              <select
+                value={lotFilter}
+                onChange={(e) => {
+                  setLotFilter(e.target.value);
+                  setSelectedIds(new Set());
+                }}
+                className="h-9 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+              >
+                <option value="all">ทุก Lot</option>
+                <option value="PM 2.5">PM 2.5</option>
+                <option value="1,500">Lot 1,500</option>
+                <option value="2,000">Lot 2,000</option>
+                <option value="1,000">Lot 1,000</option>
+                <option value="1,000(2)">Lot 1,000(2)</option>
+              </select>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="ค้นหาตามแปลง, บ้านเลขที่, PO, โครงการ..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 text-xs h-9"
+              />
+            </div>
           </div>
         </div>
 
@@ -298,7 +342,7 @@ export default function LhPlotsPage() {
                   </td>
                 </tr>
               ) : (
-                plots.map((plot: any) => {
+                paginatedPlots.map((plot: any) => {
                   const isSelected = selectedIds.has(plot.id);
                   const customerInfo = getCustomerCompanyInfo(plot.project?.account_code);
 
@@ -402,6 +446,18 @@ export default function LhPlotsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="แปลง"
+        />
       </div>
       </>
       )}

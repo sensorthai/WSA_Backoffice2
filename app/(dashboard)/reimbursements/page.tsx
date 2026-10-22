@@ -8,6 +8,7 @@ import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { toast } from "sonner"
 import { 
+  Search,
   Plus, 
   Wallet, 
   Clock, 
@@ -42,6 +43,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useUser } from "@/hooks/useUser"
 import { supabase } from "@/lib/supabase"
 import { useMemo } from "react"
@@ -63,6 +65,7 @@ export default function ReimbursementsPage() {
   const queryClient = useQueryClient()
   const { profile, isLoading: isUserLoading } = useUser()
   const [statusFilter, setStatusFilter] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
   
   // Wizard State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -171,6 +174,20 @@ export default function ReimbursementsPage() {
       return res.json()
     }
   })
+
+  const filteredReimbursements = useMemo(() => {
+    const list = Array.isArray(data?.data) ? data.data : []
+    if (!searchQuery.trim()) return list
+    const q = searchQuery.toLowerCase().trim()
+    return list.filter((r: any) => {
+      const matchDesc = (r.description || "").toLowerCase().includes(q)
+      const matchUser = (r.user?.full_name || "").toLowerCase().includes(q)
+      const matchAmount = String(r.amount || "").includes(q)
+      return matchDesc || matchUser || matchAmount
+    })
+  }, [data?.data, searchQuery])
+
+  const reimbursementsPagination = useTablePagination(filteredReimbursements, 10, [10, 20, 30, 50, 100])
 
   // Mutation to Create Reimbursement
   const createMutation = useMutation({
@@ -807,7 +824,7 @@ export default function ReimbursementsPage() {
             <Loader2 className="w-12 h-12 animate-spin text-blue-200" />
             <p className="text-slate-400 font-bold">กำลังรวบรวมข้อมูล...</p>
           </div>
-        ) : !data?.data || data.data.length === 0 ? (
+        ) : filteredReimbursements.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 gap-6 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200">
             <div className="p-8 bg-white rounded-full shadow-sm text-slate-200">
                <Receipt size={64} />
@@ -827,8 +844,9 @@ export default function ReimbursementsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {data.data.map((reimb: any) => (
+          <>
+            <div className="grid grid-cols-1 gap-4">
+            {reimbursementsPagination.paginatedItems.map((reimb: any) => (
               <Card key={reimb.id} className="group overflow-hidden rounded-3xl border-0 bg-white shadow-sm ring-1 ring-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row items-stretch">
@@ -963,6 +981,20 @@ export default function ReimbursementsPage() {
               </Card>
             ))}
           </div>
+
+            <div className="pt-2">
+              <TablePagination
+                currentPage={reimbursementsPagination.currentPage}
+                totalPages={reimbursementsPagination.totalPages}
+                totalItems={reimbursementsPagination.totalItems}
+                pageSize={reimbursementsPagination.pageSize}
+                pageSizeOptions={[10, 20, 30, 50, 100]}
+                onPageChange={reimbursementsPagination.setCurrentPage}
+                onPageSizeChange={reimbursementsPagination.setPageSize}
+                itemLabel="รายการ"
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

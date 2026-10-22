@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText,
@@ -16,13 +17,17 @@ import {
   Calendar,
   Layers,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { CreateSakonExchangeModal } from "@/components/maintenance/CreateSakonExchangeModal";
 import { PrintableSakonSlipModal, SakonExchangeData } from "@/components/maintenance/PrintableSakonSlipModal";
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination";
 
 export default function MaintenanceSakonPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedSlip, setSelectedSlip] = useState<SakonExchangeData | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: exchangesData, isLoading, refetch } = useQuery({
     queryKey: ["maintenance-sakon-exchanges"],
@@ -33,7 +38,37 @@ export default function MaintenanceSakonPage() {
     },
   });
 
-  const exchanges = Array.isArray(exchangesData) ? exchangesData : [];
+  const rawExchanges = Array.isArray(exchangesData) ? exchangesData : [];
+
+  const filteredExchanges = useMemo(() => {
+    let list = rawExchanges;
+    if (statusFilter !== "all") {
+      list = list.filter((e: any) => e.status === statusFilter);
+    }
+    if (!searchTerm.trim()) return list;
+    const q = searchTerm.toLowerCase();
+    return list.filter((exc: any) => {
+      const docMatch = exc.sakol_doc_no?.toLowerCase().includes(q);
+      const recipientMatch = exc.recipient_company?.toLowerCase().includes(q);
+      const itemMatch = (exc.items || []).some(
+        (it: any) =>
+          it.product_name?.toLowerCase().includes(q) ||
+          it.refurbished_sn?.toLowerCase().includes(q) ||
+          it.defective_sn?.toLowerCase().includes(q)
+      );
+      return docMatch || recipientMatch || itemMatch;
+    });
+  }, [rawExchanges, statusFilter, searchTerm]);
+
+  const {
+    currentPage,
+    pageSize,
+    totalPages,
+    totalItems,
+    paginatedItems,
+    setCurrentPage,
+    setPageSize,
+  } = useTablePagination(filteredExchanges, 10, [10, 20, 30, 50, 100]);
 
   return (
     <div className="space-y-6">
@@ -74,7 +109,34 @@ export default function MaintenanceSakonPage() {
         </div>
         <div className="text-right shrink-0">
           <span className="text-slate-500">บันทึกแล้วทั้งหมด:</span>{" "}
-          <strong className="text-indigo-900 text-sm">{exchanges.length} รายการ</strong>
+          <strong className="text-indigo-900 text-sm">{filteredExchanges.length} รายการ</strong>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-500 font-medium">สถานะ:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-slate-300 rounded px-2.5 py-1.5 bg-white text-xs font-semibold text-slate-700"
+          >
+            <option value="all">ทั้งหมด</option>
+            <option value="completed">ส่งมอบเรียบร้อย</option>
+            <option value="pending">รอส่งมอบ</option>
+          </select>
+        </div>
+
+        <div className="relative w-full md:w-80">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="ค้นหาเลขที่เอกสาร, ผู้รับ, S/N, อุปกรณ์..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 text-xs h-9"
+          />
         </div>
       </div>
 
@@ -101,14 +163,14 @@ export default function MaintenanceSakonPage() {
                     กำลังโหลดข้อมูลการเปลี่ยนอุปกรณ์...
                   </td>
                 </tr>
-              ) : exchanges.length === 0 ? (
+              ) : filteredExchanges.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-6 text-center text-slate-500">
-                    ยังไม่มีรายการเปลี่ยนอุปกรณ์ สามารถกดปุ่ม &quot;บันทึกใบขอเปลี่ยนอุปกรณ์ (Sakon)&quot; ด้านบนเพื่อเริ่มรายการแรก
+                    ไม่พบรายการเปลี่ยนอุปกรณ์ตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
               ) : (
-                exchanges.map((exc: any) => {
+                paginatedItems.map((exc: any) => {
                   const totalQty = (exc.items || []).reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
                   return (
                     <tr key={exc.id} className="hover:bg-slate-50">
@@ -176,6 +238,17 @@ export default function MaintenanceSakonPage() {
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="รายการ"
+        />
       </div>
 
       {/* Modal: Create Sakon Exchange */}

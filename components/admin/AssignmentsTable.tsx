@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit2, Loader2, ClipboardList, Clock, X, CalendarPlus, Eye, Banknote } from "lucide-react"
+import { Search, Plus, Edit2, Loader2, ClipboardList, Clock, X, CalendarPlus, Eye, Banknote } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -44,6 +45,7 @@ export function AssignmentsTable() {
   const [subjectFilter, setSubjectFilter] = useState("all")
   const [classLevelFilter, setClassLevelFilter] = useState("all")
   const [academicYearFilter, setAcademicYearFilter] = useState("all")
+  const [assignSearch, setAssignSearch] = useState("")
 
   const { data: assignments, isLoading } = useQuery({
     queryKey: ["admin-assignments", statusFilter],
@@ -130,9 +132,20 @@ export function AssignmentsTable() {
       const matchSubject = subjectFilter === "all" || a.subject_id === subjectFilter
       const matchClassLevel = classLevelFilter === "all" || a.class_level === classLevelFilter
       const matchAcademicYear = academicYearFilter === "all" || a.academic_year === academicYearFilter
+      if (assignSearch.trim()) {
+        const q = assignSearch.toLowerCase().trim()
+        const matchTeacher = (a.teacher?.full_name || a.teacher?.email || "").toLowerCase().includes(q)
+        const matchSchool = (a.school?.name || a.school?.district || "").toLowerCase().includes(q)
+        const matchSub = (a.subject?.name || "").toLowerCase().includes(q)
+        const matchClass = (a.class_level || "").toLowerCase().includes(q)
+        const matchNotes = (a.notes || "").toLowerCase().includes(q)
+        if (!matchTeacher && !matchSchool && !matchSub && !matchClass && !matchNotes) return false
+      }
       return matchTeacher && matchSchool && matchSubject && matchClassLevel && matchAcademicYear
     })
-  }, [assignments, teacherFilter, schoolFilter, subjectFilter, classLevelFilter, academicYearFilter])
+  }, [assignments, teacherFilter, schoolFilter, subjectFilter, classLevelFilter, academicYearFilter, assignSearch])
+
+  const assignmentsPagination = useTablePagination(filteredAssignments, 10, [10, 20, 30, 50, 100])
 
   // Get unique class levels for selected school from students
   const classLevelsForSchool = useMemo(() => {
@@ -523,7 +536,7 @@ export function AssignmentsTable() {
               <TableRow><TableCell colSpan={10} className="text-center py-8">กำลังโหลด...</TableCell></TableRow>
             ) : filteredAssignments.length === 0 ? (
               <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">ไม่มีงานมอบหมาย</TableCell></TableRow>
-            ) : filteredAssignments.map((a: any) => {
+            ) : assignmentsPagination.paginatedItems.map((a: any) => {
               const dates = a.schedule_dates || []
               const upcomingDates = dates.filter((d: string) => d >= new Date().toISOString().split('T')[0]).slice(0, 3)
               const pastCount = dates.filter((d: string) => d < new Date().toISOString().split('T')[0]).length

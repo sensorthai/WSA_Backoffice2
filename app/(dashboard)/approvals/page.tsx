@@ -10,6 +10,7 @@ import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { toast } from "sonner"
 import { 
+  Search,
   CheckCircle2, 
   XCircle, 
   FileText, 
@@ -60,6 +61,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 const getReceiptUrls = (receiptUrl: string | null | undefined): string[] => {
   if (!receiptUrl) return []
@@ -91,6 +93,18 @@ export default function ApprovalsPage() {
   const [finPaidRequester, setFinPaidRequester] = useState("all")
   const [finPaidStatus, setFinPaidStatus] = useState("paid")
   const [finPaidPage, setFinPaidPage] = useState(1)
+
+  // --- Search & Filters for Tabs ---
+  const [pendingSearch, setPendingSearch] = useState("")
+  const [pendingTypeFilter, setPendingTypeFilter] = useState("all")
+
+  const [historySearch, setHistorySearch] = useState("")
+  const [historyTypeFilter, setHistoryTypeFilter] = useState("all")
+  const [historyStatusFilter, setHistoryStatusFilter] = useState("all")
+
+  const [finWaitingSearch, setFinWaitingSearch] = useState("")
+  const [finPaidSearch, setFinPaidSearch] = useState("")
+  const [nonFinPaidSearch, setNonFinPaidSearch] = useState("")
   const finItemsPerPage = 10
 
   useEffect(() => {
@@ -116,9 +130,62 @@ export default function ApprovalsPage() {
   })
 
   // รายการที่จ่ายเงินแล้ว (purchase / reimbursement สถานะ paid)
-  const paidItems = Array.isArray(historyItems)
+  const rawPaidItems = Array.isArray(historyItems)
     ? historyItems.filter((it: any) => it.status === 'paid' && (it.type === 'purchase' || it.type === 'reimbursement'))
     : []
+
+  // Filtered Pending
+  const filteredPendingItems = useMemo(() => {
+    if (!Array.isArray(pendingItems)) return []
+    return pendingItems.filter((it: any) => {
+      if (pendingTypeFilter !== "all" && it.type !== pendingTypeFilter) return false
+      if (pendingSearch.trim()) {
+        const q = pendingSearch.toLowerCase()
+        const matchLabel = (it.label || "").toLowerCase().includes(q)
+        const matchUser = (it.user?.full_name || "").toLowerCase().includes(q)
+        const matchTitle = (it.title || it.description || it.destination || it.reason || "").toLowerCase().includes(q)
+        if (!matchLabel && !matchUser && !matchTitle) return false
+      }
+      return true
+    })
+  }, [pendingItems, pendingTypeFilter, pendingSearch])
+
+  const pendingPagination = useTablePagination(filteredPendingItems, 10, [10, 20, 30, 50, 100])
+
+  // Filtered History
+  const filteredHistoryItems = useMemo(() => {
+    if (!Array.isArray(historyItems)) return []
+    return historyItems.filter((it: any) => {
+      if (historyTypeFilter !== "all" && it.type !== historyTypeFilter) return false
+      if (historyStatusFilter !== "all" && it.status !== historyStatusFilter) return false
+      if (historySearch.trim()) {
+        const q = historySearch.toLowerCase()
+        const matchLabel = (it.label || "").toLowerCase().includes(q)
+        const matchUser = (it.user?.full_name || "").toLowerCase().includes(q)
+        const matchApprover = (it.approver_name || "").toLowerCase().includes(q)
+        const matchTitle = (it.title || it.description || it.destination || it.reason || "").toLowerCase().includes(q)
+        if (!matchLabel && !matchUser && !matchApprover && !matchTitle) return false
+      }
+      return true
+    })
+  }, [historyItems, historyTypeFilter, historyStatusFilter, historySearch])
+
+  const historyPagination = useTablePagination(filteredHistoryItems, 10, [10, 20, 30, 50, 100])
+
+  // Filtered Non-Finance Paid Items
+  const filteredNonFinPaidItems = useMemo(() => {
+    return rawPaidItems.filter((it: any) => {
+      if (nonFinPaidSearch.trim()) {
+        const q = nonFinPaidSearch.toLowerCase()
+        const matchUser = (it.user?.full_name || "").toLowerCase().includes(q)
+        const matchTitle = (it.title || it.description || it.vendor_name || it.vendor || "").toLowerCase().includes(q)
+        if (!matchUser && !matchTitle) return false
+      }
+      return true
+    })
+  }, [rawPaidItems, nonFinPaidSearch])
+
+  const nonFinPaidPagination = useTablePagination(filteredNonFinPaidItems, 10, [10, 20, 30, 50, 100])
 
   // --- Finance: User Profile & Permission ---
   const { data: userProfile } = useQuery({
@@ -168,10 +235,32 @@ export default function ApprovalsPage() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [approvedPurchases])
 
+  const filteredFinWaitingItems = useMemo(() => {
+    return finWaitingItems.filter((p: any) => {
+      if (finWaitingSearch.trim()) {
+        const q = finWaitingSearch.toLowerCase()
+        const matchTitle = (p.title || "").toLowerCase().includes(q)
+        const matchVendor = (p.vendor_name || p.vendor || "").toLowerCase().includes(q)
+        const matchUser = (p.user?.full_name || "").toLowerCase().includes(q)
+        if (!matchTitle && !matchVendor && !matchUser) return false
+      }
+      return true
+    })
+  }, [finWaitingItems, finWaitingSearch])
+
+  const finWaitingPagination = useTablePagination(filteredFinWaitingItems, 10, [10, 20, 30, 50, 100])
+
   const finFilteredPaidItems = useMemo(() => {
     return (approvedPurchases || []).filter((p: any) => {
       if (finPaidStatus !== "all" && p.status !== finPaidStatus) return false
       if (finPaidRequester !== "all" && p.user_id !== finPaidRequester) return false
+      if (finPaidSearch.trim()) {
+        const q = finPaidSearch.toLowerCase()
+        const matchTitle = (p.title || "").toLowerCase().includes(q)
+        const matchVendor = (p.vendor_name || p.vendor || "").toLowerCase().includes(q)
+        const matchUser = (p.user?.full_name || "").toLowerCase().includes(q)
+        if (!matchTitle && !matchVendor && !matchUser) return false
+      }
       const payDateStr = p.paid_at || p.updated_at || p.created_at
       if (payDateStr) {
         const payDate = new Date(payDateStr)
@@ -189,13 +278,9 @@ export default function ApprovalsPage() {
       }
       return true
     })
-  }, [approvedPurchases, finPaidStatus, finPaidRequester, finPaidStartDate, finPaidEndDate])
+  }, [approvedPurchases, finPaidStatus, finPaidRequester, finPaidStartDate, finPaidEndDate, finPaidSearch])
 
-  const finTotalPages = Math.ceil(finFilteredPaidItems.length / finItemsPerPage)
-  const finPaginatedPaidItems = useMemo(() => {
-    const startIdx = (finPaidPage - 1) * finItemsPerPage
-    return finFilteredPaidItems.slice(startIdx, startIdx + finItemsPerPage)
-  }, [finFilteredPaidItems, finPaidPage])
+  const finPaidPagination = useTablePagination(finFilteredPaidItems, 10, [10, 20, 30, 50, 100])
 
   useEffect(() => { setFinPaidPage(1) }, [finPaidStatus, finPaidRequester, finPaidStartDate, finPaidEndDate])
 
@@ -889,7 +974,41 @@ export default function ApprovalsPage() {
           </div>
 
           {activeView === "pending" && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+               {/* Search & Filter Bar */}
+               <div className="bg-white/80 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                 <div className="relative flex-1">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                   <Input
+                     placeholder="ค้นหาตามประเภท, ผู้ขอ, หรือรายละเอียดคำขอ..."
+                     value={pendingSearch}
+                     onChange={(e) => {
+                       setPendingSearch(e.target.value)
+                       pendingPagination.setCurrentPage(1)
+                     }}
+                     className="pl-11 h-11 bg-slate-50 border-slate-200 rounded-2xl text-sm focus:bg-white transition-all font-medium"
+                   />
+                 </div>
+                 <Select
+                   value={pendingTypeFilter}
+                   onValueChange={(val) => {
+                     setPendingTypeFilter(val)
+                     pendingPagination.setCurrentPage(1)
+                   }}
+                 >
+                   <SelectTrigger className="w-[180px] h-11 rounded-2xl border-slate-200 bg-slate-50 text-xs font-bold text-slate-700">
+                     <SelectValue placeholder="ประเภททั้งหมด" />
+                   </SelectTrigger>
+                   <SelectContent className="rounded-2xl">
+                     <SelectItem value="all">ประเภททั้งหมด</SelectItem>
+                     <SelectItem value="leave">ใบลา</SelectItem>
+                     <SelectItem value="purchase">ใบเบิกเงิน</SelectItem>
+                     <SelectItem value="reimbursement">เบิกเงินสดย่อย</SelectItem>
+                     <SelectItem value="car">จองรถยนต์</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+
                <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
                   <div className="overflow-x-auto custom-scrollbar">
                   <Table className="min-w-[700px]">
@@ -906,9 +1025,9 @@ export default function ApprovalsPage() {
                      <TableBody>
                         {isPendingLoading ? (
                           <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
-                        ) : !Array.isArray(pendingItems) || pendingItems.length === 0 ? (
+                        ) : filteredPendingItems.length === 0 ? (
                           <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีรายการรอดำเนินการในขณะนี้</TableCell></TableRow>
-                        ) : pendingItems.map((item: any) => (
+                        ) : pendingPagination.paginatedItems.map((item: any) => (
                           <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
                              <TableCell className="py-8 pl-10">
                                 <div className="flex items-center gap-3">
@@ -946,13 +1065,78 @@ export default function ApprovalsPage() {
                      </TableBody>
                   </Table>
                   </div>
+                  <div className="p-4 border-t border-slate-50">
+                    <TablePagination
+                      currentPage={pendingPagination.currentPage}
+                      totalPages={pendingPagination.totalPages}
+                      totalItems={pendingPagination.totalItems}
+                      pageSize={pendingPagination.pageSize}
+                      pageSizeOptions={[10, 20, 30, 50, 100]}
+                      onPageChange={pendingPagination.setCurrentPage}
+                      onPageSizeChange={pendingPagination.setPageSize}
+                      itemLabel="รายการ"
+                    />
+                  </div>
                </Card>
             </div>
           )}
 
           {activeView === "history" && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               {/* Similar Table for History */}
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+               {/* Search & Filter Bar */}
+               <div className="bg-white/80 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                 <div className="relative flex-1">
+                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                   <Input
+                     placeholder="ค้นหาตามประเภท, ผู้ขอ, ผู้อนุมัติ, รายละเอียด..."
+                     value={historySearch}
+                     onChange={(e) => {
+                       setHistorySearch(e.target.value)
+                       historyPagination.setCurrentPage(1)
+                     }}
+                     className="pl-11 h-11 bg-slate-50 border-slate-200 rounded-2xl text-sm focus:bg-white transition-all font-medium"
+                   />
+                 </div>
+                 <div className="flex flex-wrap items-center gap-2">
+                   <Select
+                     value={historyTypeFilter}
+                     onValueChange={(val) => {
+                       setHistoryTypeFilter(val)
+                       historyPagination.setCurrentPage(1)
+                     }}
+                   >
+                     <SelectTrigger className="w-[150px] h-11 rounded-2xl border-slate-200 bg-slate-50 text-xs font-bold text-slate-700">
+                       <SelectValue placeholder="ประเภททั้งหมด" />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-2xl">
+                       <SelectItem value="all">ประเภททั้งหมด</SelectItem>
+                       <SelectItem value="leave">ใบลา</SelectItem>
+                       <SelectItem value="purchase">ใบเบิกเงิน</SelectItem>
+                       <SelectItem value="reimbursement">เบิกเงินสดย่อย</SelectItem>
+                       <SelectItem value="car">จองรถยนต์</SelectItem>
+                     </SelectContent>
+                   </Select>
+
+                   <Select
+                     value={historyStatusFilter}
+                     onValueChange={(val) => {
+                       setHistoryStatusFilter(val)
+                       historyPagination.setCurrentPage(1)
+                     }}
+                   >
+                     <SelectTrigger className="w-[150px] h-11 rounded-2xl border-slate-200 bg-slate-50 text-xs font-bold text-slate-700">
+                       <SelectValue placeholder="สถานะทั้งหมด" />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-2xl">
+                       <SelectItem value="all">สถานะทั้งหมด</SelectItem>
+                       <SelectItem value="approved">อนุมัติแล้ว</SelectItem>
+                       <SelectItem value="rejected">ปฏิเสธ</SelectItem>
+                       <SelectItem value="paid">จ่ายเงินแล้ว</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+               </div>
+
                <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
                   <div className="overflow-x-auto custom-scrollbar">
                   <Table className="min-w-[600px]">
@@ -969,9 +1153,9 @@ export default function ApprovalsPage() {
                      <TableBody>
                         {isHistoryLoading ? (
                           <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200" /></TableCell></TableRow>
-                        ) : !Array.isArray(historyItems) || historyItems.length === 0 ? (
+                        ) : filteredHistoryItems.length === 0 ? (
                           <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ไม่มีประวัติการอนุมัติ</TableCell></TableRow>
-                        ) : historyItems.map((item: any) => (
+                        ) : historyPagination.paginatedItems.map((item: any) => (
                           <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors group cursor-pointer" role="button" tabIndex={0} onClick={() => setSelectedItem(item)}>
                              <TableCell className="py-8 pl-10">
                                 <div className="flex items-center gap-3">
@@ -992,6 +1176,18 @@ export default function ApprovalsPage() {
                         ))}
                      </TableBody>
                   </Table>
+                  </div>
+                  <div className="p-4 border-t border-slate-50">
+                    <TablePagination
+                      currentPage={historyPagination.currentPage}
+                      totalPages={historyPagination.totalPages}
+                      totalItems={historyPagination.totalItems}
+                      pageSize={historyPagination.pageSize}
+                      pageSizeOptions={[10, 20, 30, 50, 100]}
+                      onPageChange={historyPagination.setCurrentPage}
+                      onPageSizeChange={historyPagination.setPageSize}
+                      itemLabel="รายการ"
+                    />
                   </div>
                </Card>
             </div>
@@ -1038,13 +1234,27 @@ export default function ApprovalsPage() {
                       {/* Waiting for Payment Section */}
                       {waitingItems.length > 0 && (
                         <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
-                              <Clock size={20} />
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
+                                <Clock size={20} />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-black text-slate-900">รอดำเนินการจ่ายเงิน</h3>
+                                <p className="text-xs text-slate-400 font-medium">รายการที่ผ่านการอนุมัติแล้ว รอฝ่ายการเงินกดยืนยันจ่ายเงิน</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="text-lg font-black text-slate-900">รอดำเนินการจ่ายเงิน</h3>
-                              <p className="text-xs text-slate-400 font-medium">รายการที่ผ่านการอนุมัติแล้ว รอฝ่ายการเงินกดยืนยันจ่ายเงิน</p>
+                            <div className="relative w-full sm:w-72">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                              <Input
+                                placeholder="ค้นหารายการ, ผู้เบิก..."
+                                value={finWaitingSearch}
+                                onChange={(e) => {
+                                  setFinWaitingSearch(e.target.value)
+                                  finWaitingPagination.setCurrentPage(1)
+                                }}
+                                className="pl-9 h-9 bg-white border-slate-200 rounded-xl text-xs font-medium"
+                              />
                             </div>
                           </div>
 
@@ -1063,7 +1273,7 @@ export default function ApprovalsPage() {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {waitingItems.map((p: any) => (
+                                  {finWaitingPagination.paginatedItems.map((p: any) => (
                                     <TableRow key={p.id} className="border-amber-100/50 hover:bg-amber-50/30 transition-colors group">
                                       <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
                                         {format(new Date(p.created_at), "d MMM yy", { locale: th })}
@@ -1166,7 +1376,7 @@ export default function ApprovalsPage() {
 
                           {/* Mobile Cards */}
                           <div className="grid md:hidden gap-4">
-                            {waitingItems.map((p: any) => (
+                            {finWaitingPagination.paginatedItems.map((p: any) => (
                               <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-amber-200/40 p-5 space-y-4">
                                 <div className="flex justify-between items-start gap-3">
                                   <div className="flex-1">
@@ -1252,6 +1462,19 @@ export default function ApprovalsPage() {
                               </Card>
                             ))}
                           </div>
+
+                          <div className="pt-2 no-print">
+                            <TablePagination
+                              currentPage={finWaitingPagination.currentPage}
+                              totalPages={finWaitingPagination.totalPages}
+                              totalItems={finWaitingPagination.totalItems}
+                              pageSize={finWaitingPagination.pageSize}
+                              pageSizeOptions={[10, 20, 30, 50, 100]}
+                              onPageChange={finWaitingPagination.setCurrentPage}
+                              onPageSizeChange={finWaitingPagination.setPageSize}
+                              itemLabel="รายการ"
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -1328,7 +1551,7 @@ export default function ApprovalsPage() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {finPaginatedPaidItems.map((p: any) => (
+                                      {finPaidPagination.paginatedItems.map((p: any) => (
                                         <TableRow key={p.id} className="border-emerald-100/30 hover:bg-emerald-50/20 transition-colors">
                                           <TableCell className="py-5 pl-8 font-bold text-slate-500 text-sm">
                                             {p.paid_at ? format(new Date(p.paid_at), "d MMM yy", { locale: th }) : format(new Date(p.updated_at || p.created_at), "d MMM yy", { locale: th })}
@@ -1373,7 +1596,7 @@ export default function ApprovalsPage() {
 
                               {/* Mobile Cards */}
                               <div className="grid md:hidden gap-4">
-                                {finPaginatedPaidItems.map((p: any) => (
+                                {finPaidPagination.paginatedItems.map((p: any) => (
                                   <Card key={p.id} className="rounded-[2rem] border-0 bg-white/80 backdrop-blur-xl shadow-sm ring-1 ring-emerald-200/30 p-5 space-y-4">
                                     <div className="flex justify-between items-start gap-3">
                                       <div className="flex-1">
@@ -1406,20 +1629,18 @@ export default function ApprovalsPage() {
                               </div>
 
                               {/* Pagination */}
-                              {finTotalPages > 1 && (
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl shadow-sm mt-4 no-print">
-                                  <div className="text-xs font-bold text-slate-500">
-                                    แสดง {((finPaidPage - 1) * finItemsPerPage) + 1} - {Math.min(finPaidPage * finItemsPerPage, finFilteredPaidItems.length)} จากทั้งหมด {finFilteredPaidItems.length} รายการ
-                                  </div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-slate-200 text-xs h-9" disabled={finPaidPage === 1} onClick={() => setFinPaidPage(p => Math.max(1, p - 1))}>ก่อนหน้า</Button>
-                                    {Array.from({ length: finTotalPages }).map((_, i) => (
-                                      <Button key={i} variant={finPaidPage === i + 1 ? "default" : "outline"} size="sm" className={cn("rounded-xl font-bold w-9 h-9 p-0 text-xs", finPaidPage === i + 1 ? "bg-emerald-600 hover:bg-emerald-700 text-white border-0" : "border-slate-200 text-slate-600")} onClick={() => setFinPaidPage(i + 1)}>{i + 1}</Button>
-                                    ))}
-                                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-slate-200 text-xs h-9" disabled={finPaidPage === finTotalPages} onClick={() => setFinPaidPage(p => Math.min(finTotalPages, p + 1))}>ถัดไป</Button>
-                                  </div>
-                                </div>
-                              )}
+                              <div className="pt-2 no-print">
+                                <TablePagination
+                                  currentPage={finPaidPagination.currentPage}
+                                  totalPages={finPaidPagination.totalPages}
+                                  totalItems={finPaidPagination.totalItems}
+                                  pageSize={finPaidPagination.pageSize}
+                                  pageSizeOptions={[10, 20, 30, 50, 100]}
+                                  onPageChange={finPaidPagination.setCurrentPage}
+                                  onPageSizeChange={finPaidPagination.setPageSize}
+                                  itemLabel="รายการ"
+                                />
+                              </div>
                             </>
                           )}
                         </div>
@@ -1438,9 +1659,25 @@ export default function ApprovalsPage() {
                 })()
               ) : (
                 /* ===== NON-FINANCE USER: Show paid items from history ===== */
-                <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-                   <div className="overflow-x-auto custom-scrollbar">
-                   <Table className="min-w-[700px]">
+                <div className="space-y-4">
+                  <div className="bg-white/80 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="ค้นหาตามผู้ขอ, รายการ หรือร้านค้า..."
+                        value={nonFinPaidSearch}
+                        onChange={(e) => {
+                          setNonFinPaidSearch(e.target.value)
+                          nonFinPaidPagination.setCurrentPage(1)
+                        }}
+                        className="pl-11 h-11 bg-slate-50 border-slate-200 rounded-2xl text-sm focus:bg-white transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <Card className="rounded-[2rem] md:rounded-[3rem] border-0 bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                     <div className="overflow-x-auto custom-scrollbar">
+                     <Table className="min-w-[700px]">
                       <TableHeader className="bg-slate-50/50">
                          <TableRow className="border-slate-100 hover:bg-transparent">
                             <TableHead className="py-8 pl-10 font-black text-slate-400 uppercase tracking-widest text-[11px]">วันที่จ่าย</TableHead>
@@ -1454,9 +1691,9 @@ export default function ApprovalsPage() {
                       <TableBody>
                          {isHistoryLoading ? (
                            <TableRow><TableCell colSpan={6} className="py-24 text-center"><Loader2 className="animate-spin inline-block text-blue-200 w-12 h-12" /></TableCell></TableRow>
-                         ) : paidItems.length === 0 ? (
+                         ) : filteredNonFinPaidItems.length === 0 ? (
                            <TableRow><TableCell colSpan={6} className="py-40 text-center text-slate-300 font-bold text-lg">ยังไม่มีรายการที่จ่ายเงินแล้ว</TableCell></TableRow>
-                         ) : paidItems.map((item: any) => {
+                         ) : nonFinPaidPagination.paginatedItems.map((item: any) => {
                            const amount = item.type === 'purchase' ? Number(item.total_amount || 0) : Number(item.amount || 0)
                            const vendor = item.vendor_name || item.vendor || ""
                            const paidDate = item.paid_at || item.updated_at || item.created_at
@@ -1495,7 +1732,20 @@ export default function ApprovalsPage() {
                       </TableBody>
                    </Table>
                    </div>
+                   <div className="p-4 border-t border-slate-50">
+                     <TablePagination
+                       currentPage={nonFinPaidPagination.currentPage}
+                       totalPages={nonFinPaidPagination.totalPages}
+                       totalItems={nonFinPaidPagination.totalItems}
+                       pageSize={nonFinPaidPagination.pageSize}
+                       pageSizeOptions={[10, 20, 30, 50, 100]}
+                       onPageChange={nonFinPaidPagination.setCurrentPage}
+                       onPageSizeChange={nonFinPaidPagination.setPageSize}
+                       itemLabel="รายการ"
+                     />
+                   </div>
                 </Card>
+               </div>
               )}
             </div>
           )}

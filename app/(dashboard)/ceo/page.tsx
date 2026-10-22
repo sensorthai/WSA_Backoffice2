@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 import { 
+  Search,
   Building2, 
   Home, 
   Palmtree, 
@@ -32,11 +33,16 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 
 
 export default function CEOPage() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState("")
+  const [approvalSearch, setApprovalSearch] = useState("")
+  const [approvalTypeFilter, setApprovalTypeFilter] = useState("all")
 
   // --- Data Fetching ---
   const { data, isLoading, refetch, isRefetching } = useQuery({
@@ -97,6 +103,23 @@ export default function CEOPage() {
   }
 
   // --- Filtered Data ---
+  const filteredPendingApprovals = useMemo(() => {
+    const list = Array.isArray(data?.pending_approvals?.items) ? data.pending_approvals.items : []
+    return list.filter((item: any) => {
+      if (approvalTypeFilter !== "all" && item.type !== approvalTypeFilter) return false
+      if (approvalSearch.trim()) {
+        const q = approvalSearch.toLowerCase().trim()
+        const matchLabel = (item.label || "").toLowerCase().includes(q)
+        const matchUser = (item.user?.full_name || "").toLowerCase().includes(q)
+        const matchTitle = (item.title || item.reason || "").toLowerCase().includes(q)
+        if (!matchLabel && !matchUser && !matchTitle) return false
+      }
+      return true
+    })
+  }, [data?.pending_approvals?.items, approvalTypeFilter, approvalSearch])
+
+  const ceoApprovalsPagination = useTablePagination(filteredPendingApprovals, 10, [10, 20, 30, 50, 100])
+
   const filteredUsers = useMemo(() => {
     if (!data?.wfh) return []
     const all = [
@@ -314,26 +337,56 @@ export default function CEOPage() {
 
       {/* Row 4: Pending Approvals */}
       <Card id="approvals" className="rounded-[3rem] border-0 shadow-sm ring-1 ring-slate-100 overflow-hidden bg-white">
-         <CardHeader className="p-10 border-b border-slate-50 flex flex-row items-center justify-between">
+         <CardHeader className="p-6 md:p-10 border-b border-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
                <CardTitle className="text-2xl font-black text-slate-900 flex items-center gap-3">
                   <CheckSquare className="text-blue-600" /> คำขอรอดำเนินการ
                </CardTitle>
                <p className="text-slate-400 font-medium text-sm">พิจารณาใบลาและใบเบิกที่เกินวงเงินของหัวหน้างาน</p>
             </div>
-            {data?.pending_approvals?.items?.length > 0 && (
-              <Button 
-                 className="rounded-2xl bg-slate-900 hover:bg-black text-white font-black px-8 h-14 shadow-xl"
-                 onClick={() => {
-                    if (confirm("คุณแน่ใจหรือไม่ว่าต้องการอนุมัติรายการทั้งหมด?")) {
-                       bulkApproveMutation.mutate(data.pending_approvals.items)
-                    }
-                 }}
-                 disabled={bulkApproveMutation.isPending}
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Input
+                  placeholder="ค้นหาประเภท, ผู้ขอ, รายละเอียด..."
+                  value={approvalSearch}
+                  onChange={(e) => {
+                    setApprovalSearch(e.target.value)
+                    ceoApprovalsPagination.setCurrentPage(1)
+                  }}
+                  className="pl-9 h-11 bg-slate-50 border-slate-200 rounded-2xl text-xs font-medium"
+                />
+              </div>
+              <Select
+                value={approvalTypeFilter}
+                onValueChange={(val) => {
+                  setApprovalTypeFilter(val)
+                  ceoApprovalsPagination.setCurrentPage(1)
+                }}
               >
-                 อนุมัติทั้งหมด ({data.pending_approvals.total})
-              </Button>
-            )}
+                <SelectTrigger className="w-[140px] h-11 rounded-2xl border-slate-200 bg-slate-50 text-xs font-bold text-slate-700">
+                  <SelectValue placeholder="ประเภททั้งหมด" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  <SelectItem value="all">ประเภททั้งหมด</SelectItem>
+                  <SelectItem value="leave">ใบลา</SelectItem>
+                  <SelectItem value="purchase">ใบเบิกเงิน</SelectItem>
+                </SelectContent>
+              </Select>
+              {data?.pending_approvals?.items?.length > 0 && (
+                <Button 
+                   className="rounded-2xl bg-slate-900 hover:bg-black text-white font-black px-6 h-11 shadow-md text-xs whitespace-nowrap"
+                   onClick={() => {
+                      if (confirm("คุณแน่ใจหรือไม่ว่าต้องการอนุมัติรายการทั้งหมด?")) {
+                         bulkApproveMutation.mutate(data.pending_approvals.items)
+                      }
+                   }}
+                   disabled={bulkApproveMutation.isPending}
+                >
+                   อนุมัติทั้งหมด ({data.pending_approvals.total})
+                </Button>
+              )}
+            </div>
          </CardHeader>
          <CardContent className="p-0">
             <Table>
@@ -347,7 +400,7 @@ export default function CEOPage() {
                   </TableRow>
                </TableHeader>
                <TableBody>
-                  {data?.pending_approvals?.items?.length > 0 ? data.pending_approvals.items.map((item: any) => (
+                  {ceoApprovalsPagination.paginatedItems.length > 0 ? ceoApprovalsPagination.paginatedItems.map((item: any) => (
                      <TableRow key={item.id} className="border-slate-50 hover:bg-slate-50/30 group">
                         <TableCell className="py-8 pl-10">
                            <Badge className={cn("border-0 rounded-lg font-black text-[10px]", item.color)}>{item.label}</Badge>

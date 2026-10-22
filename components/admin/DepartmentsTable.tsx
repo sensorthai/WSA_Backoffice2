@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { TablePagination, useTablePagination } from "@/components/ui/TablePagination"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Edit2, Loader2 } from "lucide-react"
+import { Search, Plus, Edit2, Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -21,6 +22,7 @@ export function DepartmentsTable() {
   const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingDept, setEditingDept] = useState<any>(null)
+  const [deptSearch, setDeptSearch] = useState("")
 
   const { data: depts, isLoading } = useQuery({
     queryKey: ["admin-depts"],
@@ -33,6 +35,15 @@ export function DepartmentsTable() {
       return text ? JSON.parse(text) : []
     }
   })
+
+  const filteredDepts = useMemo(() => {
+    if (!Array.isArray(depts)) return []
+    if (!deptSearch.trim()) return depts
+    const q = deptSearch.toLowerCase().trim()
+    return depts.filter((d: any) => (d.name || "").toLowerCase().includes(q))
+  }, [depts, deptSearch])
+
+  const deptsPagination = useTablePagination(filteredDepts, 10, [10, 20, 30, 50, 100])
 
   const form = useForm<z.infer<typeof deptSchema>>({
     resolver: zodResolver(deptSchema) as any,
@@ -85,9 +96,22 @@ export function DepartmentsTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
         <h2 className="text-xl font-semibold text-slate-800">รายชื่อกลุ่มงาน</h2>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="ค้นหากลุ่มงาน..."
+              value={deptSearch}
+              onChange={(e) => {
+                setDeptSearch(e.target.value)
+                deptsPagination.setCurrentPage(1)
+              }}
+              className="pl-9 h-9 text-xs bg-white"
+            />
+          </div>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => { setEditingDept(null); form.reset(); }}>
               <Plus className="mr-2 h-4 w-4" /> เพิ่มกลุ่มงาน
@@ -118,6 +142,7 @@ export function DepartmentsTable() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="border rounded-xl bg-white overflow-x-auto shadow-sm">
@@ -131,7 +156,7 @@ export function DepartmentsTable() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={2} className="text-center py-8">กำลังโหลด...</TableCell></TableRow>
-            ) : depts?.map((dept: any) => (
+            ) : deptsPagination.paginatedItems.map((dept: any) => (
               <TableRow key={dept.id}>
                 <TableCell className="font-medium">{dept.name}</TableCell>
                 <TableCell className="text-right space-x-2">
@@ -143,6 +168,18 @@ export function DepartmentsTable() {
             ))}
           </TableBody>
         </Table>
+      </div>
+      <div className="pt-2">
+        <TablePagination
+          currentPage={deptsPagination.currentPage}
+          totalPages={deptsPagination.totalPages}
+          totalItems={deptsPagination.totalItems}
+          pageSize={deptsPagination.pageSize}
+          pageSizeOptions={[10, 20, 30, 50, 100]}
+          onPageChange={deptsPagination.setCurrentPage}
+          onPageSizeChange={deptsPagination.setPageSize}
+          itemLabel="กลุ่มงาน"
+        />
       </div>
     </div>
   )
