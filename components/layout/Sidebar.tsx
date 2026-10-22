@@ -38,7 +38,8 @@ import {
   Building2,
   Boxes,
   Wrench,
-  FileText
+  FileText,
+  BarChart3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -115,6 +116,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       roles: ["admin", "employee", "supervisor", "ceo"],
       subItems: [
         { label: "แปลงบ้าน & พิมพ์ใบปะหน้า", href: "/lh-plots", icon: Building2 },
+        { label: "รายงานสรุป Lot & โครงการ", href: "/lh-plots/reports", icon: BarChart3 },
         { label: "คลังอุปกรณ์ & ใบเบิกของ", href: "/inventory", icon: Boxes },
         { label: "ช่างติดตั้งหน้างาน (Mobile)", href: "/technician", icon: Wrench },
         { label: "สรุปค่าคอมมิชชั่นช่าง", href: "/commissions", icon: Coins },

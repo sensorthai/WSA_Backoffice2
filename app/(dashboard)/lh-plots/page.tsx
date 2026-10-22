@@ -20,15 +20,19 @@ import {
   Layers,
   RefreshCw,
   Download,
+  BarChart3,
+  ListFilter,
 } from "lucide-react";
 import { downloadLhPlotTemplate } from "@/lib/excel-templates";
 import { TscLabelModal, TscPlotItem } from "@/components/installation/TscLabelModal";
 import { CoverSheetModal } from "@/components/installation/CoverSheetModal";
 import { LhImportModal } from "@/components/installation/LhImportModal";
+import { LhSummaryReport } from "@/components/installation/LhSummaryReport";
 import { PlotCoverSheetData } from "@/components/installation/ExactCoverSheet";
 import { getCustomerCompanyInfo } from "@/lib/lh-customer";
 
 export default function LhPlotsPage() {
+  const [viewMode, setViewMode] = useState<"plots" | "reports">("plots");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("pending"); // default to pending
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -135,8 +139,39 @@ export default function LhPlotsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+      {/* Top View Mode Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setViewMode("plots")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            viewMode === "plots"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          รายการแปลงบ้าน & พิมพ์ใบปะหน้า
+        </button>
+
+        <button
+          onClick={() => setViewMode("reports")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            viewMode === "reports"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-500" />
+          รายงานสรุป Lot & โครงการ (ตามตัวอย่าง)
+        </button>
+      </div>
+
+      {viewMode === "reports" ? (
+        <LhSummaryReport />
+      ) : (
+        <>
+          {/* Filter Tabs & Search Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg text-xs font-medium">
@@ -368,6 +403,8 @@ export default function LhPlotsPage() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Modals */}
       <LhImportModal

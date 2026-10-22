@@ -492,6 +492,36 @@ async function runTests() {
     recordTest("9. AI Document Scan, OCR Extraction & Smart S/N Matching", false, err.message);
   }
 
+  // --------------------------------------------------------------------------
+  // TEST 10: Land & Houses Lot Summary & Project Matrix Reports
+  // --------------------------------------------------------------------------
+  try {
+    const res = await fetch("http://localhost:3001/api/lh/reports/summary");
+    const json = await res.json();
+
+    const is5Lots = json.lotSummary?.length === 5;
+    const isTotalsCorrect =
+      json.totals?.stock_equipment === 5790 &&
+      json.totals?.po_contract === 6297 &&
+      json.totals?.requisition_qty === 5488 &&
+      json.totals?.installed_qc_ok === 5479 &&
+      json.totals?.installed_qc_fail === 9 &&
+      json.totals?.delivered_po === 5478 &&
+      json.totals?.po_remaining === 819;
+
+    const isSquare293 = json.airplusSquareRemaining === 293;
+    const isMatrix20 = json.projectMatrix?.length === 20;
+    const isMatrixTotal1500 = json.matrixTotal?.po === 1500 && json.matrixTotal?.transferred === 1383;
+
+    recordTest(
+      "10. LH Lot Summary & Project Matrix Reports",
+      is5Lots && isTotalsCorrect && isSquare293 && isMatrix20 && isMatrixTotal1500,
+      `ตรวจสอบรายงาน 5 Lot (รวม PO: 6,297, ติดตั้ง+QC: 5,479, ส่งมอบ: 5,478) | คงเหลือ Airplus Square: 293 ชุด | Matrix โครงการ: 20 โครงการ ครบถ้วนตรงตามตัวอย่าง`
+    );
+  } catch (err) {
+    recordTest("10. LH Lot Summary & Project Matrix Reports", false, err.message);
+  }
+
   console.log("=================================================");
   const passedCount = testResults.filter(t => t.passed).length;
   console.log(`SUMMARY: ${passedCount}/${testResults.length} Tests Passed!`);
