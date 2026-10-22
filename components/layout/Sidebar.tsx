@@ -34,7 +34,11 @@ import {
   Headset,
   BookText,
   User,
-  Cloud
+  Cloud,
+  Building2,
+  Boxes,
+  Wrench,
+  FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -102,6 +106,19 @@ export function Sidebar({ onClose }: SidebarProps) {
         { label: t("sidebar.meeting_rooms"), href: "/meeting-rooms", icon: Users, roles: ["ceo", "admin"] },
         { label: t("sidebar.assets"), href: "/assets", icon: MonitorSmartphone, roles: ["ceo", "admin"] },
         { label: t("sidebar.purchases_report"), href: "/reports?tab=purchase", icon: ShoppingBag, roles: ["admin", "ceo"] },
+      ]
+    },
+    {
+      label: "งานติดตั้ง & โครงการ LH",
+      href: "/lh-plots",
+      icon: Building2,
+      roles: ["admin", "employee", "supervisor", "ceo"],
+      subItems: [
+        { label: "แปลงบ้าน & พิมพ์ใบปะหน้า", href: "/lh-plots", icon: Building2 },
+        { label: "คลังอุปกรณ์ & ใบเบิกของ", href: "/inventory", icon: Boxes },
+        { label: "ช่างติดตั้งหน้างาน (Mobile)", href: "/technician", icon: Wrench },
+        { label: "สรุปค่าคอมมิชชั่นช่าง", href: "/commissions", icon: Coins },
+        { label: "เปลี่ยนอุปกรณ์ Sakon (Maintenance)", href: "/maintenance-sakon", icon: FileText },
       ]
     },
     {
