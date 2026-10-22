@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,15 @@ import {
   RefreshCw,
   Layers,
   CheckCircle2,
+  ChevronRight,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
 export function LhSummaryReport() {
+  const [selectedLotTab, setSelectedLotTab] = useState<string>("Lot 1,500");
+  const [showAllLots, setShowAllLots] = useState<boolean>(false);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["lh-summary-reports"],
     queryFn: async () => {
@@ -28,16 +32,15 @@ export function LhSummaryReport() {
 
   const lotSummary = data?.lotSummary || [];
   const totals = data?.totals || {};
-  const projectMatrix = data?.projectMatrix || [];
-  const matrixTotal = data?.matrixTotal || {};
-  const cards = data?.cards || {};
+  const lotMatrices = data?.lotMatrices || {};
+  const availableLots = data?.availableLots || ["Lot 1,500", "PM 2.5", "Lot 2,000", "Lot 1,000", "Lot 1,000 (2)"];
 
-  // Export to Excel function
+  // Export to Excel function including all Lots
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
 
-      // Sheet 1: Lot Summary
+      // Sheet 1: Master Lot Summary
       const lotSheetData = [
         [
           "Lot.",
@@ -78,24 +81,38 @@ export function LhSummaryReport() {
       ];
 
       const ws1 = XLSX.utils.aoa_to_sheet(lotSheetData);
-      XLSX.utils.book_append_sheet(wb, ws1, "สรุปตาม_Lot");
+      XLSX.utils.book_append_sheet(wb, ws1, "สรุปตาม_LOT");
 
-      // Sheet 2: Project Matrix
-      const matrixHeaders = ["รายการ", ...projectMatrix.map((p: any) => p.code), "ทั้งหมด"];
-      const matrixRows = [
-        ["PO ค่าของ", ...projectMatrix.map((p: any) => p.po), matrixTotal.po],
-        ["จำนวนเบิกของ", ...projectMatrix.map((p: any) => p.req), matrixTotal.req],
-        ["ติดตั้ง+QC", ...projectMatrix.map((p: any) => p.installed_qc), matrixTotal.installed_qc],
-        ["ยังไม่ติดตั้ง", ...projectMatrix.map((p: any) => p.not_installed), matrixTotal.not_installed],
-        ["ส่งมอบในระบบ", ...projectMatrix.map((p: any) => p.delivered), matrixTotal.delivered],
-        ["บ้านโอนแล้ว", ...projectMatrix.map((p: any) => p.transferred), matrixTotal.transferred],
-      ];
+      // Generate sheets for each individual Lot
+      for (const lotKey of availableLots) {
+        const matrix = lotMatrices[lotKey];
+        if (!matrix) continue;
 
-      const ws2 = XLSX.utils.aoa_to_sheet([matrixHeaders, ...matrixRows]);
-      XLSX.utils.book_append_sheet(wb, ws2, "โครงการ_AirPlus_1500");
+        const cleanSheetName = lotKey.replace(/[^\w\d]/g, "_").slice(0, 31);
+        const projects = matrix.projects || [];
+        const matrixTotal = matrix.matrixTotal || {};
 
-      XLSX.writeFile(wb, `รายงานสรุป_Land_and_Houses_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      toast.success("ส่งออกรายงานสรุปเป็น Excel สำเร็จ!");
+        const matrixHeaders = ["รายการ", ...projects.map((p: any) => p.code), "ทั้งหมด"];
+        const matrixRows = [
+          ["PO ค่าของ", ...projects.map((p: any) => p.po), matrixTotal.po],
+          ["จำนวนเบิกของ", ...projects.map((p: any) => p.req), matrixTotal.req],
+          ["ติดตั้ง+QC", ...projects.map((p: any) => p.installed_qc), matrixTotal.installed_qc],
+          ["ยังไม่ติดตั้ง", ...projects.map((p: any) => p.not_installed), matrixTotal.not_installed],
+          ["ส่งมอบในระบบ", ...projects.map((p: any) => p.delivered), matrixTotal.delivered],
+          ["บ้านโอนแล้ว", ...projects.map((p: any) => p.transferred), matrixTotal.transferred],
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet([
+          [matrix.title || `โครงการติดตั้ง ${lotKey}`],
+          [],
+          matrixHeaders,
+          ...matrixRows,
+        ]);
+        XLSX.utils.book_append_sheet(wb, ws, cleanSheetName);
+      }
+
+      XLSX.writeFile(wb, `รายงานสรุป_Land_and_Houses_ทุก_LOT_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success("ส่งออกรายงานสรุปแยกตาม Lot เป็น Excel ครบถ้วนทุกชีตสำเร็จ!");
     } catch (err: any) {
       toast.error(`ส่งออก Excel ไม่สำเร็จ: ${err.message}`);
     }
@@ -104,6 +121,10 @@ export function LhSummaryReport() {
   const handlePrint = () => {
     window.print();
   };
+
+  const lotsToRender = showAllLots
+    ? availableLots
+    : [selectedLotTab];
 
   return (
     <div className="space-y-8">
@@ -115,10 +136,10 @@ export function LhSummaryReport() {
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-900">
-              รายงานสรุปโครงการ & แปลงบ้าน Land & Houses
+              รายงานสรุปโครงการ & แปลงบ้าน Land & Houses แยกตารางตาม Lot
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              รายงานติดตามสถานะสต็อก การเบิกจ่าย การติดตั้ง QC และการส่งมอบแยกตาม Lot และโครงการ
+              แสดงภาพรวมสรุปทุก Lot และตาราง Matrix ความคืบหน้ารายโครงการแยกตามสัญญาแต่ละ Lot
             </p>
           </div>
         </div>
@@ -137,10 +158,10 @@ export function LhSummaryReport() {
             variant="outline"
             size="sm"
             onClick={handleExportExcel}
-            className="text-xs gap-1.5 h-8 border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold"
+            className="text-xs gap-1.5 h-8 border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold shadow-sm"
           >
             <Download className="w-3.5 h-3.5 text-emerald-700" />
-            ส่งออก Excel (.xlsx)
+            ส่งออก Excel ครบทุก Lot (.xlsx)
           </Button>
           <Button
             size="sm"
@@ -154,7 +175,7 @@ export function LhSummaryReport() {
       </div>
 
       {/* ========================================================================= */}
-      {/* REPORT 1: Master Lot Summary Table                                       */}
+      {/* REPORT 1: Master Lot Summary Table (Image 1)                              */}
       {/* ========================================================================= */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden print:p-0 print:border-none print:shadow-none">
         <div className="mb-3 flex items-center justify-between">
@@ -298,173 +319,264 @@ export function LhSummaryReport() {
       </div>
 
       {/* ========================================================================= */}
-      {/* REPORT 2: Project Breakdown Matrix Table                                  */}
+      {/* LOT SELECTOR BAR                                                          */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden print:p-0 print:border-none print:shadow-none space-y-4">
-        <div className="text-center font-bold text-base text-slate-900">
-          โครงการติดตั้ง AirPlus Square จำนวน 1,500 ชุด
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 no-print">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <Building className="w-4 h-4 text-indigo-600" />
+              <span>เลือกดูตารางโครงการแยกตามแต่ละ Lot (Project Breakdown Matrix):</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              คลิกเพื่อดูรายละเอียดโครงการและสถานะส่งมอบของ Lot ที่ต้องการ หรือเลือก &quot;แสดงทุก Lot&quot;
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAllLots((prev) => !prev)}
+            className={`text-xs h-8 gap-1.5 ${
+              showAllLots
+                ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-bold"
+                : "border-slate-300 text-slate-700"
+            }`}
+          >
+            {showAllLots ? "✓ กำลังแสดงทุก Lot พร้อมกัน" : "แสดงทุก Lot พร้อมกันในหน้าเดียว"}
+          </Button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-center text-xs border-collapse border border-slate-400 font-sans">
-            <thead>
-              <tr className="bg-slate-100 font-bold text-slate-800">
-                <th className="border border-slate-400 p-2 text-left pl-3 w-28 bg-slate-200">
-                  โครงการ
-                </th>
-                {projectMatrix.map((p: any) => (
-                  <th
-                    key={p.code}
-                    className={`border border-slate-400 p-1.5 min-w-[42px] ${
-                      p.code === "MKR" || p.code === "V2A" || p.code === "CA"
-                        ? "text-blue-700"
-                        : "text-slate-900"
+        {/* Lot Selector Tabs */}
+        {!showAllLots && (
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
+            {availableLots.map((lotKey: string) => {
+              const matrix = lotMatrices[lotKey];
+              const totalPo = matrix?.matrixTotal?.po || 0;
+              const isActive = selectedLotTab === lotKey;
+              return (
+                <button
+                  key={lotKey}
+                  onClick={() => setSelectedLotTab(lotKey)}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-200"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200"
+                  }`}
+                >
+                  <span>{lotKey}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                      isActive ? "bg-indigo-700 text-indigo-100" : "bg-slate-200 text-slate-600"
                     }`}
                   >
-                    {p.code}
-                  </th>
-                ))}
-                <th className="border border-slate-400 p-1.5 w-16 bg-slate-200 font-extrabold text-slate-900">
-                  ทั้งหมด
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Row 1: PO ค่าของ */}
-              <tr>
-                <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
-                  PO ค่าของ
-                </td>
-                {projectMatrix.map((p: any) => (
-                  <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
-                    {p.po}
-                  </td>
-                ))}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
-                  {matrixTotal.po}
-                </td>
-              </tr>
+                    {totalPo.toLocaleString()} ชุด
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-              {/* Row 2: จำนวนเบิกของ */}
-              <tr>
-                <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
-                  จำนวนเบิกของ
-                </td>
-                {projectMatrix.map((p: any) => (
-                  <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
-                    {p.req}
-                  </td>
-                ))}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
-                  {matrixTotal.req}
-                </td>
-              </tr>
+      {/* ========================================================================= */}
+      {/* REPORT 2: Project Breakdown Matrix Tables (Rendered per Lot)             */}
+      {/* ========================================================================= */}
+      <div className="space-y-8">
+        {lotsToRender.map((lotKey: string) => {
+          const matrix = lotMatrices[lotKey];
+          if (!matrix) return null;
 
-              {/* Row 3: ติดตั้ง+QC */}
-              <tr>
-                <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
-                  ติดตั้ง+QC
-                </td>
-                {projectMatrix.map((p: any) => (
-                  <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
-                    {p.installed_qc}
-                  </td>
-                ))}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
-                  {matrixTotal.installed_qc}
-                </td>
-              </tr>
+          const projects = matrix.projects || [];
+          const matrixTotal = matrix.matrixTotal || {};
+          const cards = matrix.cards || {};
 
-              {/* Row 4: ยังไม่ติดตั้ง */}
-              <tr className="font-bold">
-                <td className="border border-slate-400 p-1.5 text-left pl-3 bg-[#ffff00] text-black">
-                  ยังไม่ติดตั้ง
-                </td>
-                {projectMatrix.map((p: any) => {
-                  const isPending = p.not_installed > 0;
-                  return (
-                    <td
-                      key={p.code}
-                      className={`border border-slate-400 p-1.5 font-mono ${
-                        isPending ? "bg-[#90caf9] text-blue-950 font-bold" : "bg-[#fff59d]"
-                      }`}
-                    >
-                      {p.not_installed}
-                    </td>
-                  );
-                })}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-[#ffff00] text-black">
-                  {matrixTotal.not_installed}
-                </td>
-              </tr>
-
-              {/* Row 5: ส่งมอบในระบบ */}
-              <tr>
-                <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
-                  ส่งมอบในระบบ
-                </td>
-                {projectMatrix.map((p: any) => (
-                  <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
-                    {p.delivered}
-                  </td>
-                ))}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
-                  {matrixTotal.delivered}
-                </td>
-              </tr>
-
-              {/* Row 6: บ้านโอนแล้ว */}
-              <tr className="font-semibold bg-[#c8e6c9]">
-                <td className="border border-slate-400 p-1.5 text-left pl-3 font-bold bg-[#a5d6a7] text-emerald-950">
-                  บ้านโอนแล้ว
-                </td>
-                {projectMatrix.map((p: any) => (
-                  <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
-                    {p.transferred}
-                  </td>
-                ))}
-                <td className="border border-slate-400 p-1.5 font-mono font-bold bg-[#a5d6a7] text-emerald-950">
-                  {matrixTotal.transferred}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mini Cards matching bottom of Image 2 */}
-        <div className="pt-2 flex flex-wrap items-center gap-6 text-xs font-sans">
-          {/* Stock tiers */}
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Stock:</span>
-            <div className="border border-slate-400 rounded overflow-hidden divide-y divide-slate-400 text-center font-mono font-semibold">
-              {(cards.stockTiers || [200, 600, 700]).map((tier: number, i: number) => (
-                <div key={i} className="px-5 py-0.5 bg-[#90caf9] text-blue-950">
-                  {tier}
+          return (
+            <div
+              key={lotKey}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden print:p-0 print:border-none print:shadow-none space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b pb-3">
+                <div>
+                  <div className="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                    <span>{matrix.title}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    รหัสสัญญา: <strong className="text-indigo-900">{lotKey}</strong> | รวมทั้งหมด{" "}
+                    <strong>{projects.length} โครงการ</strong> | รวม PO:{" "}
+                    <strong>{matrixTotal.po?.toLocaleString()} ชุด</strong>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* คงเหลือรวม */}
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">คงเหลือรวม:</span>
-            <div className="border border-slate-400 bg-[#90caf9] text-blue-950 font-black text-sm px-6 py-3 rounded text-center min-w-[50px]">
-              {cards.totalRemaining || 2}
-            </div>
-          </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500">
+                    ส่งมอบแล้ว {matrixTotal.delivered?.toLocaleString()} / {matrixTotal.po?.toLocaleString()} ชุด (
+                    {Math.round(((matrixTotal.delivered || 0) / (matrixTotal.po || 1)) * 100)}%)
+                  </span>
+                </div>
+              </div>
 
-          {/* แจ้งตาม PO & ส่งมอบในระบบ */}
-          <div className="border border-slate-400 rounded overflow-hidden divide-y divide-slate-400 text-xs font-semibold">
-            <div className="flex justify-between items-center gap-3 px-3 py-1 bg-[#ffcc80] text-amber-950">
-              <span>แจ้งตาม PO</span>
-              <span className="font-mono font-bold">{cards.notifiedPo || 1500}</span>
+              {/* Matrix Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-center text-xs border-collapse border border-slate-400 font-sans">
+                  <thead>
+                    <tr className="bg-slate-100 font-bold text-slate-800">
+                      <th className="border border-slate-400 p-2 text-left pl-3 min-w-[120px] bg-slate-200">
+                        โครงการ
+                      </th>
+                      {projects.map((p: any) => (
+                        <th
+                          key={p.code}
+                          className="border border-slate-400 p-1.5 min-w-[42px] text-slate-900"
+                        >
+                          {p.code}
+                        </th>
+                      ))}
+                      <th className="border border-slate-400 p-1.5 w-16 bg-slate-200 font-extrabold text-slate-900">
+                        ทั้งหมด
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Row 1: PO ค่าของ */}
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
+                        PO ค่าของ
+                      </td>
+                      {projects.map((p: any) => (
+                        <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
+                          {p.po}
+                        </td>
+                      ))}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
+                        {matrixTotal.po}
+                      </td>
+                    </tr>
+
+                    {/* Row 2: จำนวนเบิกของ */}
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
+                        จำนวนเบิกของ
+                      </td>
+                      {projects.map((p: any) => (
+                        <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
+                          {p.req}
+                        </td>
+                      ))}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
+                        {matrixTotal.req}
+                      </td>
+                    </tr>
+
+                    {/* Row 3: ติดตั้ง+QC */}
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
+                        ติดตั้ง+QC
+                      </td>
+                      {projects.map((p: any) => (
+                        <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
+                          {p.installed_qc}
+                        </td>
+                      ))}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
+                        {matrixTotal.installed_qc}
+                      </td>
+                    </tr>
+
+                    {/* Row 4: ยังไม่ติดตั้ง */}
+                    <tr className="font-bold">
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 bg-[#ffff00] text-black">
+                        ยังไม่ติดตั้ง
+                      </td>
+                      {projects.map((p: any) => {
+                        const isPending = p.not_installed > 0;
+                        return (
+                          <td
+                            key={p.code}
+                            className={`border border-slate-400 p-1.5 font-mono ${
+                              isPending ? "bg-[#90caf9] text-blue-950 font-bold" : "bg-[#fff59d]"
+                            }`}
+                          >
+                            {p.not_installed}
+                          </td>
+                        );
+                      })}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-[#ffff00] text-black">
+                        {matrixTotal.not_installed}
+                      </td>
+                    </tr>
+
+                    {/* Row 5: ส่งมอบในระบบ */}
+                    <tr>
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 font-semibold bg-slate-50">
+                        ส่งมอบในระบบ
+                      </td>
+                      {projects.map((p: any) => (
+                        <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
+                          {p.delivered}
+                        </td>
+                      ))}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-slate-100">
+                        {matrixTotal.delivered}
+                      </td>
+                    </tr>
+
+                    {/* Row 6: บ้านโอนแล้ว */}
+                    <tr className="font-semibold bg-[#c8e6c9]">
+                      <td className="border border-slate-400 p-1.5 text-left pl-3 font-bold bg-[#a5d6a7] text-emerald-950">
+                        บ้านโอนแล้ว
+                      </td>
+                      {projects.map((p: any) => (
+                        <td key={p.code} className="border border-slate-400 p-1.5 font-mono">
+                          {p.transferred}
+                        </td>
+                      ))}
+                      <td className="border border-slate-400 p-1.5 font-mono font-bold bg-[#a5d6a7] text-emerald-950">
+                        {matrixTotal.transferred}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mini Cards matching bottom of Image 2 */}
+              <div className="pt-2 flex flex-wrap items-center gap-6 text-xs font-sans">
+                {/* Stock tiers */}
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800">Stock:</span>
+                  <div className="border border-slate-400 rounded overflow-hidden divide-y divide-slate-400 text-center font-mono font-semibold">
+                    {(cards.stockTiers || [200, 600, 700]).map((tier: number, i: number) => (
+                      <div key={i} className="px-5 py-0.5 bg-[#90caf9] text-blue-950">
+                        {tier}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* คงเหลือรวม */}
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-800">คงเหลือรวม:</span>
+                  <div className="border border-slate-400 bg-[#90caf9] text-blue-950 font-black text-sm px-6 py-3 rounded text-center min-w-[50px]">
+                    {cards.totalRemaining || 0}
+                  </div>
+                </div>
+
+                {/* แจ้งตาม PO & ส่งมอบในระบบ */}
+                <div className="border border-slate-400 rounded overflow-hidden divide-y divide-slate-400 text-xs font-semibold">
+                  <div className="flex justify-between items-center gap-3 px-3 py-1 bg-[#ffcc80] text-amber-950">
+                    <span>แจ้งตาม PO</span>
+                    <span className="font-mono font-bold">{cards.notifiedPo || matrixTotal.po}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-3 px-3 py-1 bg-[#90caf9] text-blue-950">
+                    <span>ส่งมอบในระบบ</span>
+                    <span className="font-mono font-bold">{cards.deliveredInSystem || matrixTotal.delivered}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between items-center gap-3 px-3 py-1 bg-[#90caf9] text-blue-950">
-              <span>ส่งมอบในระบบ</span>
-              <span className="font-mono font-bold">{cards.deliveredInSystem || 1498}</span>
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );

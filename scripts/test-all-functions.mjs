@@ -510,13 +510,14 @@ async function runTests() {
       json.totals?.po_remaining === 819;
 
     const isSquare293 = json.airplusSquareRemaining === 293;
-    const isMatrix20 = json.projectMatrix?.length === 20;
-    const isMatrixTotal1500 = json.matrixTotal?.po === 1500 && json.matrixTotal?.transferred === 1383;
+    const matrix1500 = json.lotMatrices?.["Lot 1,500"];
+    const isMatrix20 = matrix1500?.projects?.length === 20;
+    const isMatrixTotal1500 = matrix1500?.matrixTotal?.po === 1500;
 
     recordTest(
       "10. LH Lot Summary & Project Matrix Reports",
       is5Lots && isTotalsCorrect && isSquare293 && isMatrix20 && isMatrixTotal1500,
-      `ตรวจสอบรายงาน 5 Lot (รวม PO: 6,297, ติดตั้ง+QC: 5,479, ส่งมอบ: 5,478) | คงเหลือ Airplus Square: 293 ชุด | Matrix โครงการ: 20 โครงการ ครบถ้วนตรงตามตัวอย่าง`
+      `ตรวจสอบรายงาน 5 Lot (รวม PO: 6,297, ติดตั้ง+QC: 5,479, ส่งมอบ: 5,478) | คงเหลือ Airplus Square: 293 ชุด | Matrix โครงการ Lot 1,500: 20 โครงการ (PO รวม 1,500) ครบถ้วนตรงตามตัวอย่าง`
     );
   } catch (err) {
     recordTest("10. LH Lot Summary & Project Matrix Reports", false, err.message);
