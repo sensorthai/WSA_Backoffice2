@@ -301,6 +301,29 @@ export default function LhPlotsPage() {
 
       {/* Table of Plots */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs text-slate-600 flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-indigo-600" />
+            <span>
+              เลือกแปลงที่ต้องการพิมพ์ หรือกดปุ่ม <strong>พิมพ์ QR Code</strong> เพื่อจัดเรียงสติกเกอร์แบบ <strong>3 ดวงต่อ 1 แถว (4.098&quot; × 1.469&quot;)</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={paginatedPlots.length === 0}
+              onClick={() => {
+                setSelectedIds(new Set(paginatedPlots.map((p: any) => p.id)));
+                setIsTscModalOpen(true);
+              }}
+              className="h-7 px-2.5 text-xs gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              พิมพ์ QR หน้าปัจจุบัน ({paginatedPlots.length} แปลง)
+            </Button>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold">
