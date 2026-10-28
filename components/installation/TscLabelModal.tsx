@@ -428,7 +428,7 @@ export function TscLabelModal({ isOpen, onClose, plots }: TscLabelModalProps) {
                 }`}
               >
                 <div className="font-bold text-indigo-950 flex items-center justify-between">
-                  <span>1. ล็อก Portrait (`@page { size: portrait }`)</span>
+                  <span>1. ล็อก Portrait (@page size: portrait)</span>
                   {printMode === "portrait_lock" && (
                     <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">แนะนำ</span>
                   )}
