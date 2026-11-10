@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/teaching-report-reminder",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/school-holiday-reminder",
+      "schedule": "0 2 * * *"
     }
   ]
 }

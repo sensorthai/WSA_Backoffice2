@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Edit2, Loader2, School, X, CalendarOff, Landmark, CalendarPlus } from "lucide-react"
+import { Search, Plus, Edit2, Loader2, School, X, CalendarOff, Landmark, CalendarPlus, Mail, BellRing, Send } from "lucide-react"
+import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -36,6 +37,34 @@ export function SchoolsTable() {
   const [editingSchool, setEditingSchool] = useState<any>(null)
   const [newHoliday, setNewHoliday] = useState("")
   const [searchSchool, setSearchSchool] = useState("")
+  const [sendingDate, setSendingDate] = useState<string | null>(null)
+
+  async function handleSendHolidayEmail(schoolId: string, holidayDate: string) {
+    try {
+      setSendingDate(holidayDate)
+      const res = await fetch("/api/cron/school-holiday-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolId, targetDate: holidayDate }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "ส่งอีเมลไม่สำเร็จ")
+
+      if (data.emailsSent === 0) {
+        toast.warning(
+          data.message ||
+            "ไม่พบครูผู้สอนที่ได้รับมอบหมายในโรงเรียนนี้ (หรือยังไม่ได้กดบันทึกวันหยุดลงฐานข้อมูล)"
+        )
+      } else {
+        const names = (data.recipients || []).map((r: any) => r.name).join(", ")
+        toast.success(`ส่งอีเมลแจ้งเตือนวันหยุด (${holidayDate}) สำเร็จ ${data.emailsSent} ท่าน (${names})`)
+      }
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาดในการส่งอีเมล")
+    } finally {
+      setSendingDate(null)
+    }
+  }
 
   const { data: schools, isLoading } = useQuery({
     queryKey: ["admin-schools"],
@@ -218,10 +247,16 @@ export function SchoolsTable() {
                 </div>
 
                 {/* ─── Holidays ─── */}
-                <div className="border-t pt-4 space-y-2">
-                  <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <CalendarOff className="h-4 w-4 text-red-500" /> วันหยุดโรงเรียน
-                  </h3>
+                <div className="border-t pt-4 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      <CalendarOff className="h-4 w-4 text-red-500" /> วันหยุดโรงเรียน
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                      <BellRing className="h-3 w-3 text-emerald-600" />
+                      ระบบส่งอีเมลแจ้งเตือนครูผู้สอนอัตโนมัติล่วงหน้า 1 วัน (09:00 น.)
+                    </span>
+                  </div>
                   <div className="flex gap-2">
                     <Input type="date" value={newHoliday} onChange={(e) => setNewHoliday(e.target.value)} className="flex-1" />
                     <Button type="button" variant="outline" onClick={addHoliday} disabled={!newHoliday} className="shrink-0">
@@ -229,22 +264,51 @@ export function SchoolsTable() {
                     </Button>
                   </div>
                   {watchHolidays.length > 0 && (
-                    <div className="bg-red-50/50 rounded-xl p-3 space-y-1.5 max-h-[180px] overflow-y-auto">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-red-600">{watchHolidays.length} วันหยุด</span>
+                    <div className="bg-red-50/50 rounded-xl p-3 space-y-2 max-h-[210px] overflow-y-auto border border-red-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-red-600">
+                          กำหนดไว้ {watchHolidays.length} วันหยุด {editingSchool ? "(คลิกไอคอนซองจดหมายเพื่อส่งอีเมลแจ้งครูทันที)" : "(บันทึกข้อมูลโรงเรียนก่อนส่งอีเมลทดสอบ)"}
+                        </span>
                         <Button type="button" variant="ghost" size="sm" className="text-xs h-6 text-red-500" onClick={() => form.setValue("holidays", [])}>
                           ล้างทั้งหมด
                         </Button>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {watchHolidays.map((date: string) => (
-                          <Badge key={date} variant="secondary" className="bg-red-100 text-red-700 border-red-200 pr-1 gap-1 font-mono text-xs">
-                            {date}
-                            <button type="button" onClick={() => removeHoliday(date)} className="ml-0.5 hover:bg-red-200 rounded p-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
+                        {watchHolidays.map((date: string) => {
+                          const isSavedInDb = Array.isArray(editingSchool?.holidays) && editingSchool.holidays.includes(date)
+                          const isSendingThis = sendingDate === date
+                          return (
+                            <Badge key={date} variant="secondary" className="bg-white text-red-700 border border-red-200 px-2 py-1 gap-1.5 font-mono text-xs shadow-sm">
+                              <span>{date}</span>
+                              {editingSchool && (
+                                <button
+                                  type="button"
+                                  disabled={!!sendingDate || !isSavedInDb}
+                                  onClick={() => handleSendHolidayEmail(editingSchool.id, date)}
+                                  title={
+                                    isSavedInDb
+                                      ? `ส่งอีเมลแจ้งเตือนวันหยุด (${date}) ให้ครูที่สอนโรงเรียนนี้ทันที`
+                                      : "กรุณากด 'บันทึกการแก้ไข' ด้านล่างก่อนส่งอีเมลสำหรับวันหยุดที่เพิ่งเพิ่มใหม่"
+                                  }
+                                  className={`ml-0.5 rounded p-0.5 transition-colors ${
+                                    isSavedInDb
+                                      ? "text-indigo-600 hover:bg-indigo-50"
+                                      : "text-slate-300 cursor-not-allowed"
+                                  }`}
+                                >
+                                  {isSendingThis ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-indigo-600" />
+                                  ) : (
+                                    <Mail className="h-3 w-3" />
+                                  )}
+                                </button>
+                              )}
+                              <button type="button" onClick={() => removeHoliday(date)} className="hover:bg-red-100 text-red-500 rounded p-0.5" title="ลบวันหยุด">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -283,9 +347,9 @@ export function SchoolsTable() {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8">กำลังโหลด...</TableCell></TableRow>
-            ) : schools?.length === 0 ? (
+            ) : schoolsPagination.paginatedItems.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">ยังไม่มีข้อมูลโรงเรียน</TableCell></TableRow>
-            ) : schools?.map((school: any) => {
+            ) : schoolsPagination.paginatedItems.map((school: any) => {
               const holidays = school.holidays || []
               const today = new Date().toISOString().split('T')[0]
               const upcomingHolidays = holidays.filter((d: string) => d >= today).slice(0, 2)

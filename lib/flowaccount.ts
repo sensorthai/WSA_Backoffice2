@@ -290,3 +290,137 @@ export async function testConnection() {
     categories
   };
 }
+
+// ----------------------------------------------------
+// Product & Inventory Functions
+// ----------------------------------------------------
+
+export interface FlowAccountProductItem {
+  id: number | string;
+  type?: number; // 1 = Product with stock, 3 = Service, etc.
+  code: string;  // Product code / SKU
+  name: string;
+  description?: string;
+  sellPrice?: number;
+  buyPrice?: number;
+  unitName?: string;
+  categoryName?: string;
+  inventoryTotalQty?: number;
+  currentQuantity?: number;
+  remaining?: number;
+  totalQuantity?: number;
+  raw?: any;
+}
+
+export interface FetchProductsResponse {
+  success: boolean;
+  total?: number;
+  items: FlowAccountProductItem[];
+  error?: string;
+}
+
+/**
+ * ดึงรายการสินค้าและสต็อกจาก FlowAccount ผ่าน Product Masters API (/product-masters)
+ * อ้างอิงตาม FlowAccount Developer Tutorial: https://developers.flowaccount.com/tutorial/product-api/
+ * ประเภทสินค้า (Type):
+ *   1 = บริการ (Service)
+ *   3 = สินค้าไม่นับสต็อก (Non-Inventory Product)
+ *   5 = สินค้านับสต็อก (Inventory / Stock Product)
+ */
+export async function getFlowAccountProducts(currentPage: number = 1, pageSize: number = 50): Promise<FetchProductsResponse> {
+  const token = await getFlowAccountToken();
+
+  // เรียกผ่าน /product-masters ตามคู่มือทางการของ FlowAccount
+  const url = `${FLOWACCOUNT_API_URL}/product-masters?currentPage=${currentPage}&pageSize=${pageSize}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const resJson = await res.json().catch(() => null);
+
+  if (!res.ok || (resJson && resJson.status === false)) {
+    const errorMsg = resJson?.message || `HTTP ${res.status}: ${res.statusText}`;
+    return {
+      success: false,
+      items: [],
+      error: errorMsg
+    };
+  }
+
+  const data = resJson?.data || {};
+  const rawList: any[] = Array.isArray(data) ? data : (data.list || data.items || []);
+
+  const items: FlowAccountProductItem[] = rawList.map((item: any) => {
+    // รองรับทั้งโครงสร้าง Product Master และ Product List Element
+    const productList = item.productList || item.products || [];
+    const firstVariant = Array.isArray(productList) && productList.length > 0 ? productList[0] : {};
+
+    return {
+      id: item.id || item.productMasterId || item.recordId,
+      type: item.type, // 1 = Service, 3 = Non-inventory, 5 = Inventory
+      code: item.code || item.productCode || firstVariant.productCode || item.customCode || '',
+      name: item.name || item.productName || firstVariant.name || '',
+      description: item.description || firstVariant.description,
+      sellPrice: Number(item.sellPrice ?? firstVariant.sellPrice ?? item.price ?? 0),
+      buyPrice: Number(item.buyPrice ?? firstVariant.buyPrice ?? item.cost ?? 0),
+      unitName: item.unitName || firstVariant.unitName || item.unit,
+      categoryName: item.categoryName,
+      inventoryTotalQty: Number(
+        item.inventoryTotalQty ?? 
+        item.currentQuantity ?? 
+        item.remaining ?? 
+        firstVariant.remaining ?? 
+        firstVariant.totalQuantity ?? 
+        item.totalQuantity ?? 
+        0
+      ),
+      raw: item
+    };
+  });
+
+  return {
+    success: true,
+    total: data.total || items.length,
+    items
+  };
+}
+
+/**
+ * ดึงสินค้าทั้งหมดทุกหน้า (Paginated) จาก FlowAccount
+ */
+export async function getAllFlowAccountProducts(): Promise<FetchProductsResponse> {
+  let page = 1;
+  const pageSize = 50;
+  const allItems: FlowAccountProductItem[] = [];
+
+  while (true) {
+    const res = await getFlowAccountProducts(page, pageSize);
+    if (!res.success) {
+      return {
+        success: false,
+        items: allItems,
+        error: res.error
+      };
+    }
+
+    allItems.push(...res.items);
+
+    if (res.items.length < pageSize || (res.total && allItems.length >= res.total)) {
+      break;
+    }
+    page++;
+    if (page > 20) break; // Safeguard
+  }
+
+  return {
+    success: true,
+    total: allItems.length,
+    items: allItems
+  };
+}
+
