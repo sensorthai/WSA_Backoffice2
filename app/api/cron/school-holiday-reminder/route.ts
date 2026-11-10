@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import nodemailer from "nodemailer"
 
+export const dynamic = "force-dynamic"
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {

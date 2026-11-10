@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getFlowAccountProducts, getAllFlowAccountProducts, getFlowAccountToken } from '@/lib/flowaccount';
 
+export const dynamic = 'force-dynamic';
+
 const FLOWACCOUNT_API_URL = process.env.FLOWACCOUNT_API_URL || 'https://openapi.flowaccount.com/v1';
 
 export async function GET(req: Request) {

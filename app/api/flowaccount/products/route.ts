@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getFlowAccountProducts, getAllFlowAccountProducts } from '@/lib/flowaccount';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // Supabase client with Service Role Key for server-side updates
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/rest/v1/', '') || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
