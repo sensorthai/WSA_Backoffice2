@@ -341,7 +341,12 @@ export async function getFlowAccountProducts(currentPage: number = 1, pageSize: 
     }
   });
 
-  const resJson = await res.json().catch(() => null);
+  let resJson: any = null;
+  try {
+    resJson = await res.json();
+  } catch {
+    resJson = null;
+  }
 
   if (!res.ok || (resJson && resJson.status === false)) {
     const errorMsg = resJson?.message || `HTTP ${res.status}: ${res.statusText}`;

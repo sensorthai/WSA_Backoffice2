@@ -58,7 +58,9 @@ export async function GET(req: Request) {
     const matched: any[] = [];
     const unmatched: any[] = [];
 
-    const catalogMap = new Map((catalog || []).map(p => [p.sku.toUpperCase(), p]));
+    const catalogMap = new Map(
+      (catalog || []).map((p: { id: string; sku: string; name: string }) => [p.sku.toUpperCase(), p])
+    );
 
     for (const faItem of result.items) {
       const skuUpper = (faItem.code || '').trim().toUpperCase();
