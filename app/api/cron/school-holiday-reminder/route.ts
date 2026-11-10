@@ -129,18 +129,19 @@ async function processSchoolHolidayReminders(options: {
   }
 
   const teacherList = Object.values(remindersByTeacher)
+  const sentRecipients: { name: string; email: string; schools: string[] }[] = []
+
   if (teacherList.length === 0) {
     return {
       success: true,
       targetDate: targetDateStr,
       emailsSent: 0,
-      recipients: [],
+      recipients: sentRecipients,
       message: `ไม่มีโรงเรียนที่มีวันหยุดตรงกับวันที่ ${targetDateStr} หรือไม่มีครูผู้สอนที่ได้รับมอบหมาย`,
     }
   }
 
   const COMPANY_NAME = "Wireless Solution Asia"
-  const sentRecipients: { name: string; email: string; schools: string[] }[] = []
 
   const emailPromises = teacherList.map(async (rem) => {
     const uniqueSchools = Array.from(new Set(rem.holidayItems.map((i) => i.schoolName)))
